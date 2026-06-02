@@ -1,0 +1,30 @@
+// 25 realistic Indian customers with full addresses
+const customers = [
+  { id: 'CUST001', name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', phone: '+919876543210', address: { line1: '45 MG Road', line2: 'Near Central Mall', city: 'Bangalore', state: 'Karnataka', pincode: '560001', country: 'IN' } },
+  { id: 'CUST002', name: 'Priya Patel', email: 'priya.patel@gmail.com', phone: '+919765432109', address: { line1: '12 Park Street', line2: 'Flat 3B, Sunrise Apartments', city: 'Mumbai', state: 'Maharashtra', pincode: '400001', country: 'IN' } },
+  { id: 'CUST003', name: 'Arjun Singh', email: 'arjun.singh@yahoo.com', phone: '+919654321098', address: { line1: '78 Sector 18', line2: 'DLF City Phase 2', city: 'Gurgaon', state: 'Haryana', pincode: '122002', country: 'IN' } },
+  { id: 'CUST004', name: 'Ananya Krishnan', email: 'ananya.k@hotmail.com', phone: '+919543210987', address: { line1: '23 Anna Nagar', line2: '4th Cross Street', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040', country: 'IN' } },
+  { id: 'CUST005', name: 'Vikram Mehta', email: 'vikram.mehta@gmail.com', phone: '+919432109876', address: { line1: '56 Vastrapur', line2: 'Near Jodhpur Char Rasta', city: 'Ahmedabad', state: 'Gujarat', pincode: '380015', country: 'IN' } },
+  { id: 'CUST006', name: 'Sneha Reddy', email: 'sneha.reddy@gmail.com', phone: '+919321098765', address: { line1: '34 Jubilee Hills', line2: 'Road No. 36', city: 'Hyderabad', state: 'Telangana', pincode: '500033', country: 'IN' } },
+  { id: 'CUST007', name: 'Rohan Gupta', email: 'rohan.gupta@gmail.com', phone: '+919210987654', address: { line1: '89 Karol Bagh', line2: 'Near Metro Station', city: 'New Delhi', state: 'Delhi', pincode: '110005', country: 'IN' } },
+  { id: 'CUST008', name: 'Meera Nair', email: 'meera.nair@gmail.com', phone: '+919109876543', address: { line1: '67 Marine Drive', line2: 'Sea View Apartments B-12', city: 'Kochi', state: 'Kerala', pincode: '682001', country: 'IN' } },
+  { id: 'CUST009', name: 'Karthik Subramaniam', email: 'karthik.s@gmail.com', phone: '+919098765432', address: { line1: '14 Banjara Hills', line2: 'Road No. 12, Plot 45', city: 'Hyderabad', state: 'Telangana', pincode: '500034', country: 'IN' } },
+  { id: 'CUST010', name: 'Deepa Joshi', email: 'deepa.joshi@gmail.com', phone: '+918987654321', address: { line1: '22 Koregaon Park', line2: 'Lane 5, North Main Road', city: 'Pune', state: 'Maharashtra', pincode: '411001', country: 'IN' } },
+  { id: 'CUST011', name: 'Aditya Verma', email: 'aditya.verma@gmail.com', phone: '+918876543210', address: { line1: '33 Civil Lines', line2: 'Near District Court', city: 'Allahabad', state: 'Uttar Pradesh', pincode: '211001', country: 'IN' } },
+  { id: 'CUST012', name: 'Kavita Desai', email: 'kavita.desai@gmail.com', phone: '+918765432109', address: { line1: '7 Satellite Road', line2: 'Ambawadi', city: 'Ahmedabad', state: 'Gujarat', pincode: '380006', country: 'IN' } },
+  { id: 'CUST013', name: 'Suresh Iyer', email: 'suresh.iyer@rediffmail.com', phone: '+918654321098', address: { line1: '19 Mylapore', line2: 'Near Kapaleeshwarar Temple', city: 'Chennai', state: 'Tamil Nadu', pincode: '600004', country: 'IN' } },
+  { id: 'CUST014', name: 'Pooja Banerjee', email: 'pooja.banerjee@gmail.com', phone: '+918543210987', address: { line1: '45 Salt Lake City', line2: 'Sector V, Block C', city: 'Kolkata', state: 'West Bengal', pincode: '700064', country: 'IN' } },
+  { id: 'CUST015', name: 'Naveen Kumar', email: 'naveen.k@gmail.com', phone: '+918432109876', address: { line1: '88 Indiranagar', line2: '100 Feet Road, 12th Main', city: 'Bangalore', state: 'Karnataka', pincode: '560038', country: 'IN' } },
+  { id: 'CUST016', name: 'Shreya Malhotra', email: 'shreya.m@gmail.com', phone: '+918321098765', address: { line1: '15 Greater Kailash', line2: 'Part 2, Block M', city: 'New Delhi', state: 'Delhi', pincode: '110048', country: 'IN' } },
+  { id: 'CUST017', name: 'Manish Tiwari', email: 'manish.tiwari@yahoo.com', phone: '+918210987654', address: { line1: '55 Hazratganj', line2: 'Near GPO', city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001', country: 'IN' } },
+  { id: 'CUST018', name: 'Divya Pillai', email: 'divya.pillai@gmail.com', phone: '+918109876543', address: { line1: '28 Pattom', line2: 'Near KSRTC Bus Stand', city: 'Thiruvananthapuram', state: 'Kerala', pincode: '695004', country: 'IN' } },
+  { id: 'CUST019', name: 'Amit Choudhary', email: 'amit.c@gmail.com', phone: '+917998765432', address: { line1: '10 Raja Park', line2: 'Near Pink Square Mall', city: 'Jaipur', state: 'Rajasthan', pincode: '302004', country: 'IN' } },
+  { id: 'CUST020', name: 'Neha Kapoor', email: 'neha.kapoor@gmail.com', phone: '+917887654321', address: { line1: '62 Sector 11', line2: 'Chandigarh', city: 'Chandigarh', state: 'Punjab', pincode: '160011', country: 'IN' } },
+  { id: 'CUST021', name: 'Rajesh Pandey', email: 'rajesh.p@gmail.com', phone: '+917776543210', address: { line1: '37 Shivaji Nagar', line2: 'Near FC Road', city: 'Pune', state: 'Maharashtra', pincode: '411005', country: 'IN' } },
+  { id: 'CUST022', name: 'Sunita Rao', email: 'sunita.rao@gmail.com', phone: '+917665432109', address: { line1: '24 Madhapur', line2: 'Hi-Tech City', city: 'Hyderabad', state: 'Telangana', pincode: '500081', country: 'IN' } },
+  { id: 'CUST023', name: 'Girish Naik', email: 'girish.naik@gmail.com', phone: '+917554321098', address: { line1: '9 Panaji', line2: 'Near Old Goa Road', city: 'Panaji', state: 'Goa', pincode: '403001', country: 'IN' } },
+  { id: 'CUST024', name: 'Rekha Saxena', email: 'rekha.s@gmail.com', phone: '+917443210987', address: { line1: '41 Vijay Nagar', line2: 'Super Corridor Road', city: 'Indore', state: 'Madhya Pradesh', pincode: '452001', country: 'IN' } },
+  { id: 'CUST025', name: 'Pavan Reddy', email: 'pavan.r@gmail.com', phone: '+917332109876', address: { line1: '16 Whitefield', line2: 'EPIP Industrial Area', city: 'Bangalore', state: 'Karnataka', pincode: '560066', country: 'IN' } },
+];
+
+module.exports = { customers };
