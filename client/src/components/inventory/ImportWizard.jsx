@@ -6,7 +6,7 @@ import {
 import {
   Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
   ChevronRight, ChevronLeft, Download, RefreshCw, Eye,
-  SkipForward, FastForward, Edit3, CloudUpload, FileText, X, Info
+  SkipForward, Edit3, CloudUpload, FileText, X, Info, FastForward
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
@@ -333,26 +333,27 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
     }
   };
 
-  const handleSkipAllAndUpload = () => {
-    // Treat all remaining incomplete products in the queue as 'skip'
-    const finalDecisions = { ...reviewDecisions };
+  const handleSkipAll = () => {
+    // Apply "upload_as_is" to all remaining items in the queue
+    const decisions = { ...reviewDecisions };
     for (let i = reviewIndex; i < reviewQueue.length; i++) {
-      finalDecisions[reviewQueue[i]._rowIndex] = 'skip';
+      decisions[reviewQueue[i]._rowIndex] = 'upload_as_is';
     }
-    
+    setReviewDecisions(decisions);
+
+    // All reviewed — start upload
     const toUpload = validatedProducts.filter(p => {
       if (p._status === 'ready') return true;
       if (p._status === 'incomplete') {
-        const d = finalDecisions[p._rowIndex];
+        const d = decisions[p._rowIndex];
         return d === 'upload_as_is' || d === 'edited';
       }
       return false;
     }).map(p => {
-      const d = finalDecisions[p._rowIndex];
+      const d = decisions[p._rowIndex];
       return { ...p, _uploadAsIs: d === 'upload_as_is' };
     });
-    
-    handleUpload(toUpload, finalDecisions);
+    handleUpload(toUpload, decisions);
   };
 
   const openEditForm = (product) => {
@@ -801,35 +802,18 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
                 </div>
 
                 {/* Action buttons */}
-                <div className="px-5 pb-5 flex gap-3">
-                  <Button
-                    block
-                    onClick={handleSkipAllAndUpload}
-                    className="!flex !items-center !justify-center !gap-1 !text-slate-500"
-                  >
-                    <FastForward size={14} /> Skip All
+                <div className="px-5 pb-5 grid grid-cols-2 gap-3">
+                  <Button onClick={() => handleReviewDecision('skip')} className="!flex !items-center !justify-center !gap-1">
+                    <SkipForward size={14} /> Skip This
                   </Button>
-                  <Button
-                    block
-                    onClick={() => handleReviewDecision('skip')}
-                    className="!flex !items-center !justify-center !gap-1"
-                  >
-                    <SkipForward size={14} /> Skip
+                  <Button onClick={() => handleReviewDecision('upload_as_is')} className="!flex !items-center !justify-center !gap-1">
+                    <CloudUpload size={14} /> Upload As Is
                   </Button>
-                  <Button
-                    block
-                    type="primary"
-                    onClick={() => { openEditForm(currentReviewProduct); }}
-                    className="!flex !items-center !justify-center !gap-1 !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600"
-                  >
+                  <Button type="primary" onClick={() => { openEditForm(currentReviewProduct); }} className="!flex !items-center !justify-center !gap-1 !bg-emerald-600 hover:!bg-emerald-500 !border-emerald-600">
                     <Edit3 size={14} /> Fill Missing Info
                   </Button>
-                  <Button
-                    block
-                    onClick={() => handleReviewDecision('upload_as_is')}
-                    className="!flex !items-center !justify-center !gap-1"
-                  >
-                    <CloudUpload size={14} /> Upload As Is
+                  <Button danger onClick={handleSkipAll} className="!flex !items-center !justify-center !gap-1 !border-red-200 hover:!bg-red-50 text-red-600">
+                    <FastForward size={14} /> Skip All (Upload)
                   </Button>
                 </div>
               </div>
