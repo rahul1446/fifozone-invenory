@@ -40,19 +40,22 @@ const getCredentialsStatus = asyncHandler(async (req, res) => {
   const PlatformCredential = require('../models/PlatformCredential.model');
   const creds = await PlatformCredential.find({ isActive: true });
 
-  const status = {
-    fifozone: creds.some(c => c.platform === 'fifozone'),
-    amazon: creds.some(c => c.platform === 'amazon'),
-    flipkart: creds.some(c => c.platform === 'flipkart'),
+  const getForPlatform = (name) => {
+    const found = creds.find(c => c.platform === name);
+    return {
+      connected: !!found,
+      ...(found?.credentials || {})
+    };
   };
 
-  const credentialsData = {
-    fifozone: creds.find(c => c.platform === 'fifozone')?.credentials || {},
-    amazon: creds.find(c => c.platform === 'amazon')?.credentials || {},
-    flipkart: creds.find(c => c.platform === 'flipkart')?.credentials || {},
+  const result = {
+    fifozone: getForPlatform('fifozone'),
+    amazon:   getForPlatform('amazon'),
+    flipkart: getForPlatform('flipkart'),
+    meesho:   getForPlatform('meesho'),
   };
 
-  res.status(200).json(new ApiResponse(200, { status, credentials: credentialsData }, 'Credential status retrieved successfully'));
+  res.status(200).json(new ApiResponse(200, result, 'Credential status retrieved successfully'));
 });
 
 // ─── testConnection ─────────────────────────────────────────────────────────
@@ -104,6 +107,22 @@ const testConnection = asyncHandler(async (req, res) => {
             '✅ Fifozone connection verified (mock mode).'
           ));
         }
+      }
+
+      if (platform === 'meesho') {
+        // Meesho doesn't have a public health endpoint — just verify credentials exist
+        const PlatformCredential = require('../models/PlatformCredential.model');
+        const cred = await PlatformCredential.findOne({ platform: 'meesho', isActive: true });
+        if (cred) {
+          return res.status(200).json(new ApiResponse(200,
+            { success: true, mockMode: true },
+            '✅ Meesho credentials found and saved. Sync will activate automatically.'
+          ));
+        }
+        return res.status(200).json(new ApiResponse(200,
+          { success: false },
+          'No Meesho credentials saved yet. Save your Supplier ID and API Key first.'
+        ));
       }
 
       return res.status(400).json(new ApiResponse(400, null, 'Unknown platform'));

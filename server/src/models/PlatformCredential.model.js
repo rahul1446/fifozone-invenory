@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const PlatformCredentialSchema = new mongoose.Schema({
   platform: {
     type: String,
-    enum: ['fifozone', 'amazon', 'flipkart'],
+    enum: ['fifozone', 'amazon', 'flipkart', 'meesho'],
     required: true,
     unique: true
   },
