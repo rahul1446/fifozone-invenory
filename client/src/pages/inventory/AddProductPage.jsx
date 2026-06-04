@@ -60,7 +60,7 @@ const AddProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: values.category,
+        category: Array.isArray(values.category) ? values.category[0] : values.category,
         subCategory: values.subCategory,
         animalType: values.animalType,
         description: values.description,

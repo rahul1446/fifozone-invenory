@@ -38,7 +38,8 @@ const EditProductPage = () => {
         sku: data.sku,
         barcode: data.barcode,
         brand: data.brand,
-        category: data.category,
+        // Ensure category is passed to the form as an array since Select uses mode="tags"
+        category: data.category ? [data.category] : [],
         subCategory: data.subCategory,
         animalType: data.animalType || [],
         description: data.description,
@@ -116,7 +117,7 @@ const EditProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: values.category,
+        category: Array.isArray(values.category) ? values.category[0] : values.category,
         subCategory: values.subCategory,
         animalType: values.animalType,
         description: values.description,
