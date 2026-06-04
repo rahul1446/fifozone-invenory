@@ -44,3 +44,14 @@ export const importCSVApi = async (products) => {
   const response = await axiosInstance.post('/products/import-csv', { products });
   return response.data;
 };
+
+export const uploadImageApi = async (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  const response = await axiosInstance.post('/upload/image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};

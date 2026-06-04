@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { uploadProductImage, deleteProductImage } = require('../controllers/upload.controller');
+const { upload, uploadSingleImage, uploadMultipleImages } = require('../controllers/upload.controller');
 const { requireAuth } = require('../middleware/auth.middleware');
 
-// POST /api/upload/product-image — upload a single product image
-router.post('/product-image', requireAuth, uploadProductImage);
+// POST /api/upload/image   — upload one image, get back a Cloudinary URL
+router.post('/image', requireAuth, upload.single('image'), uploadSingleImage);
 
-// DELETE /api/upload/product-image/:filename — remove an uploaded image
-router.delete('/product-image/:filename', requireAuth, deleteProductImage);
+// POST /api/upload/images  — upload up to 10 images at once
+router.post('/images', requireAuth, upload.array('images', 10), uploadMultipleImages);
 
 module.exports = router;
