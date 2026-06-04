@@ -10,6 +10,16 @@ export const triggerManualSyncApi = async () => {
   return response.data;
 };
 
+export const testConnectionApi = async (platform, credentials) => {
+  const response = await axiosInstance.post('/platforms/credentials/test', { platform, ...credentials });
+  return response.data;
+};
+
+export const getWooCommerceCategoriesApi = async () => {
+  const response = await axiosInstance.get('/platforms/woocommerce/categories');
+  return response.data;
+};
+
 export const updateCredentialsApi = async (platform, credentials) => {
   const response = await axiosInstance.post('/platforms/credentials', { platform, ...credentials });
   return response.data;

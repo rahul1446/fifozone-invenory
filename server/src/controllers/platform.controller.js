@@ -4,6 +4,7 @@ const PlatformSync = require('../models/PlatformSync.model');
 const ApiResponse = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const WooCommerceService = require('../services/woocommerce.service');
 
 const USE_MOCK = process.env.USE_MOCK_API === 'true';
 const MOCK_BASE = process.env.MOCK_BASE_URL || 'http://localhost:5001/mock';
@@ -16,6 +17,11 @@ const getSyncStatus = asyncHandler(async (req, res) => {
 const triggerManualSync = asyncHandler(async (req, res) => {
   SyncService.syncAllPlatforms();
   res.status(200).json(new ApiResponse(200, null, 'Platform manual synchronization triggered in background'));
+});
+
+const getWooCommerceCategories = asyncHandler(async (req, res) => {
+  const tree = await WooCommerceService.getCategoryTree();
+  res.status(200).json(new ApiResponse(200, tree, 'WooCommerce categories retrieved successfully'));
 });
 
 const updateCredentials = asyncHandler(async (req, res) => {
@@ -179,4 +185,5 @@ module.exports = {
   updateCredentials,
   getCredentialsStatus,
   testConnection,
+  getWooCommerceCategories
 };

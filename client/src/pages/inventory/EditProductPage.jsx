@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Tabs, Table, Modal, Tag } from 'antd';
+import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Tabs, Table, Modal, Tag, TreeSelect } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, Trash2, History, PackageSearch, ImagePlus } from 'lucide-react';
 import { getProductByIdApi, updateProductApi, deleteProductApi } from '../../api/productApi';
+import { getWooCommerceCategoriesApi } from '../../api/platformApi';
 import { getInventoryLogsApi } from '../../api/inventoryApi';
 import { formatDate } from '../../utils/formatters';
 import ProductImageUploader from '../../components/inventory/ProductImageUploader';
@@ -16,6 +17,7 @@ const EditProductPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [categoryTree, setCategoryTree] = useState([]);
   const [productName, setProductName] = useState('');
   const [images, setImages] = useState([]); // [{url, isPrimary, filename}]
   
@@ -25,7 +27,17 @@ const EditProductPage = () => {
 
   useEffect(() => {
     fetchProduct();
+    fetchCategories();
   }, [id]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await getWooCommerceCategoriesApi();
+      setCategoryTree(response.data || []);
+    } catch (error) {
+      console.error("Failed to load category tree", error);
+    }
+  };
 
   const fetchProduct = async () => {
     try {
@@ -38,9 +50,7 @@ const EditProductPage = () => {
         sku: data.sku,
         barcode: data.barcode,
         brand: data.brand,
-        // Ensure category is passed to the form as an array since Select uses mode="tags"
-        category: data.category ? [data.category] : [],
-        subCategory: data.subCategory,
+        category: data.category || [],
         animalType: data.animalType || [],
         description: data.description,
         shortDescription: data.shortDescription,
@@ -117,8 +127,7 @@ const EditProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: Array.isArray(values.category) ? values.category[0] : values.category,
-        subCategory: values.subCategory,
+        category: values.category || [],
         animalType: values.animalType,
         description: values.description,
         shortDescription: values.shortDescription,
@@ -254,13 +263,17 @@ const EditProductPage = () => {
               <Form.Item label="Barcode" name="barcode"><Input /></Form.Item>
               <Form.Item label="Brand" name="brand"><Input /></Form.Item>
               <Form.Item label="Category" name="category">
-                <Select mode="tags" maxCount={1}>
-                  <Option value="Dog Medicine">Dog Medicine</Option>
-                  <Option value="Cat Food">Cat Food</Option>
-                  <Option value="Bird Supplement">Bird Supplement</Option>
-                </Select>
+                <TreeSelect
+                  treeData={categoryTree}
+                  treeCheckable={true}
+                  showCheckedStrategy={TreeSelect.SHOW_ALL}
+                  placeholder="Select categories and sub-categories"
+                  style={{ width: '100%' }}
+                  maxTagCount="responsive"
+                  treeNodeFilterProp="title"
+                  showSearch
+                />
               </Form.Item>
-              <Form.Item label="Sub-category" name="subCategory"><Input /></Form.Item>
               <Form.Item label="Animal Type" name="animalType">
                 <Select mode="multiple">
                   <Option value="dog">Dog</Option>

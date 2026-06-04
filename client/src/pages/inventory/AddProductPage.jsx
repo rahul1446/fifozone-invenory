@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Checkbox, Tooltip, Alert } from 'antd';
+import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Checkbox, Tooltip, Alert, TreeSelect } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, ImagePlus, FileUp, Globe, ShoppingCart, Package } from 'lucide-react';
 import { createProductApi } from '../../api/productApi';
+import { getWooCommerceCategoriesApi } from '../../api/platformApi';
 import ProductImageUploader from '../../components/inventory/ProductImageUploader';
 import ImportWizard from '../../components/inventory/ImportWizard';
 
@@ -21,6 +22,13 @@ const AddProductPage = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [categoryTree, setCategoryTree] = useState([]);
+
+  useEffect(() => {
+    getWooCommerceCategoriesApi()
+      .then(res => setCategoryTree(res.data || []))
+      .catch(err => console.error("Failed to load category tree", err));
+  }, []);
   const [images, setImages] = useState([]);
   const [importOpen, setImportOpen] = useState(false);
 
@@ -60,8 +68,7 @@ const AddProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: Array.isArray(values.category) ? values.category[0] : values.category,
-        subCategory: values.subCategory,
+        category: values.category || [],
         animalType: values.animalType,
         description: values.description,
         shortDescription: values.shortDescription,
@@ -234,19 +241,16 @@ const AddProductPage = () => {
                   <Input placeholder="e.g. Vetoquinol" />
                 </Form.Item>
                 <Form.Item label="Category" name="category">
-                  <Select mode="tags" maxCount={1} placeholder="Select or type new">
-                    <Option value="Dog Medicine">Dog Medicine</Option>
-                    <Option value="Cat Food">Cat Food</Option>
-                    <Option value="Bird Supplement">Bird Supplement</Option>
-                    <Option value="Dog Food">Dog Food</Option>
-                    <Option value="Pet Grooming">Pet Grooming</Option>
-                    <Option value="Dewormers">Dewormers</Option>
-                    <Option value="Tick & Flea">Tick & Flea</Option>
-                    <Option value="Vitamins & Supplements">Vitamins & Supplements</Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item label="Sub-category" name="subCategory">
-                  <Input placeholder="e.g. Tick & Flea" />
+                  <TreeSelect
+                    treeData={categoryTree}
+                    treeCheckable={true}
+                    showCheckedStrategy={TreeSelect.SHOW_ALL}
+                    placeholder="Select categories and sub-categories"
+                    style={{ width: '100%' }}
+                    maxTagCount="responsive"
+                    treeNodeFilterProp="title"
+                    showSearch
+                  />
                 </Form.Item>
                 <Form.Item label="Animal Type" name="animalType">
                   <Select mode="multiple" placeholder="Select types">

@@ -34,14 +34,11 @@ const ProductSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  category: {
+  category: [{
     type: String,
-    trim: true
-  },
-  subCategory: {
-    type: String,
-    trim: true
-  },
+    trim: true,
+    index: true
+  }],
   animalType: [{
     type: String,
     enum: ['dog', 'cat', 'bird', 'fish', 'rabbit', 'other']
@@ -295,7 +292,6 @@ const ProductSchema = new mongoose.Schema({
 ProductSchema.index({ sku: 1 });
 ProductSchema.index({ barcode: 1 });
 ProductSchema.index({ brand: 1 });
-ProductSchema.index({ category: 1 });
 ProductSchema.index({ isDead: 1 });
 ProductSchema.index({ isActive: 1 });
 ProductSchema.index({ 'platformIds.amazon.asin': 1 });
