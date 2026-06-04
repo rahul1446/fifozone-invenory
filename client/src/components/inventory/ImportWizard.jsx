@@ -6,7 +6,7 @@ import {
 import {
   Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle,
   ChevronRight, ChevronLeft, Download, RefreshCw, Eye,
-  SkipForward, Edit3, CloudUpload, FileText, X, Info
+  SkipForward, FastForward, Edit3, CloudUpload, FileText, X, Info
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
@@ -331,6 +331,28 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
       });
       handleUpload(toUpload, decisions);
     }
+  };
+
+  const handleSkipAllAndUpload = () => {
+    // Treat all remaining incomplete products in the queue as 'skip'
+    const finalDecisions = { ...reviewDecisions };
+    for (let i = reviewIndex; i < reviewQueue.length; i++) {
+      finalDecisions[reviewQueue[i]._rowIndex] = 'skip';
+    }
+    
+    const toUpload = validatedProducts.filter(p => {
+      if (p._status === 'ready') return true;
+      if (p._status === 'incomplete') {
+        const d = finalDecisions[p._rowIndex];
+        return d === 'upload_as_is' || d === 'edited';
+      }
+      return false;
+    }).map(p => {
+      const d = finalDecisions[p._rowIndex];
+      return { ...p, _uploadAsIs: d === 'upload_as_is' };
+    });
+    
+    handleUpload(toUpload, finalDecisions);
   };
 
   const openEditForm = (product) => {
@@ -780,6 +802,13 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
 
                 {/* Action buttons */}
                 <div className="px-5 pb-5 flex gap-3">
+                  <Button
+                    block
+                    onClick={handleSkipAllAndUpload}
+                    className="!flex !items-center !justify-center !gap-1 !text-slate-500"
+                  >
+                    <FastForward size={14} /> Skip All
+                  </Button>
                   <Button
                     block
                     onClick={() => handleReviewDecision('skip')}
