@@ -375,6 +375,12 @@ const importCSV = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'No products found to import');
   }
 
+  const parseNumber = (val, fallback) => {
+    if (val === undefined || val === null || val === '') return fallback;
+    const n = parseFloat(val);
+    return isNaN(n) ? fallback : n;
+  };
+
   let createdCount = 0;
   let updatedCount = 0;
 
@@ -408,9 +414,9 @@ const importCSV = asyncHandler(async (req, res) => {
 
     if (product) {
       // Update
-      product.masterName = row.masterName;
-      product.mrp = parseFloat(row.mrp) || product.mrp;
-      product.costPrice = parseFloat(row.costPrice) || product.costPrice;
+      product.masterName = row.masterName || product.masterName;
+      product.mrp = parseNumber(row.mrp, product.mrp);
+      product.costPrice = parseNumber(row.costPrice, product.costPrice);
       product.brand = row.brand || product.brand;
       product.category = categoryData.length > 0 ? categoryData : product.category;
       
@@ -446,8 +452,8 @@ const importCSV = asyncHandler(async (req, res) => {
         barcode: row.barcode || '',
         brand: row.brand || 'Generic',
         category: categoryData.length > 0 ? categoryData : ['Uncategorized'],
-        mrp: parseFloat(row.mrp) || 0,
-        costPrice: parseFloat(row.costPrice) || 0,
+        mrp: parseNumber(row.mrp, 0),
+        costPrice: parseNumber(row.costPrice, 0),
         totalStock: stockVal,
         stockByPlatform: {
           fifozone: 0,
