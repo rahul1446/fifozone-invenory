@@ -129,3 +129,77 @@ exports.exportPayments = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.send(buffer);
 });
+
+// ─── Settlements ────────────────────────────────────────────
+const mongoose = require('mongoose');
+
+const SettlementSchema = new mongoose.Schema({
+  platform: { type: String, enum: ['amazon', 'flipkart', 'meesho', 'fifozone'] },
+  settlementId: String,
+  ordersCount: Number,
+  grossAmount: Number,
+  deductions: Number,
+  netAmount: Number,
+  status: { type: String, enum: ['Settled', 'Pending'], default: 'Pending' },
+  settlementDate: { type: Date, default: Date.now },
+}, { timestamps: true });
+const Settlement = mongoose.models.Settlement || mongoose.model('Settlement', SettlementSchema);
+
+const MOCK_SETTLEMENTS = [
+  { platform: 'amazon', settlementId: 'AMZS-10001', ordersCount: 45, grossAmount: 89500, deductions: 8950, netAmount: 80550, status: 'Settled', settlementDate: new Date('2026-06-01') },
+  { platform: 'flipkart', settlementId: 'FKST-20001', ordersCount: 32, grossAmount: 64000, deductions: 6400, netAmount: 57600, status: 'Settled', settlementDate: new Date('2026-06-01') },
+  { platform: 'meesho', settlementId: 'MSST-30001', ordersCount: 28, grossAmount: 42000, deductions: 4200, netAmount: 37800, status: 'Pending', settlementDate: null },
+  { platform: 'fifozone', settlementId: 'FZ-40001', ordersCount: 18, grossAmount: 36000, deductions: 0, netAmount: 36000, status: 'Settled', settlementDate: new Date('2026-05-31') },
+  { platform: 'amazon', settlementId: 'AMZS-10002', ordersCount: 38, grossAmount: 76000, deductions: 7600, netAmount: 68400, status: 'Pending', settlementDate: null },
+  { platform: 'flipkart', settlementId: 'FKST-20002', ordersCount: 22, grossAmount: 44000, deductions: 4400, netAmount: 39600, status: 'Settled', settlementDate: new Date('2026-05-28') },
+];
+
+exports.getSettlements = asyncHandler(async (req, res) => {
+  let data = await Settlement.find().sort({ settlementDate: -1 });
+  if (data.length === 0) {
+    await Settlement.insertMany(MOCK_SETTLEMENTS);
+    data = await Settlement.find().sort({ settlementDate: -1 });
+  }
+  res.json(new ApiResponse(200, data, 'Settlements fetched'));
+});
+
+// ─── Invoices ────────────────────────────────────────────────
+const InvoiceSchema = new mongoose.Schema({
+  invoiceNo: String,
+  customer: String,
+  items: [{ product: String, qty: Number, price: Number }],
+  amount: Number,
+  status: { type: String, enum: ['Paid', 'Unpaid'], default: 'Unpaid' },
+  invoiceDate: { type: Date, default: Date.now },
+}, { timestamps: true });
+const Invoice = mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
+
+exports.getInvoices = asyncHandler(async (req, res) => {
+  const data = await Invoice.find().sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, data, 'Invoices fetched'));
+});
+
+exports.createInvoice = asyncHandler(async (req, res) => {
+  const { customer, items } = req.body;
+  const amount = (items || []).reduce((s, i) => s + (i.qty * i.price), 0);
+  const count = await Invoice.countDocuments();
+  const invoice = await Invoice.create({
+    invoiceNo: `INV-${(count + 1).toString().padStart(4, '0')}`,
+    customer, items, amount
+  });
+  res.status(201).json(new ApiResponse(201, invoice, 'Invoice created'));
+});
+
+// ─── Refunds ─────────────────────────────────────────────────
+exports.getRefunds = asyncHandler(async (req, res) => {
+  try {
+    const ReturnRequest = require('../models/ReturnRequest.model');
+    const refunds = await ReturnRequest.find()
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json(new ApiResponse(200, refunds, 'Refunds fetched'));
+  } catch (e) {
+    res.json(new ApiResponse(200, [], 'No refunds found'));
+  }
+});

@@ -1,109 +1,73 @@
-import React from 'react';
-import { Table, Tag } from 'antd';
-import { RotateCcw, CircleDollarSign, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Table, Tag, Button, Spin, message } from 'antd';
+import { RotateCcw, IndianRupee, AlertCircle, RefreshCw } from 'lucide-react';
+import { getRefundsApi } from '../../api/paymentApi';
 
-const mockData = [
-  { key: '1', refundId: 'REF-10001', orderId: 'ORD-55210', customer: 'Rajesh Sharma', platform: 'amazon', reason: 'Damaged product', amount: 1200, status: 'Processed', requestedDate: '2024-05-01', processedDate: '2024-05-03' },
-  { key: '2', refundId: 'REF-10002', orderId: 'ORD-55315', customer: 'Priya Patel', platform: 'flipkart', reason: 'Wrong item delivered', amount: 850, status: 'Processed', requestedDate: '2024-05-02', processedDate: '2024-05-04' },
-  { key: '3', refundId: 'REF-10003', orderId: 'ORD-55420', customer: 'Amit Kumar', platform: 'meesho', reason: 'Item not received', amount: 550, status: 'Pending', requestedDate: '2024-05-05', processedDate: '-' },
-  { key: '4', refundId: 'REF-10004', orderId: 'ORD-55525', customer: 'Sneha Iyer', platform: 'fifozone', reason: 'Quality issue', amount: 1800, status: 'Processed', requestedDate: '2024-05-06', processedDate: '2024-05-09' },
-  { key: '5', refundId: 'REF-10005', orderId: 'ORD-55630', customer: 'Vikram Singh', platform: 'amazon', reason: 'Changed mind', amount: 2400, status: 'Processed', requestedDate: '2024-05-08', processedDate: '2024-05-11' },
-  { key: '6', refundId: 'REF-10006', orderId: 'ORD-55735', customer: 'Meena Reddy', platform: 'flipkart', reason: 'Duplicate order', amount: 680, status: 'Pending', requestedDate: '2024-05-10', processedDate: '-' },
-  { key: '7', refundId: 'REF-10007', orderId: 'ORD-55840', customer: 'Ravi Gupta', platform: 'amazon', reason: 'Product expired', amount: 990, status: 'Pending', requestedDate: '2024-05-12', processedDate: '-' },
-  { key: '8', refundId: 'REF-10008', orderId: 'ORD-55945', customer: 'Ananya Bose', platform: 'meesho', reason: 'Size mismatch', amount: 1100, status: 'Processed', requestedDate: '2024-05-14', processedDate: '2024-05-16' },
-  { key: '9', refundId: 'REF-10009', orderId: 'ORD-56050', customer: 'Nikhil Jain', platform: 'fifozone', reason: 'Not as described', amount: 760, status: 'Pending', requestedDate: '2024-05-17', processedDate: '-' },
-  { key: '10', refundId: 'REF-10010', orderId: 'ORD-56155', customer: 'Pooja Menon', platform: 'amazon', reason: 'Defective product', amount: 3200, status: 'Processed', requestedDate: '2024-05-19', processedDate: '2024-05-21' },
-];
-
-const platformColors = { amazon: 'orange', flipkart: 'blue', meesho: 'pink', fifozone: 'green' };
-
-const StatCard = ({ title, value, icon: Icon, borderColor, iconBg, iconColor }) => (
-  <div className={`bg-white rounded-xl shadow-sm border-l-4 ${borderColor} p-5 flex items-center gap-4`}>
-    <div className={`${iconBg} p-3 rounded-full`}>
-      <Icon size={22} className={iconColor} />
-    </div>
-    <div>
-      <p className="text-slate-500 text-sm">{title}</p>
-      <p className="font-bold text-2xl text-slate-800">{value}</p>
-    </div>
-  </div>
-);
+const platformColor = { amazon: 'orange', flipkart: 'blue', meesho: 'pink', fifozone: 'green' };
+const statusColor = { requested: 'gold', approved: 'blue', received: 'cyan', restocked: 'green', rejected: 'red', refunded: 'green' };
 
 const RefundManagementPage = () => {
-  const totalRefunded = mockData.filter(r => r.status === 'Processed').reduce((s, r) => s + r.amount, 0);
-  const pendingRefunds = mockData.filter(r => r.status === 'Pending').length;
+  const [refunds, setRefunds] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRefunds = async () => {
+    setLoading(true);
+    try {
+      const res = await getRefundsApi();
+      const data = res?.data || (Array.isArray(res) ? res : []);
+      setRefunds(data);
+    } catch { message.error('Failed to load refunds'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchRefunds(); }, []);
+
+  const totalRefundAmt = refunds.reduce((s, r) => s + (r.refundAmount || 0), 0);
+  const pending = refunds.filter(r => ['requested', 'approved'].includes(r.status));
 
   const columns = [
-    { title: 'Refund ID', dataIndex: 'refundId', key: 'refundId', render: (v) => <span className="font-mono text-xs font-semibold text-rose-600">{v}</span> },
-    { title: 'Order ID', dataIndex: 'orderId', key: 'orderId', render: (v) => <span className="font-mono text-xs text-slate-500">{v}</span> },
-    { title: 'Customer', dataIndex: 'customer', key: 'customer', render: (v) => <span className="font-medium text-slate-800">{v}</span> },
     {
-      title: 'Platform',
-      dataIndex: 'platform',
-      key: 'platform',
-      render: (p) => (
-        <Tag color={platformColors[p]} className="capitalize font-semibold">
-          {p.charAt(0).toUpperCase() + p.slice(1)}
-        </Tag>
-      ),
+      title: 'Order', key: 'order',
+      render: (_, r) => <span className="font-mono text-sm font-semibold text-slate-700">{r.order?.orderNumber || r.order || '—'}</span>
     },
-    { title: 'Reason', dataIndex: 'reason', key: 'reason', render: (v) => <span className="text-slate-500 text-sm">{v}</span> },
+    { title: 'Platform', dataIndex: 'platform', key: 'platform', render: v => <Tag color={platformColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
     {
-      title: 'Amount (₹)',
-      dataIndex: 'amount',
-      key: 'amount',
-      align: 'right',
-      render: (v) => <span className="font-bold text-red-600">₹{v.toLocaleString('en-IN')}</span>,
+      title: 'Customer', key: 'customer',
+      render: (_, r) => r.customer?.name || '—'
     },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (s) => <Tag color={s === 'Processed' ? 'success' : 'warning'} className="font-semibold">{s}</Tag>,
-    },
-    { title: 'Requested Date', dataIndex: 'requestedDate', key: 'requestedDate', render: (v) => <span className="text-slate-500 text-sm">{v}</span> },
-    { title: 'Processed Date', dataIndex: 'processedDate', key: 'processedDate', render: (v) => <span className="text-slate-500 text-sm">{v}</span> },
+    { title: 'Reason', dataIndex: 'reason', key: 'reason', ellipsis: true, render: v => v || '—' },
+    { title: 'Refund Amount', dataIndex: 'refundAmount', key: 'amount', align: 'right', render: v => <span className="font-bold text-rose-600">&#8377;{(v || 0).toLocaleString('en-IN')}</span> },
+    { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={statusColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
+    { title: 'Date', dataIndex: 'createdAt', key: 'date', render: v => v ? new Date(v).toLocaleDateString('en-IN') : '—' },
   ];
 
+  if (loading) return <div className="flex justify-center py-20"><Spin size="large" /></div>;
+
   return (
-    <div className="p-6 bg-slate-50 min-h-screen">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-800">Refund Management</h1>
-        <p className="text-slate-500 mt-1">Process and track customer refunds</p>
+    <div className="space-y-6 pb-10">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <RotateCcw size={24} className="text-slate-600" />
+          <div><h1 className="text-2xl font-bold text-slate-800">Refund Management</h1><p className="text-slate-500 text-sm">{refunds.length} refund requests total</p></div>
+        </div>
+        <Button icon={<RefreshCw size={16} />} onClick={fetchRefunds}>Refresh</Button>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          title="Total Refunds"
-          value={mockData.length}
-          icon={RotateCcw}
-          borderColor="border-rose-500"
-          iconBg="bg-rose-50"
-          iconColor="text-rose-600"
-        />
-        <StatCard
-          title="Total Refunded Amount (₹)"
-          value={`₹${totalRefunded.toLocaleString('en-IN')}`}
-          icon={CircleDollarSign}
-          borderColor="border-red-500"
-          iconBg="bg-red-50"
-          iconColor="text-red-600"
-        />
-        <StatCard
-          title="Pending Refunds"
-          value={pendingRefunds}
-          icon={AlertCircle}
-          borderColor="border-amber-500"
-          iconBg="bg-amber-50"
-          iconColor="text-amber-600"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Total Refunds', value: refunds.length, icon: <RotateCcw size={20} className="text-blue-600" />, border: 'border-blue-500', bg: 'bg-blue-50' },
+          { label: 'Refund Amount', value: `\u20b9${totalRefundAmt.toLocaleString('en-IN')}`, icon: <IndianRupee size={20} className="text-rose-600" />, border: 'border-rose-500', bg: 'bg-rose-50' },
+          { label: 'Pending Review', value: pending.length, icon: <AlertCircle size={20} className="text-amber-600" />, border: 'border-amber-500', bg: 'bg-amber-50' },
+        ].map(c => (
+          <div key={c.label} className={`bg-white rounded-xl shadow-sm border border-slate-100 border-l-4 ${c.border} p-5 flex items-center gap-4`}>
+            <div className={`w-11 h-11 rounded-full ${c.bg} flex items-center justify-center`}>{c.icon}</div>
+            <div><p className="text-slate-500 text-sm">{c.label}</p><p className="text-2xl font-bold text-slate-800 mt-0.5">{c.value}</p></div>
+          </div>
+        ))}
       </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <Table columns={columns} dataSource={mockData} pagination={{ pageSize: 10 }} scroll={{ x: 1100 }} />
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <Table columns={columns} dataSource={refunds} rowKey="_id" pagination={{ pageSize: 20, showTotal: t => `${t} refunds` }} scroll={{ x: 900 }} locale={{ emptyText: 'No refund requests found' }} />
       </div>
     </div>
   );
 };
-
 export default RefundManagementPage;

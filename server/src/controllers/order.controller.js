@@ -404,6 +404,36 @@ const resolveReturn = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, returnReq, `Return status updated to ${status}`));
 });
 
+
+// Create Manual Order (for offline/phone/WhatsApp customers)
+const createManualOrder = asyncHandler(async (req, res) => {
+  const { customerName, customerPhone, customerAddress, items, platform, note } = req.body;
+  const orderNumber = `MAN-${Date.now()}`;
+  const totalAmount = (items || []).reduce((s, i) => s + (i.qty * i.price), 0);
+  const order = await Order.create({
+    orderNumber,
+    platform: platform || 'fifozone',
+    platformOrderId: orderNumber,
+    customer: {
+      name: customerName || 'Walk-in Customer',
+      phone: customerPhone || '',
+      address: { line1: customerAddress || '', city: '', state: '', pincode: '', country: 'India' }
+    },
+    items: (items || []).map(i => ({
+      productName: i.productName,
+      quantity: i.qty,
+      unitPrice: i.price,
+      lineTotal: i.qty * i.price,
+      productSnapshot: { masterName: i.productName, sku: i.sku || 'MANUAL' }
+    })),
+    totalAmount,
+    paymentStatus: 'pending',
+    status: 'pending',
+    statusHistory: [{ status: 'pending', note: note || 'Manual order created' }],
+  });
+  res.status(201).json(new ApiResponse(201, order, 'Manual order created successfully'));
+});
+
 module.exports = {
   getOrders,
   getOrderById,
@@ -411,5 +441,6 @@ module.exports = {
   bulkUpdateStatus,
   initiateReturn,
   getReturns,
-  resolveReturn
+  resolveReturn,
+  createManualOrder,
 };

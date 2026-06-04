@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, InputNumber, Select, Button, message, Divider } from 'antd';
 import { Plus, Trash2, ShoppingCart, User, MapPin, Phone, Package } from 'lucide-react';
+import { createManualOrderApi } from '../../api/orderApi';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -32,7 +33,15 @@ const ManualOrderPage = () => {
         return message.error('Please fill in all item details');
       }
       setSubmitting(true);
-      await new Promise(r => setTimeout(r, 1000));
+      const vals = form.getFieldsValue();
+      await createManualOrderApi({
+        customerName: vals.customerName,
+        customerPhone: vals.phone,
+        customerAddress: vals.address,
+        platform: vals.platform || 'fifozone',
+        note: vals.notes,
+        items: items.map(i => ({ productName: i.productName, qty: i.qty, price: i.price })),
+      });
       message.success({
         content: `✅ Manual order created successfully! Total: ₹${totalAmount.toLocaleString('en-IN')}`,
         duration: 4,

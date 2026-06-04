@@ -34,3 +34,8 @@ export const resolveReturnApi = async (id, data) => {
   const response = await axiosInstance.patch(`/orders/returns/${id}`, data);
   return response.data;
 };
+
+export const createManualOrderApi = async (data) => {
+  const response = await axiosInstance.post('/orders/manual', data);
+  return response.data;
+};

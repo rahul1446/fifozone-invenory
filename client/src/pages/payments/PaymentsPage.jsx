@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, Table, Tag, Button, Select, DatePicker } from 'antd';
 import { Download, CreditCard, Activity, DollarSign, Wallet } from 'lucide-react';
-import { getPaymentOverviewApi, getTransactionsApi, getFeeBreakdownApi, exportPaymentsApi } from '../../api/paymentApi';
+import { getPaymentOverviewApi, getTransactionsApi } from '../../api/paymentApi';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import dayjs from 'dayjs';
 
