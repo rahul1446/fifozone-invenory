@@ -4,48 +4,69 @@ import PrivateRoute from './PrivateRoute';
 import RoleRoute from './RoleRoute';
 import DashboardLayout from '../layouts/DashboardLayout';
 
-// Page imports
+// Auth
 import LoginPage from '../pages/auth/LoginPage';
+import NotFoundPage from '../pages/NotFoundPage';
+
+// Dashboard
 import DashboardPage from '../pages/dashboard/DashboardPage';
-import ProductsPage from '../pages/inventory/ProductsPage';
-import AddProductPage from '../pages/inventory/AddProductPage';
-import EditProductPage from '../pages/inventory/EditProductPage';
-import DeadProductsPage from '../pages/inventory/DeadProductsPage';
+
+// Orders
 import OrdersPage from '../pages/orders/OrdersPage';
 import OrderDetailPage from '../pages/orders/OrderDetailPage';
 import ReturnsPage from '../pages/orders/ReturnsPage';
-import AnalyticsPage from '../pages/analytics/AnalyticsPage';
-import InventoryLogsPage from '../pages/alerts/InventoryLogsPage';
-import NotificationsPage from '../pages/alerts/NotificationsPage';
-import AlertRulesPage from '../pages/alerts/AlertRulesPage';
-import PlatformSettingsPage from '../pages/settings/PlatformSettingsPage';
+import PendingOrdersPage from '../pages/orders/PendingOrdersPage';
+import ShippedOrdersPage from '../pages/orders/ShippedOrdersPage';
+import DeliveredOrdersPage from '../pages/orders/DeliveredOrdersPage';
+import CodOrdersPage from '../pages/orders/CodOrdersPage';
+import CancelledOrdersPage from '../pages/orders/CancelledOrdersPage';
+import ManualOrderPage from '../pages/orders/ManualOrderPage';
+
+// Products
+import ProductsPage from '../pages/inventory/ProductsPage';
+import AddProductPage from '../pages/inventory/AddProductPage';
+import EditProductPage from '../pages/inventory/EditProductPage';
+import ChannelListingPage from '../pages/products/ChannelListingPage';
+import PricingControlPage from '../pages/products/PricingControlPage';
+import ProductPerformancePage from '../pages/products/ProductPerformancePage';
+
+// Inventory
+import InventoryLedgerPage from '../pages/inventory/InventoryLedgerPage';
+import StockAdjustmentPage from '../pages/inventory/StockAdjustmentPage';
+import LowStockPage from '../pages/inventory/LowStockPage';
+import ActivityLogPage from '../pages/inventory/ActivityLogPage';
+import SuppliersPage from '../pages/inventory/SuppliersPage';
+import PurchasesPage from '../pages/inventory/PurchasesPage';
+
+// Payments
+import PaymentsPage from '../pages/payments/PaymentsPage';
+import SettlementsPage from '../pages/payments/SettlementsPage';
+import InvoiceGeneratorPage from '../pages/payments/InvoiceGeneratorPage';
+import RefundManagementPage from '../pages/payments/RefundManagementPage';
+
+// Apps
+import AmazonAppPage from '../pages/apps/AmazonAppPage';
+import FlipkartAppPage from '../pages/apps/FlipkartAppPage';
+import MeeshoAppPage from '../pages/apps/MeeshoAppPage';
+import FifozoneAppPage from '../pages/apps/FifozoneAppPage';
+import AddNewAppPage from '../pages/apps/AddNewAppPage';
+
+// Reports & Best Sellers
+import ReportsPage from '../pages/reports/ReportsPage';
+import BestSellersPage from '../pages/bestSellers/BestSellersPage';
+
+// Users & Settings
 import UserManagementPage from '../pages/settings/UserManagementPage';
 import ProfilePage from '../pages/settings/ProfilePage';
-import NotFoundPage from '../pages/NotFoundPage';
-import ShippingSettingsPage from '../pages/settings/ShippingSettingsPage';
-
-// New Pages
-import MessagesPage from '../pages/messages/MessagesPage';
-import ReviewsPage from '../pages/reviews/ReviewsPage';
-import PromotionsPage from '../pages/promotions/PromotionsPage';
-import ShippingQueuePage from '../pages/orders/ShippingQueuePage';
-import PaymentsPage from '../pages/payments/PaymentsPage';
-import AccountHealthPage from '../pages/accountHealth/AccountHealthPage';
-import AdvertisingPage from '../pages/advertising/AdvertisingPage';
-import CustomersPage from '../pages/customers/CustomersPage';
-import CustomerProfilePage from '../pages/customers/CustomerProfilePage';
-
 
 const AppRouter = () => {
   return (
     <Routes>
-      {/* Public route */}
+      {/* Public */}
       <Route path="/login" element={<LoginPage />} />
-
-      {/* Root redirect */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* All authenticated dashboard routes */}
+      {/* All authenticated routes */}
       <Route
         element={
           <PrivateRoute>
@@ -53,60 +74,59 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       >
+        {/* Dashboard */}
         <Route path="/dashboard" element={<DashboardPage />} />
 
-        {/* Inventory */}
-        <Route path="/inventory/products" element={<ProductsPage />} />
-        <Route path="/inventory/products/add" element={<AddProductPage />} />
-        <Route path="/inventory/products/:id/edit" element={<EditProductPage />} />
-        <Route path="/inventory/dead-products" element={<DeadProductsPage />} />
-
-        {/* Orders — specific sub-routes BEFORE :id to prevent conflict */}
+        {/* Orders */}
         <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/orders/pending" element={<PendingOrdersPage />} />
+        <Route path="/orders/shipped" element={<ShippedOrdersPage />} />
+        <Route path="/orders/delivered" element={<DeliveredOrdersPage />} />
         <Route path="/orders/returns" element={<ReturnsPage />} />
-        <Route path="/orders/shipping-queue" element={<ShippingQueuePage />} />
+        <Route path="/orders/cod" element={<CodOrdersPage />} />
+        <Route path="/orders/cancelled" element={<CancelledOrdersPage />} />
+        <Route path="/orders/manual" element={<ManualOrderPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
 
-        {/* Standalone New Features */}
-        <Route path="/messages" element={<MessagesPage />} />
-        <Route path="/reviews" element={<ReviewsPage />} />
-        <Route path="/promotions" element={<PromotionsPage />} />
+        {/* Products */}
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/add" element={<AddProductPage />} />
+        <Route path="/products/:id/edit" element={<EditProductPage />} />
+        <Route path="/products/channel-listing" element={<ChannelListingPage />} />
+        <Route path="/products/pricing" element={<PricingControlPage />} />
+        <Route path="/products/performance" element={<ProductPerformancePage />} />
+
+        {/* Inventory */}
+        <Route path="/inventory" element={<InventoryLedgerPage />} />
+        <Route path="/inventory/adjustments" element={<StockAdjustmentPage />} />
+        <Route path="/inventory/low-stock" element={<LowStockPage />} />
+        <Route path="/inventory/activity-log" element={<ActivityLogPage />} />
+        <Route path="/inventory/suppliers" element={<SuppliersPage />} />
+        <Route path="/inventory/purchases" element={<PurchasesPage />} />
+
+        {/* Payments */}
         <Route path="/payments" element={<PaymentsPage />} />
-        <Route path="/account-health" element={<AccountHealthPage />} />
-        <Route path="/advertising" element={<AdvertisingPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/customers/:id" element={<CustomerProfilePage />} />
+        <Route path="/payments/settlements" element={<SettlementsPage />} />
+        <Route path="/payments/invoices" element={<InvoiceGeneratorPage />} />
+        <Route path="/payments/refunds" element={<RefundManagementPage />} />
 
-        {/* Analytics */}
-        <Route path="/analytics" element={<AnalyticsPage />} />
+        {/* Apps */}
+        <Route path="/apps/amazon" element={<AmazonAppPage />} />
+        <Route path="/apps/flipkart" element={<FlipkartAppPage />} />
+        <Route path="/apps/meesho" element={<MeeshoAppPage />} />
+        <Route path="/apps/fifozone" element={<FifozoneAppPage />} />
+        <Route path="/apps/add" element={<AddNewAppPage />} />
 
-        {/* Alerts */}
-        <Route path="/alerts/notifications" element={<NotificationsPage />} />
-        <Route path="/alerts/inventory-logs" element={<InventoryLogsPage />} />
-        <Route path="/alerts/rules" element={<AlertRulesPage />} />
+        {/* Reports & Best Sellers */}
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/best-sellers" element={<BestSellersPage />} />
 
-        {/* Settings */}
-        <Route path="/settings/profile" element={<ProfilePage />} />
-        <Route path="/settings/shipping" element={<ShippingSettingsPage />} />
-        <Route
-          path="/settings/platforms"
-          element={
-            <RoleRoute allowedRoles={['admin']}>
-              <PlatformSettingsPage />
-            </RoleRoute>
-          }
-        />
-        <Route
-          path="/settings/users"
-          element={
-            <RoleRoute allowedRoles={['admin']}>
-              <UserManagementPage />
-            </RoleRoute>
-          }
-        />
+        {/* Users & Settings */}
+        <Route path="/users" element={<UserManagementPage />} />
+        <Route path="/settings" element={<ProfilePage />} />
       </Route>
 
-      {/* Catch-all 404 */}
+      {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

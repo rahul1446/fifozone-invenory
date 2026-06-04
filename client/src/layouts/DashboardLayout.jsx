@@ -33,7 +33,18 @@ import {
   CreditCard,
   Megaphone,
   Users,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  CheckCircle,
+  Banknote,
+  XCircle,
+  FilePlus,
+  Globe,
+  SlidersHorizontal,
+  ShoppingCart,
+  Wallet,
+  Receipt,
+  PlusCircle,
 } from 'lucide-react';
 import { Drawer, Badge, Dropdown, Button, Input, Spin, notification } from 'antd';
 import toast from 'react-hot-toast';
@@ -156,56 +167,71 @@ const DashboardLayout = () => {
   };
 
   const navStructure = [
-    { type: 'item', label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
-    {
-      type: 'group',
-      label: 'INVENTORY',
-      children: [
-        { label: 'All Products', path: '/inventory/products', icon: <Package size={18} /> },
-        { label: 'Add Product', path: '/inventory/products/add', icon: <Layers size={18} /> },
-        { label: 'Dead Products', path: '/inventory/dead-products', icon: <AlertTriangle size={18} /> },
-      ]
-    },
+    { type: 'item', label: 'Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
     {
       type: 'group',
       label: 'ORDERS',
       children: [
-        { label: 'All Orders', path: '/orders', icon: <ShoppingBag size={18} /> },
-        { label: 'Shipping Queue', path: '/orders/shipping-queue', icon: <Truck size={18} /> },
-        { label: 'Returns', path: '/orders/returns', icon: <RotateCcw size={18} /> },
+        { label: 'All Orders',       path: '/orders',            icon: <ShoppingBag size={18} /> },
+        { label: 'Pending',          path: '/orders/pending',    icon: <Clock size={18} /> },
+        { label: 'Shipped',          path: '/orders/shipped',    icon: <Truck size={18} /> },
+        { label: 'Delivered',        path: '/orders/delivered',  icon: <CheckCircle size={18} /> },
+        { label: 'Returns & RTO',    path: '/orders/returns',    icon: <RotateCcw size={18} /> },
+        { label: 'COD Orders',       path: '/orders/cod',        icon: <Banknote size={18} /> },
+        { label: 'Cancelled Orders', path: '/orders/cancelled',  icon: <XCircle size={18} /> },
+        { label: 'Manual Orders',    path: '/orders/manual',     icon: <FilePlus size={18} /> },
       ]
     },
-    { type: 'item', label: 'Messages & Queries', path: '/messages', icon: <MessageSquare size={18} />, badge: unreadMsgCount },
-    { type: 'item', label: 'Reviews & Ratings', path: '/reviews', icon: <Star size={18} /> },
-    { type: 'item', label: 'Promotions & Coupons', path: '/promotions', icon: <Tag size={18} /> },
-    { type: 'item', label: 'Payments', path: '/payments', icon: <CreditCard size={18} /> },
-    { type: 'item', label: 'Account Health', path: '/account-health', icon: <ShieldCheck size={18} /> },
-    { type: 'item', label: 'Advertising', path: '/advertising', icon: <Megaphone size={18} /> },
-    { type: 'item', label: 'Customers', path: '/customers', icon: <Users size={18} /> },
-    { type: 'item', label: 'Analytics', path: '/analytics', icon: <BarChart3 size={18} /> },
     {
       type: 'group',
-      label: 'ALERTS',
+      label: 'PRODUCTS',
       children: [
-        { label: 'Notifications', path: '/alerts/notifications', icon: <Bell size={18} /> },
-        { label: 'Inventory Logs', path: '/alerts/inventory-logs', icon: <FileText size={18} /> },
-        { label: 'Alert Rules', path: '/alerts/rules', icon: <AlertTriangle size={18} /> },
+        { label: 'All Products',    path: '/products',                 icon: <Package size={18} /> },
+        { label: 'Add Product',     path: '/products/add',             icon: <Layers size={18} /> },
+        { label: 'Channel Listing', path: '/products/channel-listing', icon: <Globe size={18} /> },
+        { label: 'Pricing Control', path: '/products/pricing',         icon: <Tag size={18} /> },
+        { label: 'Performance',     path: '/products/performance',     icon: <BarChart3 size={18} /> },
       ]
-    }
+    },
+    {
+      type: 'group',
+      label: 'INVENTORY',
+      children: [
+        { label: 'Overview',     path: '/inventory',              icon: <Layers size={18} /> },
+        { label: 'Adjustment',   path: '/inventory/adjustments',  icon: <SlidersHorizontal size={18} /> },
+        { label: 'Low Stock',    path: '/inventory/low-stock',    icon: <AlertTriangle size={18} /> },
+        { label: 'Activity Log', path: '/inventory/activity-log', icon: <FileText size={18} /> },
+        { label: 'Suppliers',    path: '/inventory/suppliers',    icon: <Users size={18} /> },
+        { label: 'Purchases',    path: '/inventory/purchases',    icon: <ShoppingCart size={18} /> },
+      ]
+    },
+    {
+      type: 'group',
+      label: 'PAYMENTS',
+      children: [
+        { label: 'Transactions',       path: '/payments',              icon: <CreditCard size={18} /> },
+        { label: 'Settlements',        path: '/payments/settlements',  icon: <Wallet size={18} /> },
+        { label: 'Invoice Generator',  path: '/payments/invoices',     icon: <Receipt size={18} /> },
+        { label: 'Refund Management',  path: '/payments/refunds',      icon: <RotateCcw size={18} /> },
+      ]
+    },
+    {
+      type: 'group',
+      label: 'APPS',
+      children: [
+        { label: 'Amazon',      path: '/apps/amazon',   icon: <ShoppingBag size={18} /> },
+        { label: 'Flipkart',    path: '/apps/flipkart', icon: <ShoppingBag size={18} /> },
+        { label: 'Meesho',      path: '/apps/meesho',   icon: <ShoppingBag size={18} /> },
+        { label: 'Fifozone',    path: '/apps/fifozone', icon: <Globe size={18} /> },
+        { label: 'Add New App', path: '/apps/add',      icon: <PlusCircle size={18} /> },
+      ]
+    },
+    { type: 'item', label: 'Reports',      path: '/reports',       icon: <BarChart3 size={18} /> },
+    { type: 'item', label: 'Best Sellers', path: '/best-sellers',  icon: <Star size={18} /> },
+    { type: 'item', label: 'Users',        path: '/users',         icon: <UserCheck size={18} /> },
+    { type: 'item', label: 'Settings',     path: '/settings',      icon: <Settings size={18} /> },
   ];
 
-  if (user?.role === 'admin') {
-    navStructure.push({
-      type: 'group',
-      label: 'SETTINGS',
-      children: [
-        { label: 'Platform APIs', path: '/settings/platforms', icon: <Settings size={18} /> },
-        { label: 'Shipping Settings', path: '/settings/shipping', icon: <Truck size={18} /> },
-        { label: 'Users', path: '/settings/users', icon: <UserCheck size={18} /> },
-        { label: 'My Profile', path: '/settings/profile', icon: <User size={18} /> }
-      ]
-    });
-  }
 
   // Auto-expand groups based on active route
   useEffect(() => {
