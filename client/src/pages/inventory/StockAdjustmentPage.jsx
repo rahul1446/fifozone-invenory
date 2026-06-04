@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Table, Tag, Button, Select, InputNumber, Radio, Form, message } from 'antd';
 import { CheckSquare, PlusCircle } from 'lucide-react';
 
-const { TextArea } = require('antd').Input || { TextArea: () => null };
+import { Input } from 'antd';
+const { TextArea } = Input;
 
 const mockProducts = [
   { value: 'HIM-SHP-03', label: 'Himalaya Erina EP Shampoo' },
