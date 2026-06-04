@@ -184,7 +184,7 @@ class WooCommerceService {
       allCategories.forEach(cat => {
         catMap[cat.id] = {
           title: cat.name,
-          value: cat.id, // TreeSelect value must be unique (use ID instead of name)
+          value: `${cat.id}|${cat.name}`, // Composite value for uniqueness + name access
           key: cat.id,
           parent: cat.parent,
           children: []
@@ -411,7 +411,9 @@ class WooCommerceService {
       let categoryIds = [];
       const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
       for (const catVal of cats) {
-        if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
+        if (typeof catVal === 'string' && catVal.includes('|')) {
+          categoryIds.push(Number(catVal.split('|')[0]));
+        } else if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
           categoryIds.push(Number(catVal));
         } else {
           const id = await this.resolveCategoryId(client, catVal);
@@ -459,7 +461,9 @@ class WooCommerceService {
       let categoryIds = [];
       const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
       for (const catVal of cats) {
-        if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
+        if (typeof catVal === 'string' && catVal.includes('|')) {
+          categoryIds.push(Number(catVal.split('|')[0]));
+        } else if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
           categoryIds.push(Number(catVal));
         } else {
           const id = await this.resolveCategoryId(client, catVal);

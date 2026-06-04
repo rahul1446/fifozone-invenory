@@ -50,8 +50,14 @@ const EditProductPage = () => {
         sku: data.sku,
         barcode: data.barcode,
         brand: data.brand,
-        // Only provide 'value'. TreeSelect will automatically look up the 'label' from treeData.
-        category: data.category ? data.category.map(c => ({ value: c })) : [],
+        // Parse the composite "ID|Name" string to provide both label and value to TreeSelect
+        category: data.category ? data.category.map(c => {
+          if (typeof c === 'string' && c.includes('|')) {
+            const [, name] = c.split('|');
+            return { label: name, value: c };
+          }
+          return { label: c, value: c };
+        }) : [],
         animalType: data.animalType || [],
         description: data.description,
         shortDescription: data.shortDescription,

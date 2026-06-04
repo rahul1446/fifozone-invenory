@@ -177,6 +177,16 @@ const ProductsPage = () => {
       title: 'Category',
       dataIndex: 'category',
       key: 'category',
+      render: (categories) => (
+        <div className="flex flex-wrap gap-1">
+          {categories?.map((c, i) => (
+            <Tag key={i} className="m-0 border-slate-200 text-slate-600 bg-slate-50">
+              {typeof c === 'string' && c.includes('|') ? c.split('|')[1] : c}
+            </Tag>
+          ))}
+          {(!categories || categories.length === 0) && <span className="text-slate-400 italic text-xs">None</span>}
+        </div>
+      ),
     },
     {
       title: 'Listed On',
