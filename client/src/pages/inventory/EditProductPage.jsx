@@ -50,7 +50,7 @@ const EditProductPage = () => {
         sku: data.sku,
         barcode: data.barcode,
         brand: data.brand,
-        category: data.category || [],
+        category: data.category ? data.category.map(c => ({ label: c, value: c })) : [],
         animalType: data.animalType || [],
         description: data.description,
         shortDescription: data.shortDescription,
@@ -127,7 +127,7 @@ const EditProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: values.category || [],
+        category: (values.category || []).map(c => typeof c === 'object' ? c.value : c),
         animalType: values.animalType,
         description: values.description,
         shortDescription: values.shortDescription,
@@ -266,6 +266,7 @@ const EditProductPage = () => {
                 <TreeSelect
                   treeData={categoryTree}
                   treeCheckable={true}
+                  treeCheckStrictly={true}
                   showCheckedStrategy={TreeSelect.SHOW_ALL}
                   placeholder="Select categories and sub-categories"
                   style={{ width: '100%' }}

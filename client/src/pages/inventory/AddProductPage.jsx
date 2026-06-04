@@ -68,7 +68,7 @@ const AddProductPage = () => {
         sku: values.sku,
         barcode: values.barcode,
         brand: values.brand,
-        category: values.category || [],
+        category: (values.category || []).map(c => typeof c === 'object' ? c.value : c),
         animalType: values.animalType,
         description: values.description,
         shortDescription: values.shortDescription,
@@ -244,6 +244,7 @@ const AddProductPage = () => {
                   <TreeSelect
                     treeData={categoryTree}
                     treeCheckable={true}
+                    treeCheckStrictly={true}
                     showCheckedStrategy={TreeSelect.SHOW_ALL}
                     placeholder="Select categories and sub-categories"
                     style={{ width: '100%' }}
