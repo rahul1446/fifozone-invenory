@@ -9,8 +9,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      /* Critical inline CSS to ensure page is never blank */
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: #0f172a;
+        font-family: Inter, sans-serif;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      /* Loading fallback shown before React mounts */
+      #root:empty::after {
+        content: '';
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #0f172a;
+      }
+    </style>
   </head>
-  <body class="bg-gray-50 text-gray-900 overflow-x-hidden antialiased">
+  <body style="background:#0f172a; margin:0; padding:0;">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

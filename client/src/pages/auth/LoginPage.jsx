@@ -31,7 +31,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', position: 'relative', overflow: 'hidden' }}>
       {/* Subtle radial gradient overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
