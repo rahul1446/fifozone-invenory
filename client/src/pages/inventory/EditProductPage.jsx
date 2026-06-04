@@ -166,10 +166,10 @@ const EditProductPage = () => {
           warehouse: values.warehouseStock,
         },
         lowStockThreshold: values.lowStockThreshold,
-        variants: values.variants ? values.variants.map(v => ({
+        variants: values.variants ? values.variants.map((v, i) => ({
           name: v.name,
           value: v.value,
-          sku: v.sku,
+          sku: v.sku || `${values.sku || 'SKU'}-${String(v.value).replace(/[^a-zA-Z0-9]/g, '').substring(0, 5).toUpperCase()}-${i+1}`,
           stock: v.stock || 0,
           price: {
             fifozone: v.fifozonePrice || v.price,
@@ -379,8 +379,8 @@ const EditProductPage = () => {
                         <Form.Item {...restField} name={[name, 'value']} label="Variant Value" rules={[{ required: true, message: 'Missing value' }]} className="mb-0">
                           <Input placeholder="e.g. 2kg, Chicken" size="small" />
                         </Form.Item>
-                        <Form.Item {...restField} name={[name, 'sku']} label="Variant SKU" rules={[{ required: true, message: 'Missing SKU' }]} className="mb-0">
-                          <Input placeholder="Unique SKU" size="small" />
+                        <Form.Item {...restField} name={[name, 'sku']} label="Variant SKU" className="mb-0">
+                          <Input placeholder="Auto-generated if blank" size="small" />
                         </Form.Item>
                         <Form.Item {...restField} name={[name, 'stock']} label="Variant Stock" className="mb-0">
                           <InputNumber placeholder="0" size="small" className="w-full" />

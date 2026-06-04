@@ -253,6 +253,8 @@ const uploadImport = asyncHandler(async (req, res) => {
         if (rawProduct.brand) existing.brand = String(rawProduct.brand).trim();
         if (categoryData.length > 0) existing.category = categoryData;
         
+        if (variants.length > 0) existing.variants = variants;
+
         if (rawProduct.sellingPrice_fifozone) existing.sellingPrice.fifozone = parseNumber(rawProduct.sellingPrice_fifozone, existing.sellingPrice.fifozone);
         if (rawProduct.sellingPrice_amazon) existing.sellingPrice.amazon = parseNumber(rawProduct.sellingPrice_amazon, existing.sellingPrice.amazon);
         if (rawProduct.sellingPrice_flipkart) existing.sellingPrice.flipkart = parseNumber(rawProduct.sellingPrice_flipkart, existing.sellingPrice.flipkart);
