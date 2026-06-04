@@ -58,6 +58,7 @@ import BestSellersPage from '../pages/bestSellers/BestSellersPage';
 // Users & Settings
 import UserManagementPage from '../pages/settings/UserManagementPage';
 import ProfilePage from '../pages/settings/ProfilePage';
+import PlatformSettingsPage from '../pages/settings/PlatformSettingsPage';
 
 const AppRouter = () => {
   return (
@@ -124,6 +125,9 @@ const AppRouter = () => {
         {/* Users & Settings */}
         <Route path="/users" element={<UserManagementPage />} />
         <Route path="/settings" element={<ProfilePage />} />
+        <Route path="/settings/profile" element={<ProfilePage />} />
+        <Route path="/settings/platforms" element={<PlatformSettingsPage />} />
+        <Route path="/settings/users" element={<UserManagementPage />} />
       </Route>
 
       {/* 404 */}
