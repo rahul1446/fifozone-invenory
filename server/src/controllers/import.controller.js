@@ -5,6 +5,14 @@ const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const XLSX = require('xlsx');
 const SyncService = require('../services/sync.service');
+const WooCommerceService = require('../services/woocommerce.service');
+
+// ─── Helper: parse numbers safely ─────────────────────────────────────────────
+const parseNumber = (val, fallback = 0) => {
+  if (val === undefined || val === null || val === '') return fallback;
+  const n = parseFloat(val);
+  return isNaN(n) ? fallback : n;
+};
 
 // ─── Helper: generate a batch ID ───────────────────────────────────────────────
 const generateBatchId = () => `BATCH-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -170,9 +178,9 @@ const uploadImport = asyncHandler(async (req, res) => {
             value: String(vValue),
             sku: generateSku(`${productName}-${vValue}`),
             price: {
-              fifozone: parseFloat(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_fifozone || 0),
-              amazon: parseFloat(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_amazon || 0),
-              flipkart: parseFloat(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_flipkart || 0),
+              fifozone: parseNumber(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_fifozone, 0),
+              amazon: parseNumber(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_amazon, 0),
+              flipkart: parseNumber(rawProduct[`variant_price_${v}`] || rawProduct.sellingPrice_flipkart, 0),
             },
             stock: parseInt(rawProduct[`variant_stock_${v}`] || 0),
             isActive: true,
@@ -211,6 +219,32 @@ const uploadImport = asyncHandler(async (req, res) => {
         totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
       }
 
+      // ── Resolve Categories ──
+      let categoryData = [];
+      if (rawProduct.category) {
+        const catNames = typeof rawProduct.category === 'string' 
+          ? rawProduct.category.split(',').map(c => c.trim()).filter(Boolean) 
+          : (Array.isArray(rawProduct.category) ? rawProduct.category : [rawProduct.category]);
+        try {
+          const client = await WooCommerceService.getClient();
+          for (const catName of catNames) {
+            if (catName.includes('|')) {
+              categoryData.push(catName);
+            } else {
+              const id = await WooCommerceService.resolveCategoryId(client, catName);
+              if (id) {
+                categoryData.push(`${id}|${catName}`);
+              } else {
+                categoryData.push(catName);
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn(`[Import] Failed to resolve categories: ${err.message}`);
+          categoryData = catNames;
+        }
+      }
+
       // ── Build product doc ──
       const productData = {
         masterName: String(productName).trim(),
@@ -218,21 +252,21 @@ const uploadImport = asyncHandler(async (req, res) => {
         barcode: rawProduct.barcode ? String(rawProduct.barcode).trim() : undefined,
         brand: rawProduct.brand ? String(rawProduct.brand).trim() : undefined,
         manufacturer: rawProduct.manufacturer ? String(rawProduct.manufacturer).trim() : undefined,
-        category: rawProduct.category ? String(rawProduct.category).trim() : undefined,
+        category: categoryData.length > 0 ? categoryData : undefined,
         subCategory: rawProduct.subCategory ? String(rawProduct.subCategory).trim() : undefined,
         animalType: animalTypes,
         packSize: rawProduct.packSize ? String(rawProduct.packSize).trim() : undefined,
         weight: rawProduct.weight_value ? {
-          value: parseFloat(rawProduct.weight_value),
+          value: parseNumber(rawProduct.weight_value, 0),
           unit: rawProduct.weight_unit || 'g',
         } : undefined,
-        mrp: parseFloat(rawProduct.mrp || 0),
-        costPrice: parseFloat(rawProduct.costPrice || 0),
+        mrp: parseNumber(rawProduct.mrp, 0),
+        costPrice: parseNumber(rawProduct.costPrice, 0),
         gstPercent: [0, 5, 12, 18, 28].includes(parseInt(rawProduct.gstPercent)) ? parseInt(rawProduct.gstPercent) : 18,
         sellingPrice: {
-          fifozone: parseFloat(rawProduct.sellingPrice_fifozone || 0),
-          amazon: parseFloat(rawProduct.sellingPrice_amazon || 0),
-          flipkart: parseFloat(rawProduct.sellingPrice_flipkart || 0),
+          fifozone: parseNumber(rawProduct.sellingPrice_fifozone, 0),
+          amazon: parseNumber(rawProduct.sellingPrice_amazon, 0),
+          flipkart: parseNumber(rawProduct.sellingPrice_flipkart, 0),
         },
         totalStock,
         stockByPlatform: {
