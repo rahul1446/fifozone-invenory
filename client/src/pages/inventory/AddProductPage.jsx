@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Checkbox, Tooltip, Alert, TreeSelect } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, ImagePlus, FileUp, Globe, ShoppingCart, Package } from 'lucide-react';
+import { ArrowLeft, Save, ImagePlus, FileUp, Globe, ShoppingCart, Package, Plus, Trash2 } from 'lucide-react';
 import { createProductApi } from '../../api/productApi';
 import { getWooCommerceCategoriesApi } from '../../api/platformApi';
 import ProductImageUploader from '../../components/inventory/ProductImageUploader';
@@ -89,6 +89,19 @@ const AddProductPage = () => {
           warehouse: values.warehouseStock || 0,
         },
         lowStockThreshold: values.lowStockThreshold || 10,
+        variants: values.variants ? values.variants.map(v => ({
+          name: v.name,
+          value: v.value,
+          sku: v.sku,
+          stock: v.stock || 0,
+          price: {
+            fifozone: isSelected('fifozone') ? (v.fifozonePrice || v.price) : undefined,
+            amazon:   isSelected('amazon')   ? (v.amazonPrice   || v.price) : undefined,
+            flipkart: isSelected('flipkart') ? (v.flipkartPrice || v.price) : undefined,
+            meesho:   isSelected('meesho')   ? (v.meeshoPrice   || v.price) : undefined,
+          },
+          isActive: true
+        })) : [],
         isActive: values.isActive,
         platformStatus,
         publishTo: selectedPlatforms,
@@ -358,6 +371,72 @@ const AddProductPage = () => {
                   <InputNumber className="w-full" min={0} />
                 </Form.Item>
               </div>
+            </Card>
+
+            {/* ── Variants (Optional) ── */}
+            <Card title="Variants (Optional)" className="shadow-sm rounded-xl" bordered={false}>
+              <p className="text-xs text-slate-400 mb-4">Add variants if this product comes in different sizes, colors, or flavors.</p>
+              <Form.List name="variants">
+                {(fields, { add, remove }) => (
+                  <div className="space-y-4">
+                    {fields.map(({ key, name, ...restField }) => (
+                      <div key={key} className="p-4 bg-slate-50 border border-slate-200 rounded-lg relative">
+                        <Button
+                          type="text"
+                          danger
+                          icon={<Trash2 size={16} />}
+                          className="absolute top-2 right-2"
+                          onClick={() => remove(name)}
+                        />
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2 pr-8">
+                          <Form.Item {...restField} name={[name, 'name']} label="Variant Type" rules={[{ required: true, message: 'Missing type' }]} className="mb-0">
+                            <Input placeholder="e.g. Size, Flavor" size="small" />
+                          </Form.Item>
+                          <Form.Item {...restField} name={[name, 'value']} label="Variant Value" rules={[{ required: true, message: 'Missing value' }]} className="mb-0">
+                            <Input placeholder="e.g. 2kg, Chicken" size="small" />
+                          </Form.Item>
+                          <Form.Item {...restField} name={[name, 'sku']} label="Variant SKU" rules={[{ required: true, message: 'Missing SKU' }]} className="mb-0">
+                            <Input placeholder="Unique SKU" size="small" />
+                          </Form.Item>
+                          <Form.Item {...restField} name={[name, 'stock']} label="Variant Stock" className="mb-0">
+                            <InputNumber placeholder="0" size="small" className="w-full" />
+                          </Form.Item>
+                        </div>
+                        
+                        <div className="text-xs font-semibold text-slate-500 mb-2 mt-4">Variant Pricing (Optional)</div>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          <Form.Item {...restField} name={[name, 'price']} label="Base Price" className="mb-0">
+                            <InputNumber prefix="₹" size="small" className="w-full" />
+                          </Form.Item>
+                          {isSelected('fifozone') && (
+                            <Form.Item {...restField} name={[name, 'fifozonePrice']} label="Fifozone Price" className="mb-0">
+                              <InputNumber prefix="₹" size="small" className="w-full" placeholder="Base" />
+                            </Form.Item>
+                          )}
+                          {isSelected('amazon') && (
+                            <Form.Item {...restField} name={[name, 'amazonPrice']} label="Amazon Price" className="mb-0">
+                              <InputNumber prefix="₹" size="small" className="w-full" placeholder="Base" />
+                            </Form.Item>
+                          )}
+                          {isSelected('flipkart') && (
+                            <Form.Item {...restField} name={[name, 'flipkartPrice']} label="Flipkart Price" className="mb-0">
+                              <InputNumber prefix="₹" size="small" className="w-full" placeholder="Base" />
+                            </Form.Item>
+                          )}
+                          {isSelected('meesho') && (
+                            <Form.Item {...restField} name={[name, 'meeshoPrice']} label="Meesho Price" className="mb-0">
+                              <InputNumber prefix="₹" size="small" className="w-full" placeholder="Base" />
+                            </Form.Item>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="dashed" onClick={() => add()} block icon={<Plus size={16} />} className="text-emerald-600 border-emerald-300 hover:border-emerald-500 hover:text-emerald-700">
+                      Add Variant
+                    </Button>
+                  </div>
+                )}
+              </Form.List>
             </Card>
           </div>
 
