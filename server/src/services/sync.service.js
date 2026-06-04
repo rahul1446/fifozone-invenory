@@ -32,6 +32,11 @@ class SyncService {
 
   async syncProducts() {
     const PlatformCredential = require('../models/PlatformCredential.model');
+
+    // Clear the WooCommerce category cache at the start of every sync run
+    // so we always resolve category IDs fresh from WooCommerce.
+    WooCommerceService.clearCategoryCache();
+
     const platforms = [
       { service: WooCommerceService, key: 'fifozone' },
       { service: AmazonService,      key: 'amazon'   },

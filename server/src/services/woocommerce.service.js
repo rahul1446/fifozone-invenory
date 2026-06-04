@@ -5,6 +5,9 @@ const logger = require('../utils/logger');
 class WooCommerceService {
   constructor() {
     this.name = 'WooCommerce';
+    // Per-sync-run cache: categoryName (lowercase) → WooCommerce category ID
+    // Cleared at the start of each sync so stale IDs never persist.
+    this._categoryCache = new Map();
   }
 
   async getClient() {
@@ -87,6 +90,78 @@ class WooCommerceService {
     }
   }
 
+  // ─── Category name → WooCommerce category ID (with auto-create) ─────────────
+  /**
+   * Given a plain-text category name (e.g. "Dog Medicine"), returns the
+   * corresponding WooCommerce numeric category ID.
+   *
+   * Strategy:
+   *  1. Return from in-memory cache if already resolved this session.
+   *  2. Fetch the full category list from WooCommerce and cache every entry.
+   *  3. If the category still isn't found, CREATE it in WooCommerce and cache
+   *     the new ID so subsequent products reuse it without extra API calls.
+   *
+   * @param {object} client  WooCommerce REST client
+   * @param {string} name    Raw category name from our product record
+   * @returns {Promise<number|null>} WooCommerce category ID, or null on failure
+   */
+  async resolveCategoryId(client, name) {
+    if (!name || !name.trim()) return null;
+
+    const key = name.trim().toLowerCase();
+
+    // 1. In-memory cache hit
+    if (this._categoryCache.has(key)) {
+      return this._categoryCache.get(key);
+    }
+
+    // 2. Fetch all categories from WooCommerce and warm the cache
+    try {
+      let page = 1;
+      while (true) {
+        const res = await client.get('products/categories', { per_page: 100, page });
+        const batch = res.data || [];
+        if (batch.length === 0) break;
+        batch.forEach(cat => {
+          this._categoryCache.set(cat.name.trim().toLowerCase(), cat.id);
+        });
+        // Check if this is the last page
+        const totalPages = parseInt(res.headers?.['x-wp-totalpages'] || '1');
+        if (page >= totalPages) break;
+        page++;
+      }
+    } catch (err) {
+      logger.warn(`[${this.name}] resolveCategoryId: failed to fetch categories — ${err.message}`);
+      return null;
+    }
+
+    // 3. Cache hit after warming
+    if (this._categoryCache.has(key)) {
+      return this._categoryCache.get(key);
+    }
+
+    // 4. Category not found — auto-create it in WooCommerce
+    try {
+      logger.info(`[${this.name}] Category "${name}" not found in WooCommerce — creating it.`);
+      const res = await client.post('products/categories', { name: name.trim() });
+      const newId = res.data?.id;
+      if (newId) {
+        this._categoryCache.set(key, newId);
+        logger.info(`[${this.name}] Created WooCommerce category "${name}" with ID: ${newId}`);
+        return newId;
+      }
+    } catch (err) {
+      logger.warn(`[${this.name}] resolveCategoryId: failed to create category "${name}" — ${err.message}`);
+    }
+
+    return null;
+  }
+
+  // Clear category cache — call this at the start of each sync run
+  clearCategoryCache() {
+    this._categoryCache.clear();
+  }
+
   // ─── Find WooCommerce product ID by SKU ─────────────────────────────────────
   // Find WooCommerce product ID by SKU
   async findWooProductId(client, sku) {
@@ -142,7 +217,11 @@ class WooCommerceService {
   }
 
   // ─── Build WooCommerce parent product payload ─────────────────────────────────
-  buildWooPayload(product) {
+  /**
+   * @param {object} product      Our internal product document
+   * @param {number|null} categoryId  Pre-resolved WooCommerce category ID (from resolveCategoryId)
+   */
+  buildWooPayload(product, categoryId = null) {
     const hasVariants = product.variants && product.variants.length > 0;
 
     // Stock: use fifozone platform stock, fall back to totalStock
@@ -188,8 +267,15 @@ class WooCommerceService {
       payload.stock_quantity = stockQty;
     }
 
-    // Categories
-    if (product.category) {
+    // Categories — always use numeric ID (required by WooCommerce REST API)
+    // If a resolved ID was provided, use it. Never fall back to name-only
+    // because WooCommerce silently ignores or errors on { name } payloads.
+    if (categoryId) {
+      payload.categories = [{ id: categoryId }];
+    } else if (product.category) {
+      // Fallback: send name only (WooCommerce may accept this for existing categories
+      // but it is unreliable — this branch only runs if resolveCategoryId failed)
+      logger.warn(`[WooCommerce] Could not resolve ID for category "${product.category}" — sending name as fallback.`);
       payload.categories = [{ name: product.category }];
     }
 
@@ -260,11 +346,14 @@ class WooCommerceService {
     try {
       const client = await this.getClient();
 
+      // Resolve category name → WooCommerce category ID before building payload
+      const categoryId = await this.resolveCategoryId(client, product.category);
+
       // Don't create if already exists (check by SKU)
       const existingId = await this.findWooProductId(client, product.sku);
       if (existingId) {
         logger.info(`[${this.name}] SKU ${product.sku} already exists on WooCommerce (ID: ${existingId}), updating instead.`);
-        const payload = this.buildWooPayload(product);
+        const payload = this.buildWooPayload(product, categoryId);
         await client.put(`products/${existingId}`, payload);
         // Sync variations if variable product
         if (product.variants?.length > 0) {
@@ -273,7 +362,7 @@ class WooCommerceService {
         return { success: true, wooProductId: existingId, action: 'updated' };
       }
 
-      const payload = this.buildWooPayload(product);
+      const payload = this.buildWooPayload(product, categoryId);
       const res = await client.post('products', payload);
       const wooId = res.data?.id;
 
@@ -295,6 +384,10 @@ class WooCommerceService {
     logger.info(`[${this.name}] Updating product: ${product.masterName}`);
     try {
       const client = await this.getClient();
+
+      // Resolve category name → WooCommerce category ID before building payload
+      const categoryId = await this.resolveCategoryId(client, product.category);
+
       const overrideId = wooProductId && !isNaN(Number(wooProductId)) ? wooProductId : null;
       const prodWithOverride = overrideId
         ? { ...product, platformIds: { ...product.platformIds, fifozone: { productId: overrideId } } }
@@ -307,7 +400,7 @@ class WooCommerceService {
         return this.createProduct(product);
       }
 
-      const payload = this.buildWooPayload(product);
+      const payload = this.buildWooPayload(product, categoryId);
       await client.put(`products/${wooId}`, payload);
 
       // Sync variations if this is a variable product
