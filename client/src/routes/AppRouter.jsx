@@ -89,13 +89,17 @@ const AppRouter = () => {
         <Route path="/orders/manual" element={<ManualOrderPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
 
-        {/* Products */}
+        {/* Products — both /products and /inventory/products paths work */}
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/add" element={<AddProductPage />} />
         <Route path="/products/:id/edit" element={<EditProductPage />} />
         <Route path="/products/channel-listing" element={<ChannelListingPage />} />
         <Route path="/products/pricing" element={<PricingControlPage />} />
         <Route path="/products/performance" element={<ProductPerformancePage />} />
+        {/* Aliases under /inventory/products (used by sidebar & dashboard links) */}
+        <Route path="/inventory/products" element={<ProductsPage />} />
+        <Route path="/inventory/products/add" element={<AddProductPage />} />
+        <Route path="/inventory/products/:id/edit" element={<EditProductPage />} />
 
         {/* Inventory */}
         <Route path="/inventory" element={<InventoryLedgerPage />} />
