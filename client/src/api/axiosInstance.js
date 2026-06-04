@@ -5,6 +5,7 @@ import { setCredentials, clearCredentials } from '../store/authSlice';
 const axiosInstance = axios.create({
   baseURL: '/api',
   withCredentials: true, // Crucial for sending httpOnly refresh token cookie
+  timeout: 10000, // 10-second timeout — prevents hanging on cold backend
   headers: {
     'Content-Type': 'application/json'
   }

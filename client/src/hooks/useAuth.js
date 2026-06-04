@@ -34,13 +34,21 @@ export const useAuth = () => {
   };
 
   const fetchUserProfile = async () => {
+    // Set a safety timeout — if backend doesn't respond in 5s, clear loading
+    const timeout = setTimeout(() => {
+      const state = store.getState().auth;
+      if (state.loading) {
+        store.dispatch(clearCredentials());
+      }
+    }, 5000);
+
     try {
       const response = await fetchMeApi();
-      // Get the latest accessToken from the Redux store, because the axios interceptor
-      // might have refreshed it and updated the store in the background!
+      clearTimeout(timeout);
       const currentToken = store.getState().auth.accessToken;
       dispatch(setCredentials({ user: response.data, accessToken: currentToken }));
     } catch (err) {
+      clearTimeout(timeout);
       dispatch(clearCredentials());
     }
   };

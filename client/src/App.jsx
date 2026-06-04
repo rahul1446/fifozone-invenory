@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import AppRouter from './routes/AppRouter';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 const App = () => {
   const { fetchUserProfile } = useAuth();
@@ -10,7 +11,11 @@ const App = () => {
     fetchUserProfile();
   }, []);
 
-  return <AppRouter />;
+  return (
+    <ErrorBoundary>
+      <AppRouter />
+    </ErrorBoundary>
+  );
 };
 
 export default App;

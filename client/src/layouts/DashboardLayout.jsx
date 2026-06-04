@@ -85,10 +85,12 @@ const DashboardLayout = () => {
   const fetchNotifications = async () => {
     try {
       const response = await getNotificationsApi({ limit: 15 });
-      setNotificationsList(response.data.notifications);
-      setUnreadCount(response.data.unreadCount);
+      const data = response?.data || {};
+      setNotificationsList(data.notifications || data.data || []);
+      setUnreadCount(data.unreadCount || 0);
     } catch (err) {
-      console.error(err);
+      setNotificationsList([]);
+      setUnreadCount(0);
     }
   };
 
@@ -305,7 +307,7 @@ const DashboardLayout = () => {
     items: [
       {
         key: 'profile',
-        label: <Link to="/settings/profile">My Profile</Link>,
+        label: <Link to="/settings">My Profile</Link>,
         icon: <User size={16} />
       },
       {
@@ -336,7 +338,7 @@ const DashboardLayout = () => {
   };
 
   const filteredNotifications = notificationsList.filter(n => {
-    if (notifFilter === 'Unread') return !n.readBy.includes(user?._id);
+    if (notifFilter === 'Unread') return !(n.readBy || []).includes(user?._id);
     if (notifFilter === 'Low Stock') return n.type === 'low_stock' || n.type === 'out_of_stock';
     if (notifFilter === 'Orders') return n.type === 'new_order' || n.type === 'order_cancelled';
     return true;
@@ -511,7 +513,7 @@ const DashboardLayout = () => {
             </div>
           ) : (
             filteredNotifications.map(notif => {
-              const isUnread = !notif.readBy.includes(user?._id);
+              const isUnread = !(notif.readBy || []).includes(user?._id);
               return (
                 <div
                   key={notif._id}
