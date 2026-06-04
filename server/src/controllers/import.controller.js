@@ -10,7 +10,10 @@ const WooCommerceService = require('../services/woocommerce.service');
 // ─── Helper: parse numbers safely ─────────────────────────────────────────────
 const parseNumber = (val, fallback = 0) => {
   if (val === undefined || val === null || val === '') return fallback;
-  const n = parseFloat(val);
+  // Aggressively strip currency symbols (₹, $), commas, and spaces
+  const cleanStr = String(val).replace(/[^0-9.-]/g, '');
+  if (!cleanStr) return fallback;
+  const n = parseFloat(cleanStr);
   return isNaN(n) ? fallback : n;
 };
 
