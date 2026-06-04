@@ -180,6 +180,7 @@ class WooCommerceService {
         page++;
       }
 
+      const catMap = {};
       allCategories.forEach(cat => {
         catMap[cat.id] = {
           title: cat.name,
