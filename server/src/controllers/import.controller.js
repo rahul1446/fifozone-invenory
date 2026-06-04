@@ -164,11 +164,8 @@ const uploadImport = asyncHandler(async (req, res) => {
       dupQuery.$or.push({ masterName: { $regex: `^${String(productName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } });
 
       const existing = await Product.findOne(dupQuery);
-      if (existing) {
-        results.log.push({ name: productName, status: 'duplicate', message: `Already exists (matched by name/SKU/barcode)` });
-        results.skipped++;
-        continue;
-      }
+      // If we found an existing product, we will update it below after categories are resolved
+
 
       // ── Build variants ──
       const variants = [];
@@ -248,7 +245,54 @@ const uploadImport = asyncHandler(async (req, res) => {
         }
       }
 
-      // ── Build product doc ──
+      if (existing) {
+        // ── UPDATE existing product ──
+        existing.mrp = parseNumber(rawProduct.mrp, existing.mrp);
+        existing.costPrice = parseNumber(rawProduct.costPrice, existing.costPrice);
+        
+        if (rawProduct.brand) existing.brand = String(rawProduct.brand).trim();
+        if (categoryData.length > 0) existing.category = categoryData;
+        
+        if (rawProduct.sellingPrice_fifozone) existing.sellingPrice.fifozone = parseNumber(rawProduct.sellingPrice_fifozone, existing.sellingPrice.fifozone);
+        if (rawProduct.sellingPrice_amazon) existing.sellingPrice.amazon = parseNumber(rawProduct.sellingPrice_amazon, existing.sellingPrice.amazon);
+        if (rawProduct.sellingPrice_flipkart) existing.sellingPrice.flipkart = parseNumber(rawProduct.sellingPrice_flipkart, existing.sellingPrice.flipkart);
+        
+        const csvStock = parseInt(rawProduct.totalStock);
+        if (!isNaN(csvStock) && csvStock !== existing.totalStock) {
+          const prevStock = existing.totalStock;
+          existing.totalStock = csvStock;
+          existing.stockByPlatform.warehouse = csvStock;
+          
+          await InventoryLog.create({
+            product: existing._id,
+            productName: existing.masterName,
+            sku: existing.sku,
+            changeType: 'adjustment',
+            platform: 'internal',
+            previousStock: prevStock,
+            changeQuantity: csvStock - prevStock,
+            newStock: csvStock,
+            note: `Stock adjusted via CSV/Excel (Batch: ${importBatchId})`,
+            performedBy: req.user?._id,
+          });
+        }
+        
+        existing.updatedBy = req.user?._id;
+        existing.importBatchId = importBatchId;
+        existing.importNote = 'Updated via CSV/Excel import';
+        
+        await existing.save();
+        
+        SyncService.pushStockToPlatforms(existing);
+        SyncService.pushPriceToPlatforms(existing);
+        SyncService.pushProductUpdate(existing).catch(e => logger.error(`[Import] Sync update failed: ${e.message}`));
+        
+        results.uploaded++;
+        results.log.push({ name: productName, status: 'success', message: 'Updated existing product successfully' });
+        continue;
+      }
+
+      // ── Build new product doc ──
       const productData = {
         masterName: String(productName).trim(),
         sku: rawProduct.sku ? String(rawProduct.sku).trim() : generateSku(productName),
