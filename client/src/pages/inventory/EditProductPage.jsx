@@ -50,7 +50,8 @@ const EditProductPage = () => {
         sku: data.sku,
         barcode: data.barcode,
         brand: data.brand,
-        category: data.category ? data.category.map(c => ({ label: c, value: c })) : [],
+        // Only provide 'value'. TreeSelect will automatically look up the 'label' from treeData.
+        category: data.category ? data.category.map(c => ({ value: c })) : [],
         animalType: data.animalType || [],
         description: data.description,
         shortDescription: data.shortDescription,

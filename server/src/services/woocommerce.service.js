@@ -180,12 +180,10 @@ class WooCommerceService {
         page++;
       }
 
-      // Build the tree structure
-      const catMap = {};
       allCategories.forEach(cat => {
         catMap[cat.id] = {
           title: cat.name,
-          value: cat.name, // TreeSelect value uses the name
+          value: cat.id, // TreeSelect value must be unique (use ID instead of name)
           key: cat.id,
           parent: cat.parent,
           children: []
@@ -411,9 +409,13 @@ class WooCommerceService {
       // Resolve category names → WooCommerce category IDs before building payload
       let categoryIds = [];
       const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
-      for (const catName of cats) {
-        const id = await this.resolveCategoryId(client, catName);
-        if (id) categoryIds.push(id);
+      for (const catVal of cats) {
+        if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
+          categoryIds.push(Number(catVal));
+        } else {
+          const id = await this.resolveCategoryId(client, catVal);
+          if (id) categoryIds.push(id);
+        }
       }
 
       // Don't create if already exists (check by SKU)
@@ -455,9 +457,13 @@ class WooCommerceService {
       // Resolve category names → WooCommerce category IDs before building payload
       let categoryIds = [];
       const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
-      for (const catName of cats) {
-        const id = await this.resolveCategoryId(client, catName);
-        if (id) categoryIds.push(id);
+      for (const catVal of cats) {
+        if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
+          categoryIds.push(Number(catVal));
+        } else {
+          const id = await this.resolveCategoryId(client, catVal);
+          if (id) categoryIds.push(id);
+        }
       }
 
       const overrideId = wooProductId && !isNaN(Number(wooProductId)) ? wooProductId : null;
