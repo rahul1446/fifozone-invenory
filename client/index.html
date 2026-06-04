@@ -5,35 +5,38 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fifozone Dashboard — Unified Management</title>
-    <!-- Premium Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-      /* Critical inline CSS to ensure page is never blank */
-      html, body {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-        background: #0f172a;
-        font-family: Inter, sans-serif;
-      }
-      #root {
-        min-height: 100vh;
-      }
-      /* Loading fallback shown before React mounts */
-      #root:empty::after {
-        content: '';
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        background: #0f172a;
-      }
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100vh; background: #0f172a; font-family: 'Inter', sans-serif; }
+      #root { min-height: 100vh; }
     </style>
+    <script>
+      // Catch any uncaught JS error and show it visibly
+      window.onerror = function(msg, src, line, col, err) {
+        var el = document.getElementById('root');
+        if (el) {
+          el.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;font-family:Inter,sans-serif;padding:24px;">' +
+            '<div style="background:#1e293b;border:1px solid #ef4444;border-radius:16px;padding:40px;max-width:560px;width:100%;text-align:center;">' +
+            '<div style="font-size:48px;margin-bottom:12px;">💥</div>' +
+            '<h2 style="color:#f87171;margin:0 0 12px;font-size:20px;">JavaScript Error</h2>' +
+            '<p style="color:#94a3b8;margin-bottom:16px;font-size:14px;">' + msg + '</p>' +
+            '<pre style="background:#0f172a;color:#fca5a5;padding:12px;border-radius:8px;font-size:11px;text-align:left;overflow:auto;margin-bottom:20px;">' + 
+            (src || '') + ':' + (line || '') + ':' + (col || '') + '</pre>' +
+            '<button onclick="location.reload()" style="padding:10px 24px;background:#166534;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Reload</button>' +
+            '</div></div>';
+        }
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise:', e.reason);
+      });
+    </script>
   </head>
-  <body style="background:#0f172a; margin:0; padding:0;">
-    <div id="root"></div>
+  <body style="background:#0f172a;margin:0;padding:0;">
+    <div id="root" style="min-height:100vh;"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
