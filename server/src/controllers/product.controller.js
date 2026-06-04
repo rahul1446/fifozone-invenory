@@ -5,6 +5,7 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
+const WooCommerceService = require('../services/woocommerce.service');
 
 // Retrieve all products with filters
 const getProducts = asyncHandler(async (req, res) => {
@@ -382,13 +383,36 @@ const importCSV = asyncHandler(async (req, res) => {
 
     let product = await Product.findOne({ sku: row.sku });
 
+    let categoryData = [];
+    if (row.category) {
+      const catNames = typeof row.category === 'string' ? row.category.split(',').map(c => c.trim()).filter(Boolean) : (Array.isArray(row.category) ? row.category : [row.category]);
+      try {
+        const client = await WooCommerceService.getClient();
+        for (const catName of catNames) {
+          if (catName.includes('|')) {
+            categoryData.push(catName);
+          } else {
+            const id = await WooCommerceService.resolveCategoryId(client, catName);
+            if (id) {
+              categoryData.push(`${id}|${catName}`);
+            } else {
+              categoryData.push(catName);
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(`Failed to resolve WooCommerce categories during CSV import: ${err.message}`);
+        categoryData = catNames;
+      }
+    }
+
     if (product) {
       // Update
       product.masterName = row.masterName;
       product.mrp = parseFloat(row.mrp) || product.mrp;
       product.costPrice = parseFloat(row.costPrice) || product.costPrice;
       product.brand = row.brand || product.brand;
-      product.category = row.category || product.category;
+      product.category = categoryData.length > 0 ? categoryData : product.category;
       
       const prevStock = product.totalStock;
       const csvStock = parseInt(row.totalStock);
@@ -421,7 +445,7 @@ const importCSV = asyncHandler(async (req, res) => {
         sku: row.sku,
         barcode: row.barcode || '',
         brand: row.brand || 'Generic',
-        category: row.category || 'Uncategorized',
+        category: categoryData.length > 0 ? categoryData : ['Uncategorized'],
         mrp: parseFloat(row.mrp) || 0,
         costPrice: parseFloat(row.costPrice) || 0,
         totalStock: stockVal,
