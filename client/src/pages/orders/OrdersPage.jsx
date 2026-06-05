@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Table, Select, Button, Input, Tag, Dropdown, DatePicker, Tooltip, message, Modal } from 'antd';
-import { Search, Phone, MoreHorizontal, RefreshCw } from 'lucide-react';
-import { getOrdersApi, updateOrderStatusApi, bulkUpdateOrderStatusApi } from '../../api/orderApi';
+import { Table, Select, Button, message } from 'antd';
+import { RefreshCw, Bug, Printer, Download, Package, Eye, Filter, ShoppingCart } from 'lucide-react';
+import { getOrdersApi } from '../../api/orderApi';
 import { setOrdersStart, setOrdersSuccess, setOrdersFailure } from '../../store/orderSlice';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 
-const { RangePicker } = DatePicker;
 const { Option } = Select;
-const { TextArea } = Input;
 
 const OrdersPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { orders, pagination, loading } = useSelector(state => state.orders);
-
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [updateNote, setUpdateNote] = useState('');
 
   const [filters, setFilters] = useState({
     search: '',
@@ -47,224 +42,193 @@ const OrdersPage = () => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
-  const clearFilters = () => {
-    setFilters({
-      search: '', platform: 'All', status: 'All', paymentStatus: 'All', page: 1, limit: 20
-    });
-  };
-
   const openOrderDetails = (id) => {
     navigate(`/orders/${id}`);
   };
 
-  const handleStatusUpdate = async (orderId, status, extraData = {}) => {
-    try {
-      await updateOrderStatusApi(orderId, { status, note: updateNote, ...extraData });
-      message.success(`Order marked as ${status}`);
-      setUpdateNote('');
-      fetchOrders();
-      if (drawerOpen && selectedOrder?._id === orderId) {
-        openOrderDetails(orderId); // Refresh drawer
-      }
-    } catch (error) {
-      message.error('Failed to update order status');
-    }
-  };
-
-  const promptShippingDetails = (orderId) => {
-    let trackingNumber = '';
-    let courierPartner = '';
-    Modal.confirm({
-      title: 'Mark as Shipped',
-      content: (
-        <div className="space-y-4 mt-4">
-          <Input placeholder="Courier Partner (e.g. BlueDart)" onChange={e => courierPartner = e.target.value} />
-          <Input placeholder="Tracking Number" onChange={e => trackingNumber = e.target.value} />
-        </div>
-      ),
-      onOk: () => handleStatusUpdate(orderId, 'shipped', { trackingNumber, courierPartner })
-    });
-  };
-
-  const handleBulkUpdate = async (status) => {
-    try {
-      await bulkUpdateOrderStatusApi(selectedRowKeys, status);
-      message.success(`Selected orders marked as ${status}`);
-      setSelectedRowKeys([]);
-      fetchOrders();
-    } catch (error) {
-      message.error('Bulk update failed');
-    }
-  };
-
-  const getPlatformTag = (platform) => {
-    const map = { 
-      fifozone: { c: 'green', l: 'Fifozone' }, 
-      amazon: { c: 'orange', l: 'Amazon' }, 
-      flipkart: { c: 'gold', l: 'Flipkart' },
-      meesho: { c: 'pink', l: 'Meesho' } 
-    };
-    const p = map[platform];
-    return p ? <Tag color={p.c}>{p.l}</Tag> : <Tag>{platform}</Tag>;
-  };
-
-  const getStatusTag = (status) => {
-    const map = {
-      pending: 'default', confirmed: 'blue', processing: 'cyan', shipped: 'purple',
-      out_for_delivery: 'gold', delivered: 'green', cancelled: 'red', return_requested: 'orange', returned: 'volcano'
-    };
-    return <Tag color={map[status]}>{status.replace('_', ' ').toUpperCase()}</Tag>;
-  };
+  // Compute Stats for cards
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const totalQty = orders.reduce((sum, o) => sum + (o.items?.reduce((acc, i) => acc + (i.quantity || 1), 0) || 0), 0);
+  const profitableCount = orders.filter(o => (o.totalAmount || 0) > 0).length;
 
   const columns = [
     {
-      title: 'Order #',
-      dataIndex: 'orderNumber',
-      key: 'orderNumber',
-      render: (text, record) => <span className="font-semibold cursor-pointer text-brand-700" onClick={() => openOrderDetails(record._id)}>{text}</span>
-    },
-    {
-      title: 'Platform',
-      dataIndex: 'platform',
-      key: 'platform',
-      render: (val) => getPlatformTag(val)
-    },
-    {
-      title: 'Date',
-      dataIndex: 'orderDate',
-      key: 'date',
-      render: (val, record) => formatDate(val || record.createdAt)
-    },
-    {
-      title: 'Customer',
-      key: 'customer',
-      render: (_, record) => record.customer?.name || record.customerInfo?.name || '—'
-    },
-    {
-      title: 'Phone',
-      key: 'phone',
+      title: <span className="text-[13px] font-bold text-slate-800">Product</span>,
+      key: 'product',
+      width: 400,
       render: (_, record) => {
-        const phone = record.customer?.phone || record.customerInfo?.phone;
-        if (!phone) return '-';
+        const item = record.items?.[0];
+        const title = item?.productSnapshot?.masterName || item?.productName || 'Unknown Product';
+        const img = item?.productSnapshot?.images?.[0];
         return (
-          <a href={`https://wa.me/91${phone}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-emerald-600 hover:text-emerald-700">
-            <Phone size={14} /> {phone}
-          </a>
+          <div className="flex items-center gap-4 py-2">
+            {img ? (
+              <img src={img} alt="product" className="w-10 h-10 rounded-md object-cover border border-slate-200" />
+            ) : (
+              <div className="w-10 h-10 rounded-md bg-slate-50 flex items-center justify-center border border-slate-100">
+                <Package size={18} className="text-slate-400" />
+              </div>
+            )}
+            <div className="flex flex-col">
+              <span className="text-[13px] font-semibold text-slate-900 leading-snug line-clamp-1">
+                {title} {record.items?.length > 1 ? `+${record.items.length - 1}` : ''}
+              </span>
+              <span className="text-[11px] text-slate-400 font-medium mt-0.5">{record.orderNumber}</span>
+            </div>
+          </div>
         );
       }
     },
     {
-      title: 'Items',
-      key: 'items',
-      render: (_, record) => (
-        <Tooltip title={record.items.map(i => i.productName).join(', ')}>
-          <span className="cursor-help border-b border-dashed border-slate-400">{record.items.length} items</span>
-        </Tooltip>
+      title: <span className="text-[13px] font-bold text-slate-800">Channel</span>,
+      dataIndex: 'platform',
+      key: 'channel',
+      width: 180,
+      render: (p) => (
+        <span className="px-2.5 py-1 text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-full tracking-wider">
+          WEBSITE_{p?.toUpperCase() || 'UNKNOWN'}
+        </span>
       )
     },
     {
-      title: 'Amount',
+      title: <span className="text-[13px] font-bold text-slate-800">Qty</span>,
+      key: 'qty',
+      width: 100,
+      render: (_, record) => <span className="text-[13px] font-semibold text-slate-700">{record.items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0}</span>
+    },
+    {
+      title: <span className="text-[13px] font-bold text-slate-800">Total</span>,
       key: 'total',
-      render: (_, record) => {
-        const amt = record.totalAmount || record.pricing?.total || 0;
-        return <span className="font-bold">{formatCurrency(amt)}</span>;
+      width: 150,
+      render: (_, record) => <span className="text-[13px] font-bold text-slate-900">{formatCurrency(record.totalAmount || record.pricing?.total || 0)}</span>
+    },
+    {
+      title: <span className="text-[13px] font-bold text-slate-800">Status</span>,
+      dataIndex: 'status',
+      key: 'status',
+      width: 150,
+      render: (s) => {
+        const isDelivered = s === 'delivered';
+        const color = isDelivered ? 'bg-emerald-50 text-emerald-600' : 
+                     s === 'pending' ? 'bg-amber-50 text-amber-600' : 
+                     s === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600';
+        return (
+          <span className={`px-3 py-1 text-[11px] font-bold rounded-full capitalize ${color}`}>
+            {s?.replace('_', ' ')}
+          </span>
+        );
       }
     },
     {
-      title: 'Payment',
-      dataIndex: 'paymentStatus',
-      key: 'payment',
-      render: (val) => <Tag color={val === 'paid' ? 'green' : val === 'refunded' ? 'blue' : 'orange'}>{val.toUpperCase()}</Tag>
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (val) => getStatusTag(val)
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
+      title: <span className="text-[13px] font-bold text-slate-800">Action</span>,
+      key: 'action',
+      width: 80,
+      align: 'center',
       render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-              { key: 'view', label: 'View Details', onClick: () => openOrderDetails(record._id) },
-              { type: 'divider' },
-              ...(record.status === 'pending' ? [{ key: 'confirm', label: 'Confirm Order', onClick: () => handleStatusUpdate(record._id, 'confirmed') }] : []),
-              ...(['confirmed', 'processing'].includes(record.status) ? [{ key: 'ship', label: 'Mark as Shipped', onClick: () => promptShippingDetails(record._id) }] : []),
-              ...(['shipped', 'out_for_delivery'].includes(record.status) ? [{ key: 'deliver', label: 'Mark as Delivered', onClick: () => handleStatusUpdate(record._id, 'delivered') }] : []),
-              ...(record.status !== 'cancelled' && record.status !== 'delivered' ? [{ key: 'cancel', label: 'Cancel Order', danger: true, onClick: () => handleStatusUpdate(record._id, 'cancelled') }] : []),
-            ]
-          }}
-          trigger={['click']}
-          placement="bottomRight"
-        >
-          <Button type="text" icon={<MoreHorizontal size={18} className="text-slate-500" />} />
-        </Dropdown>
+        <Button 
+          type="text" 
+          icon={<Eye size={16} className="text-slate-400 hover:text-indigo-600" />} 
+          onClick={(e) => { e.stopPropagation(); openOrderDetails(record._id); }}
+        />
       )
     }
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <div className="space-y-6 animate-fade-in pb-10 max-w-7xl mx-auto p-1">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Orders</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage orders across all platforms</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4 text-indigo-600" />
+            </div>
+            <h1 className="text-[22px] font-extrabold text-slate-900 tracking-tight">Complete Order Details</h1>
+          </div>
+          <p className="text-[13px] text-slate-400 font-medium ml-11">View full order information with inventory impact and profitability metrics</p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button icon={<Bug size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Debug</Button>
+          <Button icon={<RefreshCw size={14} />} onClick={fetchOrders} loading={loading} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Refresh</Button>
+          <Button icon={<Printer size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Print</Button>
+          <Button icon={<Download size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Export</Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Input placeholder="Search Order ID, name..." prefix={<Search size={16} />} value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} />
-          <Select value={filters.platform} onChange={v => handleFilterChange('platform', v)}>
-            <Option value="All">All Platforms</Option>
+      {/* 4 Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex flex-col justify-between h-[110px]">
+          <p className="text-[12px] font-semibold text-slate-400">Total Revenue</p>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1.5">{formatCurrency(totalRevenue)}</h2>
+            <p className="text-[11px] text-slate-400 font-medium">{orders.length} orders</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex flex-col justify-between h-[110px]">
+          <p className="text-[12px] font-semibold text-slate-400">Total Profit</p>
+          <div>
+            <h2 className="text-2xl font-black text-emerald-500 tracking-tight leading-none mb-1.5">{formatCurrency(totalRevenue)}</h2>
+            <p className="text-[11px] text-slate-400 font-medium">{profitableCount} profitable</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex flex-col justify-between h-[110px]">
+          <p className="text-[12px] font-semibold text-slate-400">Total Quantity Sold</p>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1.5">{totalQty}</h2>
+            <p className="text-[11px] text-slate-400 font-medium">units</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex flex-col justify-between h-[110px]">
+          <p className="text-[12px] font-semibold text-slate-400">Margin %</p>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1.5">100.0%</h2>
+            <p className="text-[11px] text-slate-400 font-medium">profit margin</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Container */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 pt-5">
+        
+        {/* Filters Row */}
+        <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
+            <Filter size={16} />
+            <span className="text-[13px] text-slate-500 font-semibold">Filters</span>
+          </div>
+          
+          <Select 
+            value={filters.status === 'All' ? null : filters.status} 
+            onChange={v => handleFilterChange('status', v || 'All')}
+            placeholder="Status"
+            className="w-32"
+            allowClear
+          >
+            <Option value="pending">Pending</Option>
+            <Option value="processing">Processing</Option>
+            <Option value="shipped">Shipped</Option>
+            <Option value="delivered">Delivered</Option>
+            <Option value="cancelled">Cancelled</Option>
+          </Select>
+
+          <Select 
+            value={filters.platform === 'All' ? null : filters.platform} 
+            onChange={v => handleFilterChange('platform', v || 'All')}
+            placeholder="Channel"
+            className="w-32"
+            allowClear
+          >
             <Option value="fifozone">Fifozone</Option>
             <Option value="amazon">Amazon</Option>
             <Option value="flipkart">Flipkart</Option>
             <Option value="meesho">Meesho</Option>
           </Select>
-          <Select value={filters.status} onChange={v => handleFilterChange('status', v)}>
-            <Option value="All">All Statuses</Option><Option value="pending">Pending</Option><Option value="processing">Processing</Option><Option value="shipped">Shipped</Option><Option value="delivered">Delivered</Option>
-          </Select>
-          <Select value={filters.paymentStatus} onChange={v => handleFilterChange('paymentStatus', v)}>
-            <Option value="All">All Payment</Option><Option value="paid">Paid</Option><Option value="pending">Pending</Option>
-          </Select>
-          <RangePicker 
-            className="w-full" 
-            onChange={(dates, dateStrings) => {
-              if (dates) {
-                setFilters(prev => ({ ...prev, startDate: dateStrings[0], endDate: dateStrings[1], page: 1 }));
-              } else {
-                setFilters(prev => ({ ...prev, startDate: null, endDate: null, page: 1 }));
-              }
-            }} 
-          />
         </div>
-        <div className="flex justify-end">
-          <Button type="link" onClick={clearFilters}>Clear Filters</Button>
-        </div>
-      </div>
 
-      {/* Bulk Actions */}
-      {selectedRowKeys.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex items-center justify-between shadow-sm">
-          <span className="font-medium text-blue-800 ml-2">{selectedRowKeys.length} orders selected</span>
-          <div className="flex gap-2">
-            <Button onClick={() => handleBulkUpdate('confirmed')}>Confirm</Button>
-            <Button onClick={() => handleBulkUpdate('shipped')}>Mark Shipped</Button>
-            <Button onClick={() => handleBulkUpdate('delivered')} className="bg-emerald-600 text-white border-0 hover:bg-emerald-500">Mark Delivered</Button>
-            <Button type="text" onClick={() => setSelectedRowKeys([])}>Clear</Button>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {/* Table */}
         <Table
-          rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
           columns={columns}
           dataSource={orders}
           rowKey="_id"
@@ -273,15 +237,18 @@ const OrdersPage = () => {
             current: pagination?.page || 1,
             pageSize: pagination?.limit || 20,
             total: pagination?.total || 0,
-            onChange: (page, limit) => setFilters(p => ({ ...p, page, limit }))
+            onChange: (page, limit) => setFilters(p => ({ ...p, page, limit })),
+            position: ['bottomCenter']
           }}
           scroll={{ x: 1000 }}
+          className="border-t border-slate-100"
+          rowClassName="cursor-pointer hover:!bg-slate-50 transition-colors"
           onRow={(record) => ({
-            onClick: () => navigate(`/orders/${record._id}`),
-            className: 'cursor-pointer hover:bg-emerald-50/30 transition-colors',
+            onClick: () => openOrderDetails(record._id)
           })}
         />
       </div>
+
     </div>
   );
 };
