@@ -556,11 +556,12 @@ class WooCommerceService {
     logger.info(`[${this.name}] Pulling orders from REST API...`);
     try {
       const client = await this.getClient();
-      // Fetch processing orders
-      const response = await client.get('orders', { status: 'processing', per_page: 20 });
+      // Fetch all recent orders regardless of status
+      const response = await client.get('orders', { status: 'any', per_page: 50 });
       
       const orders = response.data.map(order => ({
         platformOrderId: String(order.id),
+        platformStatus: order.status,
         customer: {
           name: `${order.billing.first_name} ${order.billing.last_name}`.trim(),
           email: order.billing.email,

@@ -249,9 +249,32 @@ class SyncService {
         const rawOrders = await item.service.pullOrders();
 
         for (const rawOrd of rawOrders) {
+          let internalStatus = 'pending';
+          if (item.key === 'fifozone' && rawOrd.platformStatus) {
+             const stat = rawOrd.platformStatus.toLowerCase();
+             if (stat === 'processing') internalStatus = 'processing';
+             else if (stat === 'completed') internalStatus = 'delivered';
+             else if (stat === 'cancelled' || stat === 'failed') internalStatus = 'cancelled';
+             else if (stat === 'refunded') internalStatus = 'refunded';
+          } else if (rawOrd.platformStatus) {
+             // Fallback mapping for other platforms if they send platformStatus
+             const stat = rawOrd.platformStatus.toLowerCase();
+             if (['processing', 'unshipped'].includes(stat)) internalStatus = 'processing';
+             else if (['shipped', 'dispatched'].includes(stat)) internalStatus = 'shipped';
+             else if (['delivered', 'completed'].includes(stat)) internalStatus = 'delivered';
+             else if (['cancelled', 'failed', 'canceled'].includes(stat)) internalStatus = 'cancelled';
+          }
+
           // Check if order already exists in DB
           let existingOrder = await Order.findOne({ platformOrderId: rawOrd.platformOrderId });
-          if (existingOrder) continue;
+          if (existingOrder) {
+             if (existingOrder.status !== internalStatus) {
+                existingOrder.status = internalStatus;
+                existingOrder.statusHistory.push({ status: internalStatus, note: `Status updated to ${rawOrd.platformStatus} via sync` });
+                await existingOrder.save();
+             }
+             continue;
+          }
 
           // Resolve products
           const resolvedItems = [];
@@ -336,8 +359,8 @@ class SyncService {
             totalAmount: rawOrd.totalAmount,
             paymentMethod: rawOrd.paymentMethod,
             paymentStatus: rawOrd.paymentStatus,
-            status: 'pending',
-            statusHistory: [{ status: 'pending', note: 'Order imported via platform sync' }],
+            status: internalStatus,
+            statusHistory: [{ status: internalStatus, note: `Order imported via platform sync (${rawOrd.platformStatus || 'pending'})` }],
             rawPlatformData: rawOrd
           });
 
