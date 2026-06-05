@@ -644,41 +644,6 @@ const DashboardPage = () => {
         </div>
       </div>
     </div>
-  );100 !text-slate-400 !m-0 !py-0">Not Listed</Tag>
-              </div>
-            </div>
-
-            {/* Products table */}
-            {platformProductsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Spin size="large" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-20 text-slate-400">
-                <Package size={40} className="mx-auto mb-3 opacity-40" />
-                <p className="font-medium">No products found</p>
-                <p className="text-sm mt-1">
-                  {platformProductSearch ? 'Try a different search term' : `No products are listed on ${drawerPlatform} yet`}
-                </p>
-              </div>
-            ) : (
-              <Table
-                dataSource={filtered}
-                columns={columns}
-                rowKey="_id"
-                size="small"
-                pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `${t} products` }}
-                scroll={{ x: 580 }}
-                rowClassName="hover:!bg-slate-50 cursor-pointer"
-                onRow={(record) => ({
-                  onClick: () => navigate(`/inventory/products/${record._id}/edit`)
-                })}
-              />
-            )}
-          </Drawer>
-        );
-      })()}
-    </div>
   );
 };
 
