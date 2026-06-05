@@ -9,12 +9,13 @@ const PlatformSettingsPage = () => {
   const [wooForm] = Form.useForm();
   const [amazonForm] = Form.useForm();
   const [flipkartForm] = Form.useForm();
+  const [meeshoForm] = Form.useForm();
 
   // Each key: 'fifozone' | 'amazon' | 'flipkart'
   const [saving, setSaving] = useState({});
   const [testing, setTesting] = useState({});
   const [syncing, setSyncing] = useState(false);
-  const [status, setStatus] = useState({ fifozone: false, amazon: false, flipkart: false });
+  const [status, setStatus] = useState({ fifozone: false, amazon: false, flipkart: false, meesho: false });
   const [testResult, setTestResult] = useState({});
   const [loadingCreds, setLoadingCreds] = useState(true);
   const [addPlatformModalOpen, setAddPlatformModalOpen] = useState(false);
@@ -25,20 +26,24 @@ const PlatformSettingsPage = () => {
     try {
       const res = await getCredentialsStatusApi();
       const rawData = res?.data?.data || res?.data;
-      if (rawData?.status) {
-        setStatus(rawData.status);
-      }
-      if (rawData?.credentials) {
-        if (rawData.credentials.fifozone) wooForm.setFieldsValue(rawData.credentials.fifozone);
-        if (rawData.credentials.amazon) amazonForm.setFieldsValue(rawData.credentials.amazon);
-        if (rawData.credentials.flipkart) flipkartForm.setFieldsValue(rawData.credentials.flipkart);
-      }
+      
+      setStatus({
+        fifozone: rawData?.fifozone?.connected || false,
+        amazon: rawData?.amazon?.connected || false,
+        flipkart: rawData?.flipkart?.connected || false,
+        meesho: rawData?.meesho?.connected || false,
+      });
+
+      if (rawData?.fifozone) wooForm.setFieldsValue(rawData.fifozone);
+      if (rawData?.amazon) amazonForm.setFieldsValue(rawData.amazon);
+      if (rawData?.flipkart) flipkartForm.setFieldsValue(rawData.flipkart);
+      if (rawData?.meesho) meeshoForm.setFieldsValue(rawData.meesho);
     } catch (error) {
       console.error('Failed to fetch credentials status', error);
     } finally {
       setLoadingCreds(false);
     }
-  }, [wooForm, amazonForm, flipkartForm]);
+  }, [wooForm, amazonForm, flipkartForm, meeshoForm]);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
@@ -325,6 +330,26 @@ const PlatformSettingsPage = () => {
             <Input.Password autoComplete="new-password" size="large" />
           </Form.Item>
           <Form.Item label="Client Secret" name="clientSecret">
+            <Input.Password autoComplete="new-password" size="large" />
+          </Form.Item>
+        </div>
+      </PlatformCard>
+
+      {/* ─── Meesho ─── */}
+      <PlatformCard
+        icon={<ShoppingBag size={20} className="text-pink-600" />}
+        title="Meesho Supplier API"
+        subtitle="Meesho Supplier Panel"
+        color="pink"
+        iconBg="bg-pink-100"
+        platformKey="meesho"
+        form={meeshoForm}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Form.Item label="Supplier ID" name="supplierId" className="md:col-span-2">
+            <Input autoComplete="off" size="large" />
+          </Form.Item>
+          <Form.Item label="API Token" name="apiToken" className="md:col-span-2">
             <Input.Password autoComplete="new-password" size="large" />
           </Form.Item>
         </div>

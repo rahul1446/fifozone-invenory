@@ -1,11 +1,9 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from './axiosInstance';
 
 export const getSettingsApi = () => {
-  return axios.get(`${API_URL}/settings`, { withCredentials: true });
+  return axiosInstance.get('/settings');
 };
 
 export const updateSettingsApi = (data) => {
-  return axios.put(`${API_URL}/settings`, data, { withCredentials: true });
+  return axiosInstance.put('/settings', data);
 };
