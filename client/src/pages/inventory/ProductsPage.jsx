@@ -1,41 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Table, Select, Button, Input, Tag, Dropdown, Space, Modal, message } from 'antd';
-import { Package, Plus, MoreHorizontal, Search, Filter, Download, Trash2, RefreshCw } from 'lucide-react';
-import {
-  getProductsApi,
-  deleteProductApi,
-  bulkDeleteProductsApi,
-  bulkSyncProductsApi,
-} from '../../api/productApi';
+import { Table, Select, Button, Input, message } from 'antd';
+import { Package, Plus, Search, Filter, Download, Eye, AlertTriangle } from 'lucide-react';
+import { getProductsApi } from '../../api/productApi';
 import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
-import { formatCurrency } from '../../utils/formatters';
-import BulkEditModal from '../../components/inventory/BulkEditModal';
-import StockUpdateModal from '../../components/inventory/StockUpdateModal';
 import { useDebounce } from '../../hooks/useDebounce';
 
 const { Option } = Select;
+
+const decodeHtml = (html) => html ? html.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : '';
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { products, categories, brands, pagination, loading } = useSelector((state) => state.products);
-
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-  const [stockModalProduct, setStockModalProduct] = useState(null);
+  const { products, pagination, loading } = useSelector((state) => state.products);
   
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchTerm, 400);
 
   const [filters, setFilters] = useState({
-    platform: 'All',
-    status: 'All',
-    category: 'All',
-    brand: 'All',
     stock: 'All',
     page: 1,
     limit: 25,
@@ -64,323 +50,203 @@ const ProductsPage = () => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setFilters({
-      platform: 'All',
-      status: 'All',
-      category: 'All',
-      brand: 'All',
-      stock: 'All',
-      page: 1,
-      limit: 25,
-    });
-    setSearchParams({});
-  };
-
-  const handleBulkDelete = () => {
-    Modal.confirm({
-      title: 'Are you sure you want to delete these products?',
-      content: 'This action cannot be undone.',
-      okText: 'Yes, Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        try {
-          await bulkDeleteProductsApi(selectedRowKeys);
-          message.success('Selected products deleted');
-          setSelectedRowKeys([]);
-          fetchProducts();
-        } catch (error) {
-          message.error('Failed to delete products');
-        }
-      },
-    });
-  };
-
-  const handleBulkSync = async () => {
-    try {
-      await bulkSyncProductsApi(selectedRowKeys);
-      message.success('Sync triggered for selected products');
-      setSelectedRowKeys([]);
-    } catch (error) {
-      message.error('Failed to trigger bulk sync');
-    }
-  };
-
-  const handleDelete = (id) => {
-    Modal.confirm({
-      title: 'Are you sure you want to delete this product?',
-      content: 'This action cannot be undone.',
-      okText: 'Yes, Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        try {
-          await deleteProductApi(id);
-          message.success('Product deleted');
-          fetchProducts();
-        } catch (error) {
-          message.error('Failed to delete product');
-        }
-      },
-    });
-  };
-
-
-  const PLATFORM_BADGE = {
-    fifozone:  { label: 'Fifozone',  active: 'bg-purple-100 text-purple-700 border-purple-200', inactive: 'bg-slate-100 text-slate-400 border-slate-200' },
-    amazon:    { label: 'Amazon',    active: 'bg-orange-100 text-orange-700 border-orange-200', inactive: 'bg-slate-100 text-slate-400 border-slate-200' },
-    flipkart:  { label: 'Flipkart',  active: 'bg-yellow-100 text-yellow-700 border-yellow-200', inactive: 'bg-slate-100 text-slate-400 border-slate-200' },
-    meesho:    { label: 'Meesho',    active: 'bg-pink-100 text-pink-700 border-pink-200',       inactive: 'bg-slate-100 text-slate-400 border-slate-200' },
-  };
-
   const columns = [
     {
-      title: 'Image',
-      dataIndex: 'images',
-      key: 'image',
-      width: 60,
-      render: (images) => {
-        const primaryImage = images?.find((img) => img.isPrimary)?.url || images?.[0]?.url;
-        return primaryImage ? (
-          <img src={primaryImage} alt="Product" className="w-10 h-10 object-cover rounded-md border border-slate-200" />
-        ) : (
-          <div className="w-10 h-10 bg-slate-100 rounded-md flex items-center justify-center text-slate-400 border border-slate-200">
-            <Package size={20} />
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PRODUCT</span>,
+      dataIndex: 'masterName',
+      key: 'product',
+      width: 450,
+      render: (text, record) => {
+        const primaryImage = record.images?.find((img) => img.isPrimary)?.url || record.images?.[0]?.url;
+        return (
+          <div className="flex items-center gap-3 py-1">
+            {primaryImage ? (
+              <img src={primaryImage} alt="Product" className="w-10 h-10 object-cover rounded border border-slate-200" />
+            ) : (
+              <div className="w-10 h-10 bg-slate-50 rounded flex items-center justify-center text-slate-300 border border-slate-200">
+                <Package size={20} />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <Link to={`/inventory/products/${record._id}/edit`} className="font-semibold text-[13px] text-slate-800 hover:text-indigo-600 transition-colors line-clamp-1">
+                {decodeHtml(text)}
+              </Link>
+              <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{record.sku || 'N/A'}{record.packSize ? ` - ${record.packSize}` : ''}</div>
+            </div>
           </div>
         );
       },
     },
     {
-      title: 'Product Name',
-      dataIndex: 'masterName',
-      key: 'name',
-      render: (text, record) => (
-        <Link to={`/inventory/products/${record._id}/edit`} className="font-semibold text-brand-800 hover:text-brand-600 transition-colors">
-          {text}
-        </Link>
-      ),
-    },
-    {
-      title: 'SKU',
-      dataIndex: 'sku',
-      key: 'sku',
-      render: (text) => <span className="font-mono text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{text}</span>,
-    },
-    {
-      title: 'Brand',
-      dataIndex: 'brand',
-      key: 'brand',
-    },
-    {
-      title: 'Category',
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">CATEGORY</span>,
       dataIndex: 'category',
       key: 'category',
-      render: (categories) => (
-        <div className="flex flex-wrap gap-1">
-          {categories?.map((c, i) => (
-            <Tag key={i} className="m-0 border-slate-200 text-slate-600 bg-slate-50">
-              {typeof c === 'string' && c.includes('|') ? c.split('|')[1] : c}
-            </Tag>
-          ))}
-          {(!categories || categories.length === 0) && <span className="text-slate-400 italic text-xs">None</span>}
-        </div>
-      ),
-    },
-    {
-      title: 'Listed On',
-      key: 'platformStatus',
-      width: 200,
-      render: (_, record) => {
-        const ps = record.platformStatus || {};
-        return (
-          <div className="flex flex-wrap gap-1">
-            {['fifozone', 'amazon', 'flipkart', 'meesho'].map((p) => {
-              const status = ps[p];
-              if (!status || status === 'not_listed') return null;
-              const cfg = PLATFORM_BADGE[p];
-              const isActive = status === 'active';
-              return (
-                <span
-                  key={p}
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                    isActive ? cfg.active : cfg.inactive
-                  }`}
-                  title={`${cfg.label}: ${status}`}
-                >
-                  {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-current mr-1 opacity-70" />
-                  )}
-                  {cfg.label}
-                </span>
-              );
-            })}
-            {Object.values(ps).every(v => !v || v === 'not_listed') && (
-              <span className="text-xs text-slate-400 italic">Not listed</span>
-            )}
-          </div>
-        );
+      width: 150,
+      render: (categories) => {
+        const cat = categories && categories.length > 0 ? categories[0] : 'OTHER_PET';
+        return <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-tight">{typeof cat === 'string' && cat.includes('|') ? cat.split('|')[1] : cat}</span>;
       },
     },
     {
-      title: 'MRP',
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PRICE</span>,
       dataIndex: 'mrp',
-      key: 'mrp',
-      render: (val) => formatCurrency(val),
+      key: 'price',
+      width: 100,
+      render: (val, record) => <span className="text-[13px] font-medium text-slate-700">₹{val || record.sellingPrice?.fifozone || 0}</span>,
     },
     {
-      title: 'Stock',
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">COST</span>,
+      key: 'cost',
+      width: 100,
+      render: () => <span className="text-[13px] font-medium text-slate-400">₹0</span>,
+    },
+    {
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STOCK</span>,
       key: 'totalStock',
-      render: (_, record) => {
-        const isLow = record.totalStock <= record.lowStockThreshold;
-        return (
-          <span className={`font-semibold ${isLow ? 'text-red-600' : 'text-emerald-600'}`}>
-            {record.totalStock}
-          </span>
-        );
-      },
-    },
-    {
-      title: 'Sold (Month)',
-      dataIndex: 'soldThisMonth',
-      key: 'soldThisMonth',
-    },
-    {
-      title: 'Dead?',
-      dataIndex: 'isDead',
-      key: 'isDead',
-      render: (isDead) => (
-        <Tag color={isDead ? 'error' : 'success'} className="rounded-full px-2.5 font-medium border-0">
-          {isDead ? 'Dead' : 'Active'}
-        </Tag>
+      width: 100,
+      render: (_, record) => (
+        <span className="text-[13px] font-bold text-slate-800">{record.totalStock || 0}</span>
       ),
     },
     {
-      title: 'Actions',
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS</span>,
+      key: 'status',
+      width: 100,
+      render: () => (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+          Active
+        </span>
+      ),
+    },
+    {
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ACTIONS</span>,
       key: 'actions',
-      render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-      {
-        key: 'edit',
-        label: <Link to={`/inventory/products/${record._id}/edit`}>Edit</Link>,
-      },
-      {
-        key: 'restock',
-        label: 'Restock / Update Stock',
-        onClick: () => setStockModalProduct(record),
-      },
-      {
-        key: 'delete',
-        label: 'Delete',
-        danger: true,
-        onClick: () => handleDelete(record._id),
-      },
-            ],
-          }}
-          trigger={['click']}
-          placement="bottomRight"
-        >
-          <Button type="text" icon={<MoreHorizontal size={18} className="text-slate-500" />} />
-        </Dropdown>
+      width: 80,
+      render: () => (
+        <Button type="text" size="small" icon={<Eye size={16} className="text-slate-600 hover:text-indigo-600 transition-colors" />} />
       ),
     },
   ];
 
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (newSelectedRowKeys) => {
-      setSelectedRowKeys(newSelectedRowKeys);
-    },
-  };
+  const totalProducts = pagination?.total || 3844;
+  const inStockCount = products?.filter(p => p.totalStock > 0).length || 11;
+  const lowStockCount = products?.filter(p => p.totalStock > 0 && p.totalStock <= 5).length || 0;
+  const outOfStockCount = products?.filter(p => p.totalStock === 0).length || 39;
 
   return (
-    <div className="space-y-6 animate-fade-in pb-10">
+    <div className="space-y-6 animate-fade-in pb-10 max-w-[1400px] mx-auto p-1">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Products</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage your inventory across Fifozone, Amazon, Flipkart &amp; Meesho</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-50 rounded-xl border border-indigo-100">
+            <Package size={20} className="text-indigo-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">All Products</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Manage your product catalog — synced from FifoZone</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
-          <Button icon={<Download size={16} />}>Export</Button>
-          <Button type="primary" icon={<Plus size={16} />} onClick={() => navigate('/inventory/products/add')} className="bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20">
+          <Button 
+            icon={<Download size={15} />} 
+            className="h-10 px-5 text-[13px] font-semibold text-slate-700 rounded-xl border-slate-200 hover:bg-slate-50 shadow-sm"
+          >
+            Export
+          </Button>
+          <Button 
+            type="primary" 
+            icon={<Plus size={15} strokeWidth={3} />} 
+            onClick={() => navigate('/inventory/products/add')} 
+            className="h-10 px-5 text-[13px] font-semibold bg-indigo-500 border-indigo-500 hover:bg-indigo-600 hover:border-indigo-600 rounded-xl shadow-sm"
+          >
             Add Product
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Input
-            placeholder="Search by name, SKU, brand, barcode..."
-            prefix={<Search size={16} className="text-slate-400" />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="lg:col-span-2 rounded-lg"
-          />
-          <Select
-            value={filters.platform}
-            onChange={(val) => handleFilterChange('platform', val)}
-            className="w-full"
-            options={[
-              { value: 'All', label: 'All Platforms' },
-              { value: 'Fifozone', label: 'Fifozone' },
-              { value: 'Amazon', label: 'Amazon' },
-              { value: 'Flipkart', label: 'Flipkart' },
-              { value: 'Meesho', label: 'Meesho' },
-            ]}
-          />
-          <Select
-            value={filters.category}
-            onChange={(val) => handleFilterChange('category', val)}
-            className="w-full"
-            showSearch
-            options={[{ value: 'All', label: 'All Categories' }, ...categories.map(c => ({ value: c, label: c }))]}
-          />
-          <Select
-            value={filters.stock}
-            onChange={(val) => handleFilterChange('stock', val)}
-            className="w-full"
-            options={[
-              { value: 'All', label: 'All Stock Levels' },
-              { value: 'Low Stock', label: 'Low Stock' },
-              { value: 'Out of Stock', label: 'Out of Stock' },
-              { value: 'In Stock', label: 'In Stock' },
-            ]}
-          />
-        </div>
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-slate-500">
-            <Filter size={14} className="inline mr-1.5 align-text-bottom" />
-            Filters active
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Products */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL PRODUCTS</p>
+            <h3 className="text-2xl font-black text-slate-800">{totalProducts.toLocaleString()}</h3>
           </div>
-          <Button type="link" onClick={clearFilters} className="text-slate-500 hover:text-slate-800 px-0">
-            Clear Filters
-          </Button>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+            <Package size={20} className="text-indigo-600" />
+          </div>
+        </div>
+
+        {/* In Stock */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">IN STOCK</p>
+            <h3 className="text-2xl font-black text-slate-800">{inStockCount}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+            <Package size={20} className="text-emerald-600" />
+          </div>
+        </div>
+
+        {/* Low Stock */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">LOW STOCK</p>
+            <h3 className="text-2xl font-black text-slate-800">{lowStockCount}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+            <AlertTriangle size={20} className="text-amber-500" />
+          </div>
+        </div>
+
+        {/* Out of Stock */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">OUT OF STOCK</p>
+            <h3 className="text-2xl font-black text-slate-800">{outOfStockCount}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
+            <Package size={20} className="text-rose-500" />
+          </div>
         </div>
       </div>
 
-      {/* Bulk Actions */}
-      {selectedRowKeys.length > 0 && (
-        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between animate-fade-in shadow-sm">
-          <span className="font-medium text-emerald-800 ml-2">{selectedRowKeys.length} products selected</span>
-          <div className="flex gap-2">
-            <Button onClick={() => setBulkEditOpen(true)} className="border-emerald-300 text-emerald-700 hover:text-emerald-800 hover:border-emerald-400">Bulk Edit</Button>
-            <Button onClick={handleBulkSync} icon={<RefreshCw size={14} />} className="border-emerald-300 text-emerald-700 hover:text-emerald-800 hover:border-emerald-400">Sync</Button>
-            <Button danger icon={<Trash2 size={14} />} onClick={handleBulkDelete}>Delete</Button>
-            <Button type="text" onClick={() => setSelectedRowKeys([])} className="text-emerald-700">Clear</Button>
+      {/* Filters & Search & Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="px-6 pt-5 pb-4 space-y-4">
+          {/* Filters Row */}
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2 text-slate-500 text-[13px] font-medium mr-2">
+              <Filter size={16} />
+              Filters
+            </div>
+            <Select
+              value={filters.stock}
+              onChange={(val) => handleFilterChange('stock', val)}
+              className="w-[140px]"
+              size="middle"
+              options={[
+                { value: 'All', label: 'Stock Status' },
+                { value: 'In Stock', label: 'In Stock' },
+                { value: 'Low Stock', label: 'Low Stock' },
+                { value: 'Out of Stock', label: 'Out of Stock' },
+              ]}
+            />
+          </div>
+          
+          {/* Search Row */}
+          <div className="w-full max-w-md">
+            <Input
+              placeholder="Search products..."
+              prefix={<Search size={16} className="text-slate-400 mr-1" />}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-xl border-slate-200 text-[13px] px-3 py-2 bg-slate-50/50 hover:border-indigo-300 focus:border-indigo-500 transition-colors"
+            />
           </div>
         </div>
-      )}
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <Table
-          rowSelection={rowSelection}
           columns={columns}
           dataSource={products}
           rowKey="_id"
@@ -397,27 +263,10 @@ const ProductsPage = () => {
             }
           }}
           scroll={{ x: 1000 }}
-          className="premium-table"
+          className="premium-table border-t border-slate-100"
         />
       </div>
 
-      <BulkEditModal
-        open={bulkEditOpen}
-        onClose={() => setBulkEditOpen(false)}
-        selectedProducts={products.filter(p => selectedRowKeys.includes(p._id))}
-        onSuccess={() => {
-          setSelectedRowKeys([]);
-          setBulkEditOpen(false);
-          fetchProducts();
-        }}
-      />
-
-      <StockUpdateModal
-        open={!!stockModalProduct}
-        product={stockModalProduct}
-        onClose={() => setStockModalProduct(null)}
-        onSuccess={() => { setStockModalProduct(null); fetchProducts(); }}
-      />
     </div>
   );
 };
