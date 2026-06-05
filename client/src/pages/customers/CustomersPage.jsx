@@ -9,13 +9,7 @@ import toast from 'react-hot-toast';
 
 const { Option } = Select;
 
-const MOCK_CUSTOMERS = [
-  { _id: 'c1', name: 'Ramesh Singh', phone: '9876543210', email: 'ramesh@example.com', city: 'Delhi', state: 'DL', platforms: ['fifozone', 'amazon'], totalOrders: 8, totalSpent: 18500, lastOrderDate: dayjs().subtract(2, 'days').toISOString(), notes: [{ text: 'VIP customer' }] },
-  { _id: 'c2', name: 'Anita Patel', phone: '9988776655', email: 'anita@example.com', city: 'Ahmedabad', state: 'GJ', platforms: ['flipkart'], totalOrders: 3, totalSpent: 4200, lastOrderDate: dayjs().subtract(10, 'days').toISOString(), notes: [] },
-  { _id: 'c3', name: 'Suresh Kumar', phone: '8877665544', email: 'suresh@gmail.com', city: 'Mumbai', state: 'MH', platforms: ['fifozone', 'amazon', 'flipkart'], totalOrders: 15, totalSpent: 42000, lastOrderDate: dayjs().subtract(1, 'day').toISOString(), notes: [] },
-  { _id: 'c4', name: 'Priya Sharma', phone: '7766554433', email: 'priya@yahoo.com', city: 'Bangalore', state: 'KA', platforms: ['amazon'], totalOrders: 1, totalSpent: 850, lastOrderDate: dayjs().subtract(30, 'days').toISOString(), notes: [] },
-  { _id: 'c5', name: 'Meena Reddy', phone: '6655443322', email: 'meena@gmail.com', city: 'Hyderabad', state: 'TS', platforms: ['fifozone'], totalOrders: 5, totalSpent: 9800, lastOrderDate: dayjs().subtract(5, 'days').toISOString(), notes: [{ text: 'Prefers express delivery' }] },
-];
+
 
 const AVATAR_COLORS = ['bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-green-500', 'bg-emerald-500', 'bg-blue-500', 'bg-indigo-500', 'bg-purple-500'];
 const getAvatarColor = (name) => AVATAR_COLORS[(name || 'A').charCodeAt(0) % 8];
@@ -38,9 +32,9 @@ const CustomersPage = () => {
       // Response: { statusCode, data: { customers, total }, message }
       const data = res?.data?.data;
       const arr = Array.isArray(data?.customers) ? data.customers : Array.isArray(data) ? data : null;
-      setCustomers(arr && arr.length > 0 ? arr : MOCK_CUSTOMERS);
+      setCustomers(arr || []);
     } catch {
-      setCustomers(MOCK_CUSTOMERS);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }

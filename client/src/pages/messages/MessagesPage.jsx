@@ -15,19 +15,7 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TextArea } = Input;
 
-const MOCK_MESSAGES = [
-  { _id: '1', platform: 'amazon', customerName: 'Priya Sharma', subject: 'Where is my Royal Canin order?', orderNumber: 'AMZ-10045', productName: 'Royal Canin Adult Dog 3kg', receivedAt: dayjs().subtract(22, 'hours').toISOString(), status: 'unread', type: 'order_query', threadMessages: [{ sender: 'customer', senderName: 'Priya Sharma', body: 'Hi, I placed an order 3 days ago but havent received any tracking info. When will it be delivered?', timestamp: dayjs().subtract(22, 'hours').toISOString() }] },
-  { _id: '2', platform: 'fifozone', customerName: 'Ramesh Kumar', subject: 'Product damaged on arrival', orderNumber: 'FZ-9876', productName: 'Drools Puppy Chicken 3kg', receivedAt: dayjs().subtract(2, 'hours').toISOString(), status: 'pending', type: 'general', threadMessages: [{ sender: 'customer', senderName: 'Ramesh Kumar', body: 'The dog food bag I received had a tear and the food had spilled inside the package.', timestamp: dayjs().subtract(2, 'hours').toISOString() }] },
-  { _id: '3', platform: 'flipkart', customerName: 'Anita Patel', subject: 'Invoice needed for GST', orderNumber: 'FK-45890', productName: 'Himalaya Erina Shampoo', receivedAt: dayjs().subtract(1, 'days').toISOString(), status: 'replied', type: 'general', threadMessages: [{ sender: 'customer', senderName: 'Anita Patel', body: 'Please share the GST invoice for my purchase.', timestamp: dayjs().subtract(1, 'days').toISOString() }, { sender: 'seller', senderName: 'Fifozone Support', body: 'Hi Anita, your invoice has been emailed to your registered email address. Please check your inbox.', timestamp: dayjs().subtract(20, 'hours').toISOString() }] },
-  { _id: '4', platform: 'amazon', customerName: 'Suresh Patel', subject: 'Wrong item delivered', orderNumber: 'AMZ-10056', productName: 'Farmina N&D Dog Food', receivedAt: dayjs().subtract(5, 'hours').toISOString(), status: 'unread', type: 'return_query', threadMessages: [{ sender: 'customer', senderName: 'Suresh Patel', body: 'I ordered Farmina Chicken but received Farmina Lamb. Please arrange a replacement.', timestamp: dayjs().subtract(5, 'hours').toISOString() }] },
-  { _id: '5', platform: 'fifozone', customerName: 'Meena Reddy', subject: 'Is this product suitable for senior dogs?', orderNumber: null, productName: 'Pedigree Senior Dog Food', receivedAt: dayjs().subtract(3, 'hours').toISOString(), status: 'read', type: 'product_question', threadMessages: [{ sender: 'customer', senderName: 'Meena Reddy', body: 'My dog is 9 years old. Is Pedigree Senior suitable for his health?', timestamp: dayjs().subtract(3, 'hours').toISOString() }] },
-];
 
-const MOCK_TEMPLATES = [
-  { _id: 't1', title: 'Order Delay Apology', body: 'Dear Customer, we sincerely apologize for the delay in your order. Your parcel is on its way and will be delivered within 1-2 business days. Thank you for your patience.', platforms: ['all'] },
-  { _id: 't2', title: 'Invoice Sent', body: 'Hi, your GST invoice has been sent to your registered email address. Please check your inbox and spam folder. Feel free to contact us if you need any further assistance.', platforms: ['all'] },
-  { _id: 't3', title: 'Return Initiated', body: 'We have initiated your return request. Our team will arrange a pickup within 48 hours. Refund will be processed within 5-7 business days after item inspection.', platforms: ['all'] },
-];
 
 const MessagesPage = () => {
   const navigate = useNavigate();
@@ -71,9 +59,9 @@ const MessagesPage = () => {
       // Response shape: { statusCode, data: { messages, total }, message }
       const data = res?.data?.data;
       const msgArray = Array.isArray(data?.messages) ? data.messages : Array.isArray(data) ? data : null;
-      setMessages(msgArray && msgArray.length > 0 ? msgArray : MOCK_MESSAGES);
+      setMessages(msgArray || []);
     } catch {
-      setMessages(MOCK_MESSAGES);
+      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -84,9 +72,9 @@ const MessagesPage = () => {
       const res = await getTemplatesApi();
       const data = res?.data?.data;
       const arr = Array.isArray(data) ? data : Array.isArray(data?.templates) ? data.templates : null;
-      setTemplates(arr && arr.length > 0 ? arr : MOCK_TEMPLATES);
+      setTemplates(arr || []);
     } catch {
-      setTemplates(MOCK_TEMPLATES);
+      setTemplates([]);
     }
   };
 
@@ -98,7 +86,7 @@ const MessagesPage = () => {
     setThreadModalOpen(true);
     setReplyText('');
 
-    if (!isRealDbId(record._id)) return; // Mock message — no API call needed
+    if (!isRealDbId(record._id)) return; // No thread API call needed for non-DB IDs
 
     try {
       const res = await getMessageThreadApi(record._id);
@@ -124,7 +112,6 @@ const MessagesPage = () => {
       timestamp: new Date().toISOString(),
     };
 
-    // ── Mock message (no real DB ID) — update locally only ──────────────────
     if (!isRealDbId(selectedMessage._id)) {
       setSelectedMessage(prev => ({
         ...prev,

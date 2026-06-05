@@ -23,10 +23,7 @@ const PaymentsPage = () => {
       const res = await getTransactionsApi();
       const transactions = res.data?.data?.transactions ?? res.data?.data ?? [];
       if (!transactions || transactions.length === 0) {
-        setTransactions([
-          { _id: '1', date: new Date().toISOString(), platform: 'amazon', type: 'sale', orderNumber: 'AMZ-123', product: 'Wireless Mouse', gross: 1200, fee: 150, gst: 27, net: 1023, status: 'settled', settlementDate: new Date().toISOString() },
-          { _id: '2', date: new Date().toISOString(), platform: 'fifozone', type: 'sale', orderNumber: 'FZ-456', product: 'Keyboard', gross: 2500, fee: 100, gst: 18, net: 2382, status: 'pending', settlementDate: null }
-        ]);
+        setTransactions([]);
       } else {
         setTransactions(transactions);
       }
@@ -60,23 +57,23 @@ const PaymentsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
           <p className="text-slate-500 text-sm font-medium">Total Revenue</p>
-          <h3 className="text-2xl font-bold text-slate-800 mt-2">{formatCurrency(1250000)}</h3>
+          <h3 className="text-2xl font-bold text-slate-800 mt-2">—</h3>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
           <p className="text-slate-500 text-sm font-medium">Settled</p>
-          <h3 className="text-2xl font-bold text-emerald-600 mt-2">{formatCurrency(980000)}</h3>
+          <h3 className="text-2xl font-bold text-emerald-600 mt-2">—</h3>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
           <p className="text-slate-500 text-sm font-medium">Pending Payout</p>
-          <h3 className="text-2xl font-bold text-orange-500 mt-2">{formatCurrency(45000)}</h3>
+          <h3 className="text-2xl font-bold text-orange-500 mt-2">—</h3>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
           <p className="text-slate-500 text-sm font-medium">Platform Fees</p>
-          <h3 className="text-2xl font-bold text-red-500 mt-2">-{formatCurrency(150000)}</h3>
+          <h3 className="text-2xl font-bold text-red-500 mt-2">—</h3>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-emerald-500 bg-emerald-50/50">
           <p className="text-emerald-800 text-sm font-medium">Net Earnings</p>
-          <h3 className="text-2xl font-bold text-emerald-700 mt-2">{formatCurrency(1055000)}</h3>
+          <h3 className="text-2xl font-bold text-emerald-700 mt-2">—</h3>
         </div>
       </div>
 
@@ -86,17 +83,11 @@ const PaymentsPage = () => {
             <div className="h-64 flex items-center justify-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
               <Activity className="mr-2" /> Revenue Chart Coming Soon
             </div>
-            <div className="grid grid-cols-3 gap-4 mt-6">
-              {['Fifozone', 'Amazon', 'Flipkart'].map(p => (
-                <div key={p} className="p-4 border border-slate-200 rounded-xl">
-                  <h4 className="font-bold mb-4">{p}</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">This Month</span><span className="font-medium">{formatCurrency(150000)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Pending</span><span className="font-medium text-orange-500">{formatCurrency(12000)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Fees</span><span className="font-medium text-red-500">-{formatCurrency(15000)}</span></div>
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 gap-4 mt-6">
+              <div className="p-4 border border-slate-200 rounded-xl">
+                <h4 className="font-bold mb-4">Fifozone</h4>
+                <p className="text-sm text-slate-500">Connect your platform to see payment breakdowns.</p>
+              </div>
             </div>
           </Tabs.TabPane>
           <Tabs.TabPane tab="Transaction History" key="2">

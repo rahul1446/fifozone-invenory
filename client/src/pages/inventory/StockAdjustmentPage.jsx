@@ -5,31 +5,11 @@ import { CheckSquare, PlusCircle } from 'lucide-react';
 import { Input } from 'antd';
 const { TextArea } = Input;
 
-const mockProducts = [
-  { value: 'HIM-SHP-03', label: 'Himalaya Erina EP Shampoo' },
-  { value: 'FIP-SML-01', label: 'Fipnil Plus Spot On (Small)' },
-  { value: 'RC-PER-05', label: 'Royal Canin Persian Adult' },
-  { value: 'DRN-CAT-02', label: 'Droncit Tablet (Cats)' },
-  { value: 'VIR-END-09', label: 'Virbac Endogard Large' },
-];
 
-const mockAdjustments = [
-  { key: '1', date: '2026-06-05 08:30', product: 'Himalaya Erina EP Shampoo', platform: 'All Platforms', type: 'Add', qty: 50, reason: 'Stock received from supplier', by: 'Rahul S.' },
-  { key: '2', date: '2026-06-04 16:20', product: 'Droncit Tablet (Cats)', platform: 'Amazon', type: 'Subtract', qty: 5, reason: 'Damaged units returned', by: 'Priya M.' },
-  { key: '3', date: '2026-06-04 11:00', product: 'Fipnil Plus Spot On (Small)', platform: 'Fifozone', type: 'Subtract', qty: 2, reason: 'Inventory count discrepancy', by: 'Rahul S.' },
-  { key: '4', date: '2026-06-03 14:15', product: 'Royal Canin Persian Adult', platform: 'Flipkart', type: 'Add', qty: 10, reason: 'Return from customer', by: 'System' },
-  { key: '5', date: '2026-06-03 09:45', product: 'Virbac Endogard Large', platform: 'All Platforms', type: 'Add', qty: 30, reason: 'Purchase order received', by: 'Priya M.' },
-  { key: '6', date: '2026-06-02 17:00', product: 'Himalaya Erina EP Shampoo', platform: 'Meesho', type: 'Subtract', qty: 8, reason: 'Write-off: expired stock', by: 'Rahul S.' },
-  { key: '7', date: '2026-06-02 13:30', product: 'Droncit Tablet (Cats)', platform: 'Amazon', type: 'Add', qty: 100, reason: 'Initial stock upload', by: 'System' },
-  { key: '8', date: '2026-06-01 10:00', product: 'Fipnil Plus Spot On (Small)', platform: 'All Platforms', type: 'Subtract', qty: 3, reason: 'Theft/Shrinkage adjustment', by: 'Rahul S.' },
-];
 
 const platformOptions = [
   { value: 'All Platforms', label: 'All Platforms' },
   { value: 'Fifozone', label: 'Fifozone' },
-  { value: 'Amazon', label: 'Amazon' },
-  { value: 'Flipkart', label: 'Flipkart' },
-  { value: 'Meesho', label: 'Meesho' },
 ];
 
 const columns = [
@@ -125,8 +105,8 @@ const StockAdjustmentPage = () => {
             <Form.Item name="product" label={<span className="text-slate-600 text-sm font-medium">Product</span>} rules={[{ required: true, message: 'Select a product' }]}>
               <Select
                 showSearch
-                options={mockProducts}
-                placeholder="Select a product"
+                options={[]}
+                placeholder="Type to search product by name or SKU..."
                 className="w-full"
                 filterOption={(input, option) => option.label.toLowerCase().includes(input.toLowerCase())}
               />
@@ -177,7 +157,7 @@ const StockAdjustmentPage = () => {
         <h2 className="text-base font-semibold text-slate-700 mb-4">Recent Adjustments</h2>
         <Table
           columns={columns}
-          dataSource={mockAdjustments}
+          dataSource={[]}
           scroll={{ x: 800 }}
           pagination={{ pageSize: 8, showSizeChanger: false, showTotal: (total) => `${total} records` }}
           rowClassName="hover:bg-slate-50 transition-colors"

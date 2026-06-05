@@ -9,12 +9,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const MOCK_PROMOTIONS = [
-  { _id: '1', platforms: ['fifozone'], name: 'SUMMER20', type: 'coupon', discountValue: 20, discountType: 'percentage', minimumOrderAmount: 1000, startDate: dayjs().subtract(5, 'days').toISOString(), endDate: dayjs().add(5, 'days').toISOString(), usageCount: 45, status: 'active', applicableProducts: [] },
-  { _id: '2', platforms: ['amazon', 'flipkart'], name: 'Diwali Sale 2024', type: 'percentage', discountValue: 15, discountType: 'percentage', minimumOrderAmount: 2000, startDate: dayjs().add(2, 'days').toISOString(), endDate: dayjs().add(10, 'days').toISOString(), usageCount: 0, status: 'scheduled', applicableProducts: [] },
-  { _id: '3', platforms: ['fifozone'], name: 'FLAT200', type: 'coupon', discountValue: 200, discountType: 'flat', minimumOrderAmount: 1500, startDate: dayjs().subtract(10, 'days').toISOString(), endDate: dayjs().subtract(2, 'days').toISOString(), usageCount: 23, status: 'expired', applicableProducts: [] },
-  { _id: '4', platforms: ['fifozone', 'amazon'], name: 'WELCOME10', type: 'coupon', discountValue: 10, discountType: 'percentage', minimumOrderAmount: 500, startDate: dayjs().subtract(2, 'days').toISOString(), endDate: dayjs().add(30, 'days').toISOString(), usageCount: 8, status: 'active', applicableProducts: [] },
-];
+
 
 const STATUS_COLOR = { active: 'green', scheduled: 'blue', paused: 'orange', expired: 'default' };
 
@@ -37,9 +32,9 @@ const PromotionsPage = () => {
       const res = await getPromotionsApi();
       const data = res?.data?.data;
       const arr = Array.isArray(data) ? data : Array.isArray(data?.promotions) ? data.promotions : null;
-      setPromotions(arr && arr.length > 0 ? arr : MOCK_PROMOTIONS);
+      setPromotions(arr || []);
     } catch {
-      setPromotions(MOCK_PROMOTIONS);
+      setPromotions([]);
     } finally {
       setLoading(false);
     }
@@ -307,7 +302,7 @@ const PromotionsPage = () => {
         {[
           { label: 'Active Promotions', value: promotions.filter(p => p.status === 'active').length, border: 'border-l-emerald-500', color: 'text-emerald-600' },
           { label: 'Total Used This Month', value: promotions.reduce((s, p) => s + (p.usageCount || 0), 0), border: 'border-l-blue-500', color: 'text-blue-600' },
-          { label: 'Discount Given', value: formatCurrency(12450), border: 'border-l-red-500', color: 'text-red-500' },
+          { label: 'Discount Given', value: '—', border: 'border-l-red-500', color: 'text-red-500' },
           { label: 'Expiring Soon', value: promotions.filter(p => { const d = dayjs(p.endDate).diff(dayjs(), 'day'); return d >= 0 && d <= 7; }).length, border: 'border-l-orange-500', color: 'text-orange-600' },
         ].map(s => (
           <div key={s.label} className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-l-4 ${s.border}`}>

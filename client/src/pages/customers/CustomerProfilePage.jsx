@@ -23,33 +23,14 @@ const CustomerProfilePage = () => {
   const fetchCustomer = async () => {
     try {
       const res = await getCustomerApi(id);
-      if (!res.data) {
-        setCustomer({
-          _id: id,
-          name: 'Ramesh Singh',
-          phone: '9876543210',
-          email: 'ramesh@example.com',
-          address: { city: 'Delhi', state: 'DL', pincode: '110001', addressLine: '123 Main St' },
-          platforms: ['fifozone', 'amazon'],
-          totalOrders: 5,
-          totalSpent: 12500,
-          avgOrderValue: 2500,
-          returnRate: 0,
-          firstOrderDate: new Date().toISOString(),
-          orders: [
-            { _id: 'o1', orderNumber: 'FZ-123', platform: 'fifozone', date: new Date().toISOString(), itemsCount: 2, amount: 5000, status: 'delivered' }
-          ],
-          products: [
-            { id: 'p1', name: 'Wireless Mouse', count: 3, lastBought: new Date().toISOString() }
-          ],
-          notes: [
-            { _id: 'n1', text: 'VIP Customer, always wants fast shipping', addedBy: 'Admin', date: new Date().toISOString() }
-          ]
-        });
+      const data = res?.data?.data || res?.data;
+      if (data && data._id) {
+        setCustomer(data);
       } else {
-        setCustomer(res.data);
+        setCustomer(null);
       }
     } catch (e) {
+      setCustomer(null);
     } finally {
       setLoading(false);
     }

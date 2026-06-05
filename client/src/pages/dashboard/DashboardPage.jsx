@@ -269,20 +269,20 @@ const DashboardPage = () => {
 
       } else {
         setStats(fallbackStats);
-        setRevenueData(generateRevenueData());
-        setTopSellingData(topSellingMockData);
-        setRecentOrders(fallbackOrders);
-        setLowStockProducts(fallbackLowStock);
-        setSyncStatus(fallbackSyncStatus);
+        setRevenueData([]);
+        setTopSellingData([]);
+        setRecentOrders([]);
+        setLowStockProducts([]);
+        setSyncStatus([]);
       }
     } catch (e) {
       console.error('Stats fetch error:', e);
       setStats(fallbackStats);
-      setRevenueData(generateRevenueData());
-      setTopSellingData(topSellingMockData);
-      setRecentOrders(fallbackOrders);
-      setLowStockProducts(fallbackLowStock);
-      setSyncStatus(fallbackSyncStatus);
+      setRevenueData([]);
+      setTopSellingData([]);
+      setRecentOrders([]);
+      setLowStockProducts([]);
+      setSyncStatus([]);
     } finally {
       setStatsLoading(false);
       setOrdersLoading(false);
