@@ -7,6 +7,8 @@ import { getProductsApi } from '../../api/productApi';
 const { Option } = Select;
 const { TextArea } = Input;
 
+const decodeHtml = (html) => html ? html.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : '';
+
 const ManualOrderPage = () => {
   const [form] = Form.useForm();
   const [items, setItems] = useState([]);
@@ -218,7 +220,7 @@ const ManualOrderPage = () => {
                     {items.map((item) => (
                       <div key={item.id} className="flex justify-between items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 group">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-slate-700 leading-snug line-clamp-2 pr-2" dangerouslySetInnerHTML={{ __html: item.productName }}></p>
+                          <p className="text-[12px] font-semibold text-slate-700 leading-snug line-clamp-2 pr-2">{decodeHtml(item.productName)}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-[11px] text-slate-500 font-medium bg-slate-200/50 px-1.5 py-0.5 rounded">₹{item.price}</span>
                             <span className="text-[10px] text-slate-400 font-bold">×</span>
@@ -269,7 +271,7 @@ const ManualOrderPage = () => {
                       className="group border border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all bg-white relative flex flex-col justify-between min-h-[120px]"
                     >
                       <div>
-                        <h3 className="text-[13px] font-semibold text-slate-800 leading-snug mb-1 pr-6 line-clamp-2" dangerouslySetInnerHTML={{ __html: product.masterName }}></h3>
+                        <h3 className="text-[13px] font-semibold text-slate-800 leading-snug mb-1 pr-6 line-clamp-2">{decodeHtml(product.masterName)}</h3>
                         <p className="text-[11px] text-slate-400 font-medium mb-3">
                           {product.sku || 'N/A'} {product.packSize ? `- ${product.packSize}` : ''}
                         </p>
@@ -292,13 +294,13 @@ const ManualOrderPage = () => {
                       </div>
                     </div>
                   ))}
-                  {filteredProducts.length === 0 && (
+                  {filteredProducts.length === 0 ? (
                     <div className="col-span-2 text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                       <Package size={32} className="text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 font-medium text-[14px]">No products found matching "{searchQuery}"</p>
                       <p className="text-slate-400 text-[12px] mt-1">Try searching by a different name or SKU</p>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
