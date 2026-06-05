@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Tag, Button, Input, Rate, Spin, message } from 'antd';
-import { CheckCircle, IndianRupee, Search, RefreshCw } from 'lucide-react';
+import { Table, Button, Spin, message } from 'antd';
+import { Package, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getOrdersApi } from '../../api/orderApi';
-
-const platformColor = { amazon: 'orange', flipkart: 'blue', meesho: 'pink', fifozone: 'green' };
+import { formatCurrency } from '../../utils/formatters';
 
 const DeliveredOrdersPage = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -16,50 +16,154 @@ const DeliveredOrdersPage = () => {
       const res = await getOrdersApi({ status: 'delivered', limit: 100 });
       const data = res?.data?.orders || res?.orders || (Array.isArray(res?.data) ? res.data : []);
       setOrders(data);
-    } catch { message.error('Failed to fetch delivered orders'); setOrders([]); }
-    finally { setLoading(false); }
+    } catch (err) {
+      message.error('Failed to fetch delivered orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchOrders(); }, []);
 
-  const filtered = orders.filter(o =>
-    !search || o.orderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-    o.customer?.name?.toLowerCase().includes(search.toLowerCase())
-  );
-  const totalRevenue = filtered.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const totalValue = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
   const columns = [
-    { title: 'Order ID', dataIndex: 'orderNumber', key: 'orderNumber', render: v => <span className="font-mono font-semibold text-slate-700">{v}</span> },
-    { title: 'Customer', dataIndex: ['customer', 'name'], key: 'customer' },
-    { title: 'Platform', dataIndex: 'platform', key: 'platform', render: v => <Tag color={platformColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
-    { title: 'Amount', dataIndex: 'totalAmount', key: 'amount', render: v => <span className="font-bold">&#8377;{(v || 0).toLocaleString('en-IN')}</span> },
-    { title: 'Delivered Date', dataIndex: 'deliveredAt', key: 'deliveredAt', render: v => v ? new Date(v).toLocaleDateString('en-IN') : '—' },
-    { title: 'Status', key: 'status', render: () => <Tag color="green">Delivered</Tag> },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Product</span>,
+      key: 'product',
+      width: 400,
+      render: (_, record) => {
+        const item = record.items?.[0];
+        const title = item?.productSnapshot?.masterName || item?.productName || 'Unknown Product';
+        const img = item?.productSnapshot?.images?.[0];
+        return (
+          <div className="flex items-center gap-4 py-2">
+            {img ? (
+              <img src={img} alt="product" className="w-10 h-10 rounded-md object-cover border border-slate-200" />
+            ) : (
+              <div className="w-10 h-10 rounded-md bg-slate-50 flex items-center justify-center border border-slate-100">
+                <Package size={18} className="text-slate-400" />
+              </div>
+            )}
+            <div className="flex flex-col">
+              <span className="text-[13px] font-semibold text-slate-900 leading-snug line-clamp-1">
+                {title} {record.items?.length > 1 ? `+${record.items.length - 1}` : ''}
+              </span>
+              <span className="text-[11px] text-slate-400 font-medium mt-0.5">{record.orderNumber}</span>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Channel</span>,
+      dataIndex: 'platform',
+      key: 'channel',
+      width: 180,
+      render: (p) => (
+        <span className="px-2.5 py-1 text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-full tracking-wider">
+          WEBSITE_{p?.toUpperCase() || 'UNKNOWN'}
+        </span>
+      )
+    },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Qty</span>,
+      key: 'qty',
+      width: 100,
+      render: (_, record) => <span className="text-[13px] font-semibold text-slate-700">{record.items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0}</span>
+    },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Total</span>,
+      key: 'total',
+      width: 150,
+      render: (_, record) => <span className="text-[13px] font-bold text-slate-900">{formatCurrency(record.totalAmount || record.pricing?.total || 0)}</span>
+    },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Status</span>,
+      dataIndex: 'status',
+      key: 'status',
+      width: 150,
+      render: (s) => (
+        <span className={`px-3 py-1 text-[11px] font-bold rounded-full capitalize bg-emerald-50 text-emerald-600`}>
+          {s?.replace('_', ' ') || 'Delivered'}
+        </span>
+      )
+    },
+    {
+      title: <span className="text-[12px] font-bold text-slate-800">Action</span>,
+      key: 'action',
+      width: 80,
+      align: 'center',
+      render: (_, record) => (
+        <Button 
+          type="text" 
+          icon={<Eye size={16} className="text-slate-400 hover:text-indigo-600" />} 
+          onClick={(e) => { e.stopPropagation(); navigate(`/orders/${record._id}`); }}
+        />
+      )
+    }
   ];
 
-  if (loading) return <div className="flex justify-center py-20"><Spin size="large" /></div>;
-
   return (
-    <div className="space-y-6 pb-10">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-slate-800">Delivered Orders</h1><p className="text-slate-500 text-sm mt-1">Successfully completed deliveries</p></div>
-        <Button icon={<RefreshCw size={16} />} onClick={fetchOrders}>Refresh</Button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-l-4 border-emerald-500 p-5 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-emerald-50 flex items-center justify-center"><CheckCircle size={20} className="text-emerald-600" /></div>
-          <div><p className="text-slate-500 text-sm">Total Delivered</p><p className="text-2xl font-bold text-slate-800">{filtered.length}</p></div>
+    <div className="space-y-6 animate-fade-in pb-10 max-w-7xl mx-auto p-1">
+      
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Package className="w-4 h-4 text-indigo-600" />
+          </div>
+          <h1 className="text-[22px] font-extrabold text-slate-900 tracking-tight">Delivered Orders</h1>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-l-4 border-green-500 p-5 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-green-50 flex items-center justify-center"><IndianRupee size={20} className="text-green-600" /></div>
-          <div><p className="text-slate-500 text-sm">Total Revenue</p><p className="text-2xl font-bold text-slate-800">&#8377;{totalRevenue.toLocaleString('en-IN')}</p></div>
+        <p className="text-[13px] text-slate-400 font-medium ml-11">Successfully delivered orders</p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Total Delivered</p>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{orders.length}</h2>
+          </div>
+          <div className="w-9 h-9 rounded-[10px] border border-emerald-100 bg-emerald-50 flex items-center justify-center">
+            <Package className="w-4 h-4 text-emerald-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-[14px] p-5 border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Delivered Value</p>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{formatCurrency(totalValue)}</h2>
+          </div>
+          <div className="w-9 h-9 rounded-[10px] border border-indigo-100 bg-indigo-50 flex items-center justify-center">
+            <Package className="w-4 h-4 text-indigo-500" />
+          </div>
         </div>
       </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
-        <div className="p-4 border-b border-slate-100"><Input prefix={<Search size={16} className="text-slate-400" />} placeholder="Search orders..." value={search} onChange={e => setSearch(e.target.value)} className="max-w-xs" /></div>
-        <Table columns={columns} dataSource={filtered} rowKey="_id" pagination={{ pageSize: 20, showTotal: t => `${t} orders` }} scroll={{ x: 800 }} locale={{ emptyText: 'No delivered orders' }} />
-      </div>
+
+      {/* Main Container */}
+      {loading ? (
+        <div className="flex justify-center py-20"><Spin size="large" /></div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <Table
+            columns={columns}
+            dataSource={orders}
+            rowKey="_id"
+            pagination={{ pageSize: 20 }}
+            scroll={{ x: 1000 }}
+            className="border-t border-slate-100"
+            rowClassName="cursor-pointer hover:!bg-slate-50 transition-colors"
+            onRow={(record) => ({
+              onClick: () => navigate(`/orders/${record._id}`)
+            })}
+          />
+        </div>
+      )}
+
     </div>
   );
 };
+
 export default DeliveredOrdersPage;
