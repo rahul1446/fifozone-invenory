@@ -1,26 +1,26 @@
 import { Skeleton } from 'antd';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-const StatCard = ({ title, value, subtitle, icon, trend, color = 'border-emerald-500', loading = false }) => {
-  // Derive the accent color token from the border class for the icon background
-  const iconBgMap = {
-    'border-emerald-500': 'bg-emerald-50 text-emerald-600',
-    'border-blue-500': 'bg-blue-50 text-blue-600',
-    'border-violet-500': 'bg-violet-50 text-violet-600',
-    'border-amber-500': 'bg-amber-50 text-amber-600',
-    'border-orange-500': 'bg-orange-50 text-orange-600',
-    'border-rose-500': 'bg-rose-50 text-rose-600',
-    'border-purple-500': 'bg-purple-50 text-purple-600',
-    'border-cyan-500': 'bg-cyan-50 text-cyan-600',
-    'border-indigo-500': 'bg-indigo-50 text-indigo-600',
+const StatCard = ({ title, value, icon, color = 'emerald', loading = false }) => {
+  // Map base colors to specific Tailwind classes for border, background, and text
+  const colorMap = {
+    emerald: { border: 'border-emerald-100', bg: 'bg-emerald-50', text: 'text-emerald-600' },
+    green: { border: 'border-green-100', bg: 'bg-green-50', text: 'text-green-600' },
+    purple: { border: 'border-indigo-100', bg: 'bg-indigo-50', text: 'text-indigo-600' },
+    indigo: { border: 'border-indigo-100', bg: 'bg-indigo-50', text: 'text-indigo-600' },
+    amber: { border: 'border-amber-100', bg: 'bg-amber-50', text: 'text-amber-600' },
+    yellow: { border: 'border-amber-100', bg: 'bg-amber-50', text: 'text-amber-600' },
+    rose: { border: 'border-rose-100', bg: 'bg-rose-50', text: 'text-rose-600' },
+    red: { border: 'border-rose-100', bg: 'bg-rose-50', text: 'text-rose-600' },
+    blue: { border: 'border-blue-100', bg: 'bg-blue-50', text: 'text-blue-600' },
   };
 
-  const iconStyle = iconBgMap[color] || 'bg-slate-50 text-slate-600';
+  const style = colorMap[color] || colorMap.emerald;
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-xl border-l-4 ${color} shadow-sm p-5`}>
-        <Skeleton active paragraph={{ rows: 2, width: ['60%', '40%'] }} title={{ width: '45%' }} />
+      <div className={`bg-white rounded-xl border ${style.border} p-5`}>
+        <Skeleton active paragraph={{ rows: 1, width: ['40%'] }} title={{ width: '60%' }} />
       </div>
     );
   }
@@ -28,60 +28,26 @@ const StatCard = ({ title, value, subtitle, icon, trend, color = 'border-emerald
   return (
     <div
       className={`
-        group relative bg-white rounded-xl border-l-4 ${color}
-        shadow-sm hover:shadow-xl hover:shadow-slate-200/60
-        hover:-translate-y-1.5
-        transition-all duration-300 ease-out
-        p-5 cursor-default overflow-hidden
+        bg-white rounded-2xl border ${style.border}
+        p-4 flex items-center justify-between
       `}
     >
-      {/* Subtle gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-slate-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none" />
+      <div>
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+          {title}
+        </p>
+        <h3 className="text-2xl font-bold text-slate-900 leading-none">
+          {value}
+        </h3>
+      </div>
 
-      <div className="relative z-10 flex items-start justify-between">
-        {/* Left content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 truncate">
-            {title}
-          </p>
-          <h3 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight mb-1">
-            {value}
-          </h3>
-          <div className="flex items-center gap-2 mt-1.5">
-            {trend !== undefined && trend !== null && (
-              <span
-                className={`
-                  inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full
-                  ${trend >= 0
-                    ? 'text-emerald-700 bg-emerald-50'
-                    : 'text-rose-700 bg-rose-50'
-                  }
-                `}
-              >
-                {trend >= 0 ? (
-                  <ArrowUpRight className="w-3 h-3" />
-                ) : (
-                  <ArrowDownRight className="w-3 h-3" />
-                )}
-                {Math.abs(trend)}%
-              </span>
-            )}
-            {subtitle && (
-              <span className="text-[11px] text-slate-400 truncate">{subtitle}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Icon circle */}
-        <div
-          className={`
-            flex-shrink-0 w-11 h-11 rounded-xl ${iconStyle}
-            flex items-center justify-center
-            group-hover:scale-110 transition-transform duration-300
-          `}
-        >
-          {icon}
-        </div>
+      <div
+        className={`
+          flex-shrink-0 w-12 h-12 rounded-2xl ${style.bg} ${style.text}
+          flex items-center justify-center
+        `}
+      >
+        {icon}
       </div>
     </div>
   );

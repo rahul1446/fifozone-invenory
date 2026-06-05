@@ -65,7 +65,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
   // 3. Recent 10 Orders
   const recentOrders = await Order.find()
-    .sort({ createdAt: -1 })
+    .sort({ orderDate: -1, createdAt: -1 })
     .limit(10);
 
   // 4. Low stock products widget list

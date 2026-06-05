@@ -232,7 +232,16 @@ const OrdersPage = () => {
           <Select value={filters.paymentStatus} onChange={v => handleFilterChange('paymentStatus', v)}>
             <Option value="All">All Payment</Option><Option value="paid">Paid</Option><Option value="pending">Pending</Option>
           </Select>
-          <RangePicker className="w-full" />
+          <RangePicker 
+            className="w-full" 
+            onChange={(dates, dateStrings) => {
+              if (dates) {
+                setFilters(prev => ({ ...prev, startDate: dateStrings[0], endDate: dateStrings[1], page: 1 }));
+              } else {
+                setFilters(prev => ({ ...prev, startDate: null, endDate: null, page: 1 }));
+              }
+            }} 
+          />
         </div>
         <div className="flex justify-end">
           <Button type="link" onClick={clearFilters}>Clear Filters</Button>

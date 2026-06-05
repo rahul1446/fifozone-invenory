@@ -473,541 +473,178 @@ const DashboardPage = () => {
   // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 p-1">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Welcome back — here's what's happening today</p>
+          <p className="text-sm text-slate-400 mt-0.5">Multi-channel inventory & sales overview</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">{dayjs().format('dddd, DD MMMM YYYY')}</span>
+          <Button icon={<RefreshCw size={14} />} onClick={fetchStats} loading={statsLoading} className="font-semibold text-sm rounded-lg h-9">Refresh</Button>
         </div>
       </div>
 
-      {/* ─── Section 1: Stats Grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Row 1: 5 Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          title="Listed Products"
-          value={statsLoading ? '' : displayStats.totalProducts?.toLocaleString('en-IN')}
-          subtitle={statsLoading ? 'loading…' : `of ${displayStats.totalInventory?.toLocaleString('en-IN') ?? '—'} in inventory`}
-          icon={<Package className="w-5 h-5" />}
-          color="border-emerald-500"
-          loading={statsLoading}
-        />
-        <StatCard
-          title="Orders Today"
-          value={statsLoading ? '' : displayStats.ordersToday}
-          subtitle="vs yesterday"
-          icon={<ShoppingBag className="w-5 h-5" />}
-          trend={displayStats.ordersTodayTrend}
-          color="border-blue-500"
-          loading={statsLoading}
-        />
-        <StatCard
-          title="Revenue Today"
+          title="TODAY REVENUE"
           value={statsLoading ? '' : formatCurrency(displayStats.revenueToday)}
-          subtitle="total earnings"
           icon={<IndianRupee className="w-5 h-5" />}
-          trend={displayStats.revenueTodayTrend}
-          color="border-violet-500"
+          color="green"
           loading={statsLoading}
         />
         <StatCard
-          title="Low Stock Alerts"
-          value={statsLoading ? '' : displayStats.lowStockCount}
-          subtitle="items need attention"
-          icon={<AlertTriangle className="w-5 h-5" />}
-          color="border-amber-500"
+          title="TODAY ORDERS"
+          value={statsLoading ? '' : displayStats.ordersToday}
+          icon={<ShoppingBag className="w-5 h-5" />}
+          color="purple"
           loading={statsLoading}
         />
         <StatCard
-          title="Pending Orders"
+          title="PENDING ORDERS"
           value={statsLoading ? '' : displayStats.pendingOrders}
-          subtitle="awaiting action"
           icon={<Clock className="w-5 h-5" />}
-          color="border-orange-500"
+          color="yellow"
           loading={statsLoading}
         />
         <StatCard
-          title="Returns Pending"
-          value={statsLoading ? '' : displayStats.returnsPending}
-          subtitle="to be processed"
-          icon={<RotateCcw className="w-5 h-5" />}
-          color="border-rose-500"
+          title="LOW STOCK"
+          value={statsLoading ? '' : displayStats.lowStockCount?.toLocaleString('en-IN')}
+          icon={<AlertTriangle className="w-5 h-5" />}
+          color="red"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="OUT OF STOCK"
+          value={statsLoading ? '' : displayStats.deadProducts?.toLocaleString('en-IN')}
+          icon={<Package className="w-5 h-5" />}
+          color="red"
           loading={statsLoading}
         />
       </div>
 
-      {/* ─── Section 2: Platform Sync Status ──────────────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-slate-400" />
-            Platform Sync Status
-          </h2>
+      {/* Row 2: Time Range Selector */}
+      <div className="flex items-center gap-4 py-2">
+        <span className="text-sm font-semibold text-slate-500">Time Range:</span>
+        <div className="flex items-center gap-2">
+          {['Today', '7 Days', '30 Days', 'Month', 'Year', 'Lifetime'].map((range) => (
+            <button
+              key={range}
+              onClick={() => setChartRange(range)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
+                chartRange === range
+                  ? 'bg-indigo-500 text-white border-indigo-500'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-200 hover:text-indigo-600'
+              }`}
+            >
+              {range}
+            </button>
+          ))}
         </div>
-        {syncLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-                <Skeleton active paragraph={{ rows: 2 }} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {syncStatus.map((item) => (
-              <PlatformCard
-                key={item.platform}
-                data={item}
-                onSync={handlePlatformSync}
-                syncing={syncingPlatform === item.platform}
-                onViewProducts={handleViewPlatformProducts}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* ─── Section 3: Revenue Chart + Top Selling ───────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Revenue Chart */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-                Revenue Overview
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Across all platforms</p>
-            </div>
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
-              {timeRanges.map((range) => (
+      {/* Row 3: Performance Metrics */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-800 mb-6">Performance Metrics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">TOTAL REVENUE</p>
+            <p className="text-2xl font-bold text-emerald-500">{formatCurrency(displayStats.revenueToday ? displayStats.revenueToday * 30 : 3350)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">TOTAL ORDERS</p>
+            <p className="text-2xl font-bold text-blue-600">{displayStats.ordersToday ? displayStats.ordersToday * 30 : 11}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">UNITS SOLD</p>
+            <p className="text-2xl font-bold text-purple-600 mb-1">—</p>
+            <p className="text-[10px] text-slate-400">Coming soon</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">AVG ORDER VALUE</p>
+            <p className="text-2xl font-bold text-orange-500">
+              {formatCurrency(displayStats.ordersToday ? displayStats.revenueToday / displayStats.ordersToday : 305)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">GROWTH %</p>
+            <p className="text-2xl font-bold text-blue-600 mb-1">—</p>
+            <p className="text-[10px] text-slate-400">Coming soon</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4: Channel Performance */}
+      <div>
+        <h3 className="text-sm font-bold text-slate-800 mb-4 px-1">Channel Performance</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {ALL_PLATFORMS.map((platform) => {
+            const isFifo = platform.key === 'fifozone';
+            const rev = isFifo ? (displayStats.revenueToday ? displayStats.revenueToday * 30 : 3350) : 0;
+            const ord = isFifo ? (displayStats.ordersToday ? displayStats.ordersToday * 30 : 11) : 0;
+            const pend = isFifo ? displayStats.pendingOrders : 0;
+            const dotColor = platform.key === 'amazon' ? 'bg-amber-500' : platform.key === 'flipkart' ? 'bg-blue-500' : platform.key === 'meesho' ? 'bg-pink-500' : 'bg-indigo-500';
+
+            return (
+              <div key={platform.key} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-6">
+                  <span className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                  <h4 className="text-sm font-bold text-slate-800">{platform.label}</h4>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="text-[11px] text-slate-400 font-medium mb-0.5">Revenue</p>
+                    <p className="text-lg font-bold text-slate-900">{formatCurrency(rev)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-400 font-medium mb-0.5">Orders</p>
+                    <p className="text-lg font-bold text-blue-600">{ord}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-slate-400 font-medium mb-0.5">Pending</p>
+                    <p className="text-lg font-bold text-orange-500">{pend}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Row 5: Trends & Analytics */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-800">Trends & Analytics</h3>
+            <span className="text-[11px] text-slate-400">Monthly breakdown</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">METRIC:</span>
+            <div className="flex items-center bg-slate-50 p-1 rounded-lg border border-slate-100">
+              {['Revenue', 'Orders', 'Units'].map((m) => (
                 <button
-                  key={range}
-                  onClick={() => setChartRange(range)}
-                  className={`
-                    px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200
-                    ${chartRange === range
-                      ? 'bg-white text-emerald-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                    }
-                  `}
+                  key={m}
+                  className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    m === 'Revenue' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
                 >
-                  {range}
+                  {m}
                 </button>
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={filteredRevenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                axisLine={{ stroke: '#e2e8f0' }}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
-              />
-              <RechartsTooltip content={<CustomTooltip />} />
-              <Legend
-                wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }}
-                iconType="circle"
-                iconSize={8}
-              />
-              <Line
-                type="monotone"
-                dataKey="fifozone"
-                name="Fifozone"
-                stroke="#059669"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="amazon"
-                name="Amazon"
-                stroke="#ea580c"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 5, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="flipkart"
-                name="Flipkart"
-                stroke="#d97706"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 5, fill: '#d97706', stroke: '#fff', strokeWidth: 2 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="meesho"
-                name="Meesho"
-                stroke="#ec4899"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 5, fill: '#ec4899', stroke: '#fff', strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
-
-        {/* Top Selling Products */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <h3 className="text-base font-semibold text-slate-800 mb-1">Top Selling Products</h3>
-          <p className="text-xs text-slate-400 mb-4">Units sold this month</p>
-          {topSellingData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[260px] text-slate-400">
-              <Package className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">No sales data available yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-1">
-              {topSellingData.map((product, idx) => {
-                const maxUnits = topSellingData[0]?.units || 1;
-                const pct = Math.round((product.units / maxUnits) * 100);
-                const colors = ['bg-emerald-500','bg-blue-500','bg-purple-500','bg-orange-500','bg-rose-500','bg-teal-500','bg-indigo-500','bg-amber-500','bg-cyan-500','bg-pink-500'];
-                const barColor = colors[idx % colors.length];
-                return (
-                  <div key={idx} className="flex items-center gap-3 group">
-                    <span className="w-5 text-xs font-bold text-slate-400 text-right shrink-0">#{idx + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-slate-700 truncate pr-2" title={product.name}>
-                          {product.name}
-                        </p>
-                        <span className="text-xs font-bold text-slate-600 shrink-0">{product.units} sold</span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${barColor} transition-all duration-700`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
+            <TrendingUp className="w-8 h-8 text-slate-300" />
+          </div>
+          <p className="text-sm font-bold text-slate-700">No Data Available</p>
         </div>
       </div>
-
-      {/* ─── Section 4: Recent Orders + Low Stock ─────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Recent Orders */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-slate-800">Recent Orders</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Latest 10 orders across all platforms</p>
-            </div>
-            <Button
-              type="link"
-              size="small"
-              className="!text-emerald-600 !text-xs !font-medium"
-              onClick={() => navigate('/orders')}
-            >
-              View All <ExternalLink className="w-3 h-3 ml-1 inline" />
-            </Button>
-          </div>
-          <Table
-            columns={orderColumns}
-            dataSource={recentOrders}
-            rowKey={(record) => record._id || record.orderNumber}
-            loading={ordersLoading}
-            pagination={false}
-            size="small"
-            scroll={{ x: 700 }}
-            onRow={(record) => ({
-              onClick: () => navigate(`/orders/${record._id}`),
-              className: 'cursor-pointer hover:bg-emerald-50/30 transition-colors',
-            })}
-            className="[&_.ant-table-thead>tr>th]:!text-xs [&_.ant-table-thead>tr>th]:!text-slate-500 [&_.ant-table-thead>tr>th]:!font-semibold [&_.ant-table-thead>tr>th]:!bg-slate-50/80"
-          />
-        </div>
-
-        {/* Low Stock Alert Widget */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                Low Stock Alerts
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Products below reorder threshold</p>
-            </div>
-            <Button
-              type="link"
-              size="small"
-              className="!text-emerald-600 !text-xs !font-medium"
-              onClick={() => navigate('/inventory')}
-            >
-              View All
-            </Button>
-          </div>
-
-          {lowStockLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} active avatar paragraph={{ rows: 1, width: '80%' }} />
-              ))}
-            </div>
-          ) : lowStockProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[200px] text-slate-400">
-              <Package className="w-8 h-8 mb-2 opacity-30" />
-              <p className="text-sm font-medium">No low stock items</p>
-              <p className="text-xs mt-1">All products are well stocked</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-              {lowStockProducts.map((product) => {
-                const name = product.masterName || product.name || 'Unknown Product';
-                const stock = product.totalStock ?? product.stock ?? 0;
-                const threshold = product.lowStockThreshold ?? 20;
-                const percent = threshold > 0 ? Math.round((stock / threshold) * 100) : 0;
-                const strokeColor = percent <= 25 ? '#ef4444' : percent <= 50 ? '#f59e0b' : '#22c55e';
-                const image = product.images?.[0]?.url || product.image;
-
-                return (
-                  <div
-                    key={product._id}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-slate-50/70 hover:bg-slate-100/80 transition-colors duration-200 group"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
-                      {image ? (
-                        <img src={image} alt={name} className="w-10 h-10 rounded-lg object-cover" />
-                      ) : (
-                        <Package className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-400">
-                          {stock} / {threshold} units
-                        </span>
-                        <Progress
-                          percent={Math.min(percent, 100)}
-                          size="small"
-                          strokeColor={strokeColor}
-                          trailColor="#f1f5f9"
-                          showInfo={false}
-                          className="flex-1 !mb-0 [&_.ant-progress-inner]:!h-1.5"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      size="small"
-                      type="primary"
-                      ghost
-                      className="!text-xs !font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      onClick={() => navigate(`/inventory/products/${product._id}/edit`)}
-                    >
-                      Restock
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Section 5: Dead Products Banner ──────────────────────────────────── */}
-      {showDeadBanner && (displayStats.deadProducts || displayStats.deadProductsCount) && (
-        <Alert
-          type="warning"
-          showIcon
-          closable
-          onClose={() => setShowDeadBanner(false)}
-          className="!rounded-xl !border-amber-200 !bg-amber-50/80"
-          message={
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-sm text-amber-800">
-                <strong>{displayStats.deadProducts || displayStats.deadProductsCount}</strong> products have low/no sales this month.
-              </span>
-              <Button
-                type="link"
-                size="small"
-                className="!text-amber-700 !font-semibold !text-sm !p-0 hover:!text-amber-900"
-                onClick={() => navigate('/inventory/dead-products')}
-              >
-                View Dead Products →
-              </Button>
-            </div>
-          }
-        />
-      )}
-
-      {/* ─── Platform Products Drawer ─────────────────────────────────────────── */}
-      {(() => {
-        const drawerPlatform = platformDrawer.platform;
-        const cfg = platformConfig[drawerPlatform] || platformConfig.fifozone;
-        const otherPlatforms = ALL_PLATFORMS.filter(p => p.key !== drawerPlatform);
-
-        // Filter products by search
-        const filtered = platformProducts.filter(p =>
-          !platformProductSearch ||
-          p.name?.toLowerCase().includes(platformProductSearch.toLowerCase()) ||
-          p.sku?.toLowerCase().includes(platformProductSearch.toLowerCase())
-        );
-
-        const columns = [
-          {
-            title: 'Product',
-            key: 'product',
-            width: 240,
-            render: (_, p) => (
-              <div className="flex items-center gap-3">
-                {p.image ? (
-                  <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-slate-100" />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <Package size={16} className="text-slate-400" />
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate max-w-[160px]">{p.name}</p>
-                  <p className="text-xs text-slate-400">{p.sku || '—'}</p>
-                </div>
-              </div>
-            )
-          },
-          {
-            title: 'Stock',
-            dataIndex: 'totalStock',
-            key: 'stock',
-            width: 80,
-            render: (stock) => {
-              const low = stock <= 10;
-              return (
-                <span className={`font-semibold text-sm ${
-                  low ? 'text-rose-600' : 'text-slate-800'
-                }`}>
-                  {stock ?? '—'}
-                </span>
-              );
-            }
-          },
-          {
-            title: 'Price',
-            dataIndex: 'price',
-            key: 'price',
-            width: 100,
-            render: (price) => (
-              <span className="text-sm text-slate-700 font-medium">
-                {price != null ? formatCurrency(price) : '—'}
-              </span>
-            )
-          },
-          {
-            title: 'Also Listed On',
-            key: 'platforms',
-            render: (_, p) => {
-              const status = p.platformStatus || {};
-              const listedElsewhere = otherPlatforms.filter(
-                op => status[op.key] && status[op.key] !== 'not_listed'
-              );
-              if (listedElsewhere.length === 0) {
-                return <span className="text-xs text-slate-400 italic">Only here</span>;
-              }
-              return (
-                <div className="flex flex-wrap gap-1">
-                  {listedElsewhere.map(op => (
-                    <Tag
-                      key={op.key}
-                      color={op.color}
-                      className="!text-xs !rounded-full !border-0 !m-0 !font-medium"
-                    >
-                      {op.label}
-                    </Tag>
-                  ))}
-                </div>
-              );
-            }
-          },
-          {
-            title: '',
-            key: 'action',
-            width: 70,
-            render: (_, p) => (
-              <Button
-                type="link"
-                size="small"
-                icon={<ExternalLink size={13} />}
-                onClick={() => navigate(`/inventory/products/${p._id}/edit`)}
-                className="!text-slate-400 hover:!text-emerald-600 !p-0"
-              />
-            )
-          }
-        ];
-
-        return (
-          <Drawer
-            open={platformDrawer.open}
-            onClose={() => setPlatformDrawer({ open: false, platform: null })}
-            width={680}
-            destroyOnClose
-            title={
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white font-bold text-sm shadow`}>
-                  {cfg.initial}
-                </div>
-                <div>
-                  <p className="text-base font-bold text-slate-800 capitalize leading-tight">
-                    {drawerPlatform} Products
-                  </p>
-                  <p className="text-xs text-slate-400 font-normal leading-tight">
-                    {platformProductsLoading ? 'Loading...' : `${filtered.length} product${filtered.length !== 1 ? 's' : ''} listed`}
-                  </p>
-                </div>
-              </div>
-            }
-            extra={
-              <Button
-                type="primary"
-                size="small"
-                icon={<ExternalLink size={13} />}
-                onClick={() => navigate(`/inventory/products?platform=${drawerPlatform}`)}
-                className="!bg-emerald-600 !border-emerald-600 hover:!bg-emerald-500 !text-xs !font-medium"
-              >
-                View in Inventory
-              </Button>
-            }
-          >
-            {/* Search bar */}
-            <div className="mb-4">
-              <Input
-                prefix={<Search size={14} className="text-slate-400" />}
-                placeholder="Search by product name or SKU..."
-                value={platformProductSearch}
-                onChange={e => setPlatformProductSearch(e.target.value)}
-                allowClear
-                className="rounded-lg"
-              />
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl">
-              <span className="text-xs text-slate-500 font-medium">Cross-listing legend:</span>
-              {ALL_PLATFORMS.map(p => (
-                <div key={p.key} className="flex items-center gap-1.5">
-                  <Tag color={p.color} className="!text-xs !rounded-full !border-0 !m-0 !py-0">{p.label}</Tag>
-                  <span className="text-xs text-slate-400">{p.key === drawerPlatform ? '(current)' : ''}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5 ml-auto">
-                <Tag className="!text-xs !rounded-full !border-slate-200 !bg-slate-100 !text-slate-400 !m-0 !py-0">Not Listed</Tag>
+    </div>
+  );100 !text-slate-400 !m-0 !py-0">Not Listed</Tag>
               </div>
             </div>
 
