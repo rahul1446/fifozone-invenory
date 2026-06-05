@@ -35,60 +35,15 @@ const fallbackStats = {
   deadProducts: 0,
 };
 
-const fallbackSyncStatus = [
-  { platform: 'fifozone',  status: 'synced', productCount: 0, lastSync: dayjs().toISOString() },
-  { platform: 'amazon',   status: 'synced', productCount: 0, lastSync: dayjs().toISOString() },
-  { platform: 'flipkart', status: 'synced', productCount: 0, lastSync: dayjs().toISOString() },
-  { platform: 'meesho',   status: 'synced', productCount: 0, lastSync: dayjs().toISOString() },
-];
+const fallbackSyncStatus = [];
 
-const generateRevenueData = () => {
-  const data = [];
-  for (let i = 29; i >= 0; i--) {
-    const date = dayjs().subtract(i, 'day');
-    data.push({
-      date: date.format('DD MMM'),
-      fifozone: Math.floor(12000 + Math.random() * 18000),
-      amazon: Math.floor(8000 + Math.random() * 14000),
-      flipkart: Math.floor(5000 + Math.random() * 11000),
-      meesho: Math.floor(3000 + Math.random() * 9000),
-    });
-  }
-  return data;
-};
+const generateRevenueData = () => [];
 
-const topSellingMockData = [
-  { name: 'Fipnil Plus', units: 342 },
-  { name: 'Drontal Puppy', units: 289 },
-  { name: 'Himalaya Erina', units: 254 },
-  { name: 'Beaphar Fiprotec', units: 218 },
-  { name: 'Advocate Spot', units: 195 },
-  { name: 'Prazitel Plus', units: 172 },
-  { name: 'Hartz UltraGuard', units: 148 },
-  { name: 'Frontline Spray', units: 131 },
-];
+const topSellingMockData = [];
 
-const fallbackOrders = [
-  { _id: '1', orderNumber: 'FFZ-10423', platform: 'fifozone', customer: { name: 'Rahul Sharma' }, items: [1, 2], totalAmount: 2450, status: 'delivered', createdAt: dayjs().subtract(1, 'hour').toISOString() },
-  { _id: '2', orderNumber: 'AMZ-88712', platform: 'amazon', customer: { name: 'Priya Nair' }, items: [1], totalAmount: 890, status: 'shipped', createdAt: dayjs().subtract(2, 'hour').toISOString() },
-  { _id: '3', orderNumber: 'FLK-34221', platform: 'flipkart', customer: { name: 'Amit Patel' }, items: [1, 2, 3], totalAmount: 3670, status: 'processing', createdAt: dayjs().subtract(3, 'hour').toISOString() },
-  { _id: '4', orderNumber: 'FFZ-10422', platform: 'fifozone', customer: { name: 'Sneha Reddy' }, items: [1], totalAmount: 1290, status: 'pending', createdAt: dayjs().subtract(4, 'hour').toISOString() },
-  { _id: '5', orderNumber: 'AMZ-88711', platform: 'amazon', customer: { name: 'Vikram Singh' }, items: [1, 2], totalAmount: 4120, status: 'delivered', createdAt: dayjs().subtract(5, 'hour').toISOString() },
-  { _id: '6', orderNumber: 'FLK-34220', platform: 'flipkart', customer: { name: 'Kavita Joshi' }, items: [1], totalAmount: 760, status: 'shipped', createdAt: dayjs().subtract(6, 'hour').toISOString() },
-  { _id: '7', orderNumber: 'FFZ-10421', platform: 'fifozone', customer: { name: 'Rohit Kapoor' }, items: [1, 2, 3], totalAmount: 5340, status: 'processing', createdAt: dayjs().subtract(7, 'hour').toISOString() },
-  { _id: '8', orderNumber: 'AMZ-88710', platform: 'amazon', customer: { name: 'Anita Desai' }, items: [1], totalAmount: 1890, status: 'delivered', createdAt: dayjs().subtract(8, 'hour').toISOString() },
-  { _id: '9', orderNumber: 'FLK-34219', platform: 'flipkart', customer: { name: 'Suresh Kumar' }, items: [1, 2], totalAmount: 2780, status: 'pending', createdAt: dayjs().subtract(10, 'hour').toISOString() },
-  { _id: '10', orderNumber: 'FFZ-10420', platform: 'fifozone', customer: { name: 'Meera Iyer' }, items: [1], totalAmount: 990, status: 'shipped', createdAt: dayjs().subtract(12, 'hour').toISOString() },
-];
+const fallbackOrders = [];
 
-const fallbackLowStock = [
-  { _id: '1', name: 'Fipnil Plus Spot On', stock: 3, lowStockThreshold: 20, image: null },
-  { _id: '2', name: 'Drontal Puppy Suspension', stock: 5, lowStockThreshold: 25, image: null },
-  { _id: '3', name: 'Beaphar Fiprotec Combo', stock: 2, lowStockThreshold: 15, image: null },
-  { _id: '4', name: 'Advocate Small Dog', stock: 7, lowStockThreshold: 30, image: null },
-  { _id: '5', name: 'Prazitel Plus Tablet', stock: 4, lowStockThreshold: 18, image: null },
-  { _id: '6', name: 'Frontline Spray 100ml', stock: 1, lowStockThreshold: 12, image: null },
-];
+const fallbackLowStock = [];
 
 // ─── Custom Recharts Tooltip ────────────────────────────────────────────────────
 

@@ -15,19 +15,6 @@ const InventoryLedgerPage = () => {
         if (!isMounted) return;
 
         let data = res?.data?.logs || res?.data || (Array.isArray(res) ? res : []);
-        
-        // Mock data fallback if empty to match screenshot perfectly
-        if (data.length === 0) {
-          data = [
-            { _id: '1', changeType: 'Reserved', productName: 'Vivaldis V Diet Renal Diet Dog Wet Food - 6x400g', sku: '45229-6x400g', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '2', changeType: 'Reserved', productName: 'PetStrong Probiotic and Prebiotic Gut Health Supplement Sachet for Dogs and Cats - 20x1g', sku: '32758-20x1g', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '3', changeType: 'Reserved', productName: 'Hester Hestacef CV Dry Syrup (Cefpodoxime Proxetil) 30ml for Dogs and Cats - 30ml', sku: '39969-30ml', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '4', changeType: 'Reserved', productName: 'TopDog Premium Boomerang Toy for Dogs and Cats (Pink) - 29x8 cm', sku: '35266-29x8cm', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '5', changeType: 'Reserved', productName: 'Intas Kiskin Lotion - 100mL', sku: '45857-100ml', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '6', changeType: 'Reserved', productName: 'Hester Hestacef CV 162.5mg (Cefpodoxime Proxetil) for Dogs and Cats - 1 Strip (10 Tablets)', sku: '39964-1strip(10tablets)', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-            { _id: '7', changeType: 'Reserved', productName: 'Farmina Vet Life Struvite Feline Formula Cat Wet Food - 12x85g', sku: '41311-12x85g', changeQuantity: -1, note: 'Stock reserved for order', createdAt: '2026-02-26T22:51:00Z' },
-          ];
-        }
         setLogs(data);
       } catch { 
         if (isMounted) message.error('Failed to load inventory ledger'); 

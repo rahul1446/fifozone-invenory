@@ -8,13 +8,7 @@ import { formatDate } from '../../utils/formatters';
 const { Option } = Select;
 
 // ─── Fallback mock data so the page is never blank ───────────────────────────
-const FALLBACK_QUEUE = [
-  { _id: 'm1', orderNumber: 'FZ-9821', platform: 'fifozone', customerName: 'Ravi Teja', city: 'Hyderabad', state: 'TS', itemsCount: 2, totalAmount: 1840, orderDate: new Date(Date.now() - 86400000).toISOString(), shipByDate: new Date().toISOString(), status: 'confirmed' },
-  { _id: 'm2', orderNumber: 'AMZ-5544', platform: 'amazon',   customerName: 'Priya Mehta', city: 'Mumbai', state: 'MH', itemsCount: 1, totalAmount: 950, orderDate: new Date(Date.now() - 172800000).toISOString(), shipByDate: new Date().toISOString(), status: 'processing' },
-  { _id: 'm3', orderNumber: 'FK-3312',  platform: 'flipkart', customerName: 'Ajay Singh', city: 'Delhi', state: 'DL', itemsCount: 3, totalAmount: 2350, orderDate: new Date(Date.now() - 43200000).toISOString(), shipByDate: new Date(Date.now() + 86400000).toISOString(), status: 'packed' },
-  { _id: 'm4', orderNumber: 'AMZ-5601', platform: 'amazon',   customerName: 'Sneha Rao', city: 'Bengaluru', state: 'KA', itemsCount: 1, totalAmount: 780, orderDate: new Date(Date.now() - 259200000).toISOString(), shipByDate: new Date(Date.now() - 86400000).toISOString(), status: 'confirmed' },
-  { _id: 'm5', orderNumber: 'FZ-9835',  platform: 'fifozone', customerName: 'Karan Patel', city: 'Ahmedabad', state: 'GJ', itemsCount: 4, totalAmount: 3200, orderDate: new Date(Date.now() - 3600000).toISOString(), shipByDate: new Date(Date.now() + 172800000).toISOString(), status: 'processing' },
-];
+const FALLBACK_QUEUE = [];
 
 // ─── Platform config ──────────────────────────────────────────────────────────
 const PLATFORM_CFG = {

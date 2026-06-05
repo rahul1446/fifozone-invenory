@@ -6,36 +6,11 @@ import {
 } from 'recharts';
 import { TrendingUp, ShoppingCart, IndianRupee, Trophy } from 'lucide-react';
 
-const monthlyRevenue = [
-  { month: 'Dec', revenue: 485000 },
-  { month: 'Jan', revenue: 610000 },
-  { month: 'Feb', revenue: 540000 },
-  { month: 'Mar', revenue: 720000 },
-  { month: 'Apr', revenue: 680000 },
-  { month: 'May', revenue: 850000 },
-];
+const monthlyRevenue = [];
 
-const platformPieData = [
-  { name: 'Amazon', value: 42, color: '#f97316' },
-  { name: 'Flipkart', value: 28, color: '#3b82f6' },
-  { name: 'Meesho', value: 18, color: '#ec4899' },
-  { name: 'Fifozone', value: 12, color: '#10b981' },
-];
+const platformPieData = [];
 
-const tableData = [
-  { key: '1', month: 'December', platform: 'amazon', orders: 320, revenue: 185000, avgOrderValue: 578, growth: '+12.4%' },
-  { key: '2', month: 'December', platform: 'flipkart', orders: 210, revenue: 130000, avgOrderValue: 619, growth: '+8.1%' },
-  { key: '3', month: 'January', platform: 'amazon', orders: 398, revenue: 242000, avgOrderValue: 608, growth: '+24.3%' },
-  { key: '4', month: 'January', platform: 'meesho', orders: 480, revenue: 185000, avgOrderValue: 385, growth: '+15.6%' },
-  { key: '5', month: 'February', platform: 'flipkart', orders: 285, revenue: 178000, avgOrderValue: 625, growth: '-3.2%' },
-  { key: '6', month: 'February', platform: 'fifozone', orders: 120, revenue: 108000, avgOrderValue: 900, growth: '+5.8%' },
-  { key: '7', month: 'March', platform: 'amazon', orders: 435, revenue: 278000, avgOrderValue: 639, growth: '+18.9%' },
-  { key: '8', month: 'March', platform: 'meesho', orders: 560, revenue: 210000, avgOrderValue: 375, growth: '+21.4%' },
-  { key: '9', month: 'April', platform: 'flipkart', orders: 310, revenue: 195000, avgOrderValue: 629, growth: '+9.6%' },
-  { key: '10', month: 'April', platform: 'amazon', orders: 420, revenue: 265000, avgOrderValue: 631, growth: '+4.8%' },
-  { key: '11', month: 'May', platform: 'amazon', orders: 510, revenue: 330000, avgOrderValue: 647, growth: '+24.5%' },
-  { key: '12', month: 'May', platform: 'meesho', orders: 690, revenue: 258000, avgOrderValue: 374, growth: '+38.3%' },
-];
+const tableData = [];
 
 const platformColors = { amazon: 'orange', flipkart: 'blue', meesho: 'pink', fifozone: 'green' };
 
@@ -54,7 +29,7 @@ const StatCard = ({ title, value, icon: Icon, borderColor, iconBg, iconColor }) 
 const ReportsPage = () => {
   const totalRevenue = tableData.reduce((s, r) => s + r.revenue, 0);
   const totalOrders = tableData.reduce((s, r) => s + r.orders, 0);
-  const avgOrderValue = Math.round(totalRevenue / totalOrders);
+  const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
   const columns = [
     { title: 'Month', dataIndex: 'month', key: 'month', render: (v) => <span className="font-medium text-slate-700">{v}</span> },

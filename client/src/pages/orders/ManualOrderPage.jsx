@@ -25,21 +25,6 @@ const ManualOrderPage = () => {
         
         let data = res?.data?.products || res?.data || res?.products || [];
         if (!Array.isArray(data)) data = [];
-        
-        if (data.length === 0) {
-          data = [
-            { _id: 'p1', masterName: 'Corise Foxyfur Syrup Omega 3 &amp; 6 Supplements ...', sku: '43379', packSize: '200ml', mrp: 310, totalStock: 49 },
-            { _id: 'p2', masterName: 'Alembic Sharkoferrol Pet Syrup (200g) - 200g', sku: '42029', packSize: '200g', mrp: 143, totalStock: 48 },
-            { _id: 'p3', masterName: 'Corise Pimocard Pimobendan 5 mg Chewable Tablets ...', sku: '43947', packSize: '3strips(30tablets)', mrp: 2138, totalStock: 49 },
-            { _id: 'p4', masterName: 'Oriheal Petvomi Fix 8mg (Ondansetron) Tablet for Do...', sku: '44447', packSize: '10tablets', mrp: 88, totalStock: 43 },
-            { _id: 'p5', masterName: 'Vivaldis V Diet Renal Diet Dog Wet Food - 6x400g', sku: '45229', packSize: '6x400g', mrp: 3000, totalStock: 49 },
-            { _id: 'p6', masterName: 'PetStrong Probiotic and Prebiotic Gut Health Supple...', sku: '32758', packSize: '20x1g', mrp: 340, totalStock: 48 },
-            { _id: 'p7', masterName: 'Hester Hestacef CV Dry Syrup (Cefpodoxime Proxetil)...', sku: '39969', packSize: '30ml', mrp: 175, totalStock: 49 },
-            { _id: 'p8', masterName: 'TopDog Premium Boomerang Toy for Dogs and Cats (...', sku: '35266', packSize: '29x8cm', mrp: 1124, totalStock: 48 },
-            { _id: 'p9', masterName: 'Intas Kiskin Lotion - 100mL', sku: '45057', packSize: '100ml', mrp: 135, totalStock: 49 },
-            { _id: 'p10', masterName: 'Hester Hestacef CV 162.5mg (Cefpodoxime Proxetil) f...', sku: '39964', packSize: '1strip(10tablets)', mrp: 250, totalStock: 40 },
-          ];
-        }
         setProducts(data);
       } catch (err) {
         if (isMounted) setProducts([]);

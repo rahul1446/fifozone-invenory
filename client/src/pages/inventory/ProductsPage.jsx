@@ -128,10 +128,10 @@ const ProductsPage = () => {
     },
   ];
 
-  const totalProducts = pagination?.total || 3844;
-  const inStockCount = products?.filter(p => p.totalStock > 0).length || 11;
+  const totalProducts = pagination?.total || 0;
+  const inStockCount = products?.filter(p => p.totalStock > 0).length || 0;
   const lowStockCount = products?.filter(p => p.totalStock > 0 && p.totalStock <= 5).length || 0;
-  const outOfStockCount = products?.filter(p => p.totalStock === 0).length || 39;
+  const outOfStockCount = products?.filter(p => p.totalStock === 0).length || 0;
 
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-[1400px] mx-auto p-1">

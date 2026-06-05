@@ -26,42 +26,16 @@ const AnalyticsPage = () => {
   // Fallback data if API fails or doesn't have enough data
   const fallbackData = {
     overview: {
-      totalRevenue: 523400,
-      totalOrders: 234,
-      avgOrderValue: 2236,
-      returnRate: 4.2
+      totalRevenue: 0,
+      totalOrders: 0,
+      avgOrderValue: 0,
+      returnRate: 0
     },
-    revenueTrend: Array.from({ length: 30 }, (_, i) => ({
-      date: `May ${i + 1}`,
-      revenue: Math.floor(Math.random() * 20000) + 10000
-    })),
-    platformDistribution: [
-      { name: 'Fifozone', value: 45 },
-      { name: 'Amazon', value: 35 },
-      { name: 'Flipkart', value: 20 }
-    ],
-    topCategories: [
-      { name: 'Dog Medicine', value: 120 },
-      { name: 'Cat Food', value: 85 },
-      { name: 'Tick & Flea', value: 65 },
-      { name: 'Supplements', value: 45 },
-      { name: 'Grooming', value: 30 }
-    ],
-    statusDistribution: [
-      { name: 'Delivered', value: 65, color: COLORS.emerald },
-      { name: 'Shipped', value: 15, color: COLORS.purple },
-      { name: 'Processing', value: 10, color: COLORS.blue },
-      { name: 'Pending', value: 5, color: COLORS.gray },
-      { name: 'Returned', value: 3, color: COLORS.orange },
-      { name: 'Cancelled', value: 2, color: COLORS.red }
-    ],
-    topProducts: [
-      { id: 1, rank: 1, name: 'Fipnil Spot-On 50mg', category: 'Dog Medicine', units: 145, revenue: 45000, returns: 2, returnRate: 1.3 },
-      { id: 2, rank: 2, name: 'Drontal Puppy Suspension', category: 'Dog Medicine', units: 120, revenue: 36000, returns: 0, returnRate: 0 },
-      { id: 3, rank: 3, name: 'Himalaya Erina EP Powder', category: 'Grooming', units: 95, revenue: 14250, returns: 1, returnRate: 1.0 },
-      { id: 4, rank: 4, name: 'Bravecto 1000mg', category: 'Dog Medicine', units: 45, revenue: 85000, returns: 1, returnRate: 2.2 },
-      { id: 5, rank: 5, name: 'Me-O Cat Treat Salmon', category: 'Cat Food', units: 210, revenue: 31500, returns: 4, returnRate: 1.9 },
-    ]
+    revenueTrend: [],
+    platformDistribution: [],
+    topCategories: [],
+    statusDistribution: [],
+    topProducts: []
   };
 
   useEffect(() => {
