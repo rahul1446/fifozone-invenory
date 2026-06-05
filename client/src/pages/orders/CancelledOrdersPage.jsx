@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Spin, message } from 'antd';
-import { XCircle, Inbox, Package, Eye } from 'lucide-react';
+import { XCircle, Eye, Package, Inbox } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getOrdersApi } from '../../api/orderApi';
 import { formatCurrency } from '../../utils/formatters';
@@ -126,7 +126,7 @@ const CancelledOrdersPage = () => {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Total Cancelled</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{orders.length}</h2>
           </div>
-          <div className="w-9 h-9 rounded-[10px] border border-rose-100 bg-rose-50 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full border border-rose-100 bg-rose-50 flex items-center justify-center">
             <XCircle className="w-4 h-4 text-rose-500" />
           </div>
         </div>
@@ -136,7 +136,7 @@ const CancelledOrdersPage = () => {
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Lost Value</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{formatCurrency(totalValue)}</h2>
           </div>
-          <div className="w-9 h-9 rounded-[10px] border border-amber-100 bg-amber-50 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full border border-amber-100 bg-amber-50 flex items-center justify-center">
             <XCircle className="w-4 h-4 text-amber-500" />
           </div>
         </div>
