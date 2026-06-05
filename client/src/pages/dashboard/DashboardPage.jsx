@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Tag, Progress, Alert, Button, Skeleton, Tooltip, Drawer, Spin, Input } from 'antd';
+import { Table, Tag, Progress, Alert, Button, Skeleton, Tooltip, Drawer, Spin, Input, DatePicker } from 'antd';
 import axiosInstance from '../../api/axiosInstance';
 import {
   Package, ShoppingBag, IndianRupee, AlertTriangle,
@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+const { RangePicker } = DatePicker;
 
 import StatCard from '../../components/common/StatCard';
 import { formatCurrency, formatDate, formatRelativeTime } from '../../utils/formatters';
@@ -221,6 +222,7 @@ const DashboardPage = () => {
   // State: revenue chart
   const [revenueData, setRevenueData] = useState([]);
   const [chartRange, setChartRange] = useState('30D');
+  const [customDateRange, setCustomDateRange] = useState(null);
   const [topSellingData, setTopSellingData] = useState([]);
 
   // State: orders
@@ -531,7 +533,7 @@ const DashboardPage = () => {
           {['Today', '7 Days', '30 Days', 'Month', 'Year', 'Lifetime'].map((range) => (
             <button
               key={range}
-              onClick={() => setChartRange(range)}
+              onClick={() => { setChartRange(range); setCustomDateRange(null); }}
               className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors border ${
                 chartRange === range
                   ? 'bg-indigo-500 text-white border-indigo-500'
@@ -541,6 +543,21 @@ const DashboardPage = () => {
               {range}
             </button>
           ))}
+          <div className="ml-2 border-l border-slate-200 pl-4 flex items-center">
+            <RangePicker 
+              className={`h-[34px] rounded-lg ${chartRange === 'Custom' ? 'border-indigo-500 shadow-sm' : ''}`}
+              onChange={(dates) => {
+                if (dates) {
+                  setCustomDateRange(dates);
+                  setChartRange('Custom');
+                } else {
+                  setCustomDateRange(null);
+                  setChartRange('30D');
+                }
+              }}
+              value={customDateRange}
+            />
+          </div>
         </div>
       </div>
 
