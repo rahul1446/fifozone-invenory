@@ -267,38 +267,42 @@ class SyncService {
 
           // Check if order already exists in DB
           let existingOrder = await Order.findOne({ platformOrderId: rawOrd.platformOrderId });
+          let needsSave = false;
+
           if (existingOrder) {
              if (existingOrder.status !== internalStatus) {
                 existingOrder.status = internalStatus;
                 existingOrder.statusHistory.push({ status: internalStatus, note: `Status updated to ${rawOrd.platformStatus} via sync` });
-                await existingOrder.save();
+                needsSave = true;
              }
-             continue;
           }
 
           // Resolve products
           const resolvedItems = [];
           for (const itemRow of rawOrd.items) {
-            const product = await Product.findOne({ sku: itemRow.sku });
+            let product = null;
+            if (itemRow.sku) {
+              product = await Product.findOne({ sku: itemRow.sku });
+            }
+
+            resolvedItems.push({
+              product: product ? product._id : undefined,
+              productSnapshot: {
+                masterName: product ? product.masterName : (itemRow.name || 'Unknown Product'),
+                sku: itemRow.sku || '',
+                brand: product ? product.brand : 'Generic',
+                sellingPrice: itemRow.unitPrice,
+                mrp: product ? product.mrp : itemRow.unitPrice,
+                images: product ? product.images.map(img => img.url) : []
+              },
+              platformProductId: itemRow.platformProductId || itemRow.asin || itemRow.listingId || '',
+              quantity: itemRow.quantity,
+              unitPrice: itemRow.unitPrice,
+              totalPrice: itemRow.unitPrice * itemRow.quantity,
+              gstAmount: Math.round(itemRow.unitPrice * itemRow.quantity * 0.18) // standard
+            });
 
             if (product) {
-              resolvedItems.push({
-                product: product._id,
-                productSnapshot: {
-                  masterName: product.masterName,
-                  sku: product.sku,
-                  brand: product.brand,
-                  sellingPrice: itemRow.unitPrice,
-                  mrp: product.mrp,
-                  images: product.images.map(img => img.url)
-                },
-                platformProductId: itemRow.asin || itemRow.listingId || '',
-                quantity: itemRow.quantity,
-                unitPrice: itemRow.unitPrice,
-                totalPrice: itemRow.unitPrice * itemRow.quantity,
-                gstAmount: Math.round(itemRow.unitPrice * itemRow.quantity * 0.18) // standard
-              });
-
               // Process inventory deduction
               const previousStock = product.totalStock;
               const deductQty = itemRow.quantity;
@@ -343,6 +347,17 @@ class SyncService {
                 });
               }
             }
+          }
+
+          if (existingOrder) {
+             if (existingOrder.items.length === 0 && resolvedItems.length > 0) {
+                 existingOrder.items = resolvedItems;
+                 needsSave = true;
+             }
+             if (needsSave) {
+                 await existingOrder.save();
+             }
+             continue;
           }
 
           try {

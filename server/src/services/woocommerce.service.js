@@ -575,7 +575,9 @@ class WooCommerceService {
           pincode: order.shipping.postcode || order.billing.postcode || '000000'
         },
         items: order.line_items.map(item => ({
-          sku: item.sku,
+          sku: item.sku || '',
+          name: item.name || 'Unknown Product',
+          platformProductId: String(item.product_id || ''),
           quantity: item.quantity,
           unitPrice: parseFloat(item.price)
         })),
