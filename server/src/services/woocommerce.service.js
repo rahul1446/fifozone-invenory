@@ -562,6 +562,7 @@ class WooCommerceService {
       const orders = response.data.map(order => ({
         platformOrderId: String(order.id),
         platformStatus: order.status,
+        orderDate: order.date_created,
         customer: {
           name: `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown Customer',
           email: order.billing.email || '',

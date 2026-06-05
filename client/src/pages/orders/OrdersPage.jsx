@@ -131,9 +131,9 @@ const OrdersPage = () => {
     },
     {
       title: 'Date',
-      dataIndex: 'createdAt',
+      dataIndex: 'orderDate',
       key: 'date',
-      render: (val) => formatDate(val)
+      render: (val, record) => formatDate(val || record.createdAt)
     },
     {
       title: 'Customer',

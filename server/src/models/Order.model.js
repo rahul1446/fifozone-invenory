@@ -13,6 +13,12 @@ const OrderSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  orderDate: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+
   platform: {
     type: String,
     enum: ['fifozone', 'amazon', 'flipkart'],

@@ -275,6 +275,10 @@ class SyncService {
                 existingOrder.statusHistory.push({ status: internalStatus, note: `Status updated to ${rawOrd.platformStatus} via sync` });
                 needsSave = true;
              }
+             if (!existingOrder.orderDate && rawOrd.orderDate) {
+                existingOrder.orderDate = new Date(rawOrd.orderDate);
+                needsSave = true;
+             }
           }
 
           // Resolve products
@@ -366,6 +370,7 @@ class SyncService {
             const order = new Order({
               orderNumber,
               platformOrderId: rawOrd.platformOrderId,
+              orderDate: rawOrd.orderDate ? new Date(rawOrd.orderDate) : new Date(),
               platform: item.key,
               customer: rawOrd.customer,
               shippingAddress: rawOrd.shippingAddress,

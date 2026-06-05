@@ -65,7 +65,7 @@ const getOrders = asyncHandler(async (req, res) => {
 
   const total = await Order.countDocuments(query);
   const orders = await Order.find(query)
-    .sort({ createdAt: -1 })
+    .sort({ orderDate: -1, createdAt: -1 })
     .skip(skip)
     .limit(limitNum);
 
