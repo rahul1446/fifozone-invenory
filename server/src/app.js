@@ -86,6 +86,7 @@ app.use('/api/shipping', require('./routes/shipping.routes'));
 app.use('/api/payments', require('./routes/payment.routes'));
 app.use('/api/account-health', require('./routes/accountHealth.routes'));
 app.use('/api/advertising', require('./routes/advertising.routes'));
+app.use('/api/settings', require('./routes/settings.routes'));
 
 // Base route indicator
 app.get('/', (req, res) => {

@@ -6,6 +6,9 @@ import { getSyncStatusApi, triggerManualSyncApi } from '../api/platformApi';
 import { getNotificationsApi, markAllAsReadApi, markAsReadApi } from '../api/notificationApi';
 import { formatRelativeTime } from '../utils/formatters';
 import { getMessagesApi } from '../api/messageApi';
+import { getSettingsApi } from '../api/settingsApi';
+import { useDispatch, useSelector } from 'react-redux';
+import { setSettingsSuccess } from '../store/settingsSlice';
 import {
   LayoutDashboard,
   Package,
@@ -54,6 +57,9 @@ const DashboardLayout = () => {
   const socket = useSocket(); // connects socket in background
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const { generalSettings } = useSelector(state => state.settings || {});
 
   // Sidebar responsive drawer for mobile viewports
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -97,6 +103,16 @@ const DashboardLayout = () => {
   useEffect(() => {
     fetchSyncStatus();
     fetchNotifications();
+
+    const fetchGlobalSettings = async () => {
+      try {
+        const res = await getSettingsApi();
+        if (res.data?.data) {
+          dispatch(setSettingsSuccess(res.data.data));
+        }
+      } catch (err) {}
+    };
+    fetchGlobalSettings();
 
     const fetchUnreadMsgs = async () => {
       try {
@@ -231,7 +247,15 @@ const DashboardLayout = () => {
     { type: 'item', label: 'Reports',      path: '/reports',       icon: <BarChart3 size={18} /> },
     { type: 'item', label: 'Best Sellers', path: '/best-sellers',  icon: <Star size={18} /> },
     { type: 'item', label: 'Users',        path: '/users',         icon: <UserCheck size={18} /> },
-    { type: 'item', label: 'Settings',     path: '/settings',      icon: <Settings size={18} /> },
+    {
+      type: 'group',
+      label: 'SYSTEM',
+      children: [
+        { label: 'General Settings', path: '/settings/general', icon: <Settings size={18} /> },
+        { label: 'Platform Sync', path: '/settings/platforms', icon: <Globe size={18} /> },
+        { label: 'My Profile', path: '/settings/profile', icon: <User size={18} /> },
+      ]
+    },
   ];
 
 
@@ -350,10 +374,16 @@ const DashboardLayout = () => {
       <aside className="hidden md:flex flex-col w-[260px] bg-slate-900 border-r border-slate-800 shrink-0 text-slate-300">
         {/* Top brand header */}
         <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-800">
-          <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-emerald-950/20">
-            F
-          </div>
-          <span className="font-semibold text-lg text-white font-sans tracking-wide">Fifozone</span>
+          {generalSettings?.logoUrl ? (
+            <img src={generalSettings.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-emerald-950/20">
+              {(generalSettings?.companyName || 'F').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="font-semibold text-lg text-white font-sans tracking-wide truncate">
+            {generalSettings?.companyName || 'Fifozone'}
+          </span>
         </div>
 
         {/* Profile Card */}
