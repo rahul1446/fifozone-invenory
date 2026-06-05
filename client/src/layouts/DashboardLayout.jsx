@@ -471,6 +471,15 @@ const DashboardLayout = () => {
                   </div>
                 </>
               )}
+              {getPlatformStatusColor('meesho') !== 'bg-gray-400' && (
+                <>
+                  <div className="h-3 w-px bg-slate-200" />
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${getPlatformStatusColor('meesho')}`} />
+                    <span>Meesho</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Notification Bell */}
