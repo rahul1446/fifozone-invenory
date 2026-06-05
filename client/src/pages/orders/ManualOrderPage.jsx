@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, message, Divider } from 'antd';
-import { Plus, Trash2, ShoppingCart, User, Search } from 'lucide-react';
+import { Plus, Trash2, ShoppingCart, User, Search, Package } from 'lucide-react';
 import { createManualOrderApi } from '../../api/orderApi';
 import { getProductsApi } from '../../api/productApi';
 
@@ -17,9 +17,12 @@ const ManualOrderPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    let isMounted = true;
     const fetchProducts = async () => {
       try {
         const res = await getProductsApi({ limit: 100 });
+        if (!isMounted) return;
+        
         let data = res?.data?.products || res?.data || res?.products || [];
         if (!Array.isArray(data)) data = [];
         
@@ -39,10 +42,11 @@ const ManualOrderPage = () => {
         }
         setProducts(data);
       } catch (err) {
-        setProducts([]);
+        if (isMounted) setProducts([]);
       }
     };
     fetchProducts();
+    return () => { isMounted = false; };
   }, []);
 
   const handleProductSelect = (product) => {
@@ -52,7 +56,7 @@ const ManualOrderPage = () => {
         return prev.map(i => i.productId === product._id ? { ...i, qty: i.qty + 1 } : i);
       }
       return [...prev, { 
-        id: Date.now(), 
+        id: Math.random().toString(36).substr(2, 9), 
         productId: product._id,
         productName: product.masterName, 
         qty: 1, 
@@ -122,7 +126,7 @@ const ManualOrderPage = () => {
           onClick={handleSubmit}
           className="h-10 text-[13px] font-semibold bg-emerald-600 border-emerald-600 hover:bg-emerald-500 hover:border-emerald-500 px-6 rounded-xl shadow-sm"
         >
-          {submitting ? 'Creating Order...' : 'Create Order'}
+          Create Order
         </Button>
       </div>
 
@@ -155,7 +159,7 @@ const ManualOrderPage = () => {
                   ]}
                   className="mb-0"
                 >
-                  <Input addonBefore={<span className="text-slate-500 font-medium px-1">+91</span>} placeholder="9876543210" size="large" maxLength={10} className="rounded-xl text-sm" />
+                  <Input addonBefore="+91" placeholder="9876543210" size="large" maxLength={10} className="rounded-xl text-sm" />
                 </Form.Item>
 
                 <Form.Item
@@ -202,11 +206,11 @@ const ManualOrderPage = () => {
                   <ShoppingCart size={16} className="text-emerald-600" />
                   <h2 className="font-semibold text-slate-800 text-[14px]">Selected Items</h2>
                 </div>
-                {items.length > 0 && (
+                {items.length > 0 ? (
                   <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-md">
                     {items.reduce((s,i) => s + i.qty, 0)} items
                   </span>
-                )}
+                ) : null}
               </div>
               
               <div className="p-5">
@@ -216,7 +220,7 @@ const ManualOrderPage = () => {
                     <p className="text-[11px] text-slate-400 mt-1">Click products from the right panel to add them here.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
                     {items.map((item) => (
                       <div key={item.id} className="flex justify-between items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 group">
                         <div className="flex-1 min-w-0">
@@ -262,7 +266,7 @@ const ManualOrderPage = () => {
                 />
               </div>
 
-              <div className="px-6 pb-6 flex-1 h-[650px] overflow-y-auto custom-scrollbar">
+              <div className="px-6 pb-6 flex-1 h-[650px] overflow-y-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {filteredProducts.map(product => (
                     <div 
@@ -308,8 +312,6 @@ const ManualOrderPage = () => {
           
         </div>
       </Form>
-
-
     </div>
   );
 };
