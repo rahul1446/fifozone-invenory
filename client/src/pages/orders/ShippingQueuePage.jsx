@@ -21,6 +21,7 @@ const PLATFORM_CFG = {
   fifozone:  { color: 'green',  label: 'Fifozone' },
   amazon:    { color: 'orange', label: 'Amazon'   },
   flipkart:  { color: 'blue',   label: 'Flipkart' },
+  meesho:    { color: 'pink',   label: 'Meesho'   },
 };
 
 const STATUS_CFG = {
@@ -295,6 +296,7 @@ const ShippingQueuePage = () => {
           <Option value="fifozone">Fifozone</Option>
           <Option value="amazon">Amazon</Option>
           <Option value="flipkart">Flipkart</Option>
+          <Option value="meesho">Meesho</Option>
         </Select>
         <span className="text-sm text-slate-400 ml-auto">
           {filtered.length} order{filtered.length !== 1 ? 's' : ''} pending

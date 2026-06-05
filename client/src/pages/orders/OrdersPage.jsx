@@ -98,7 +98,12 @@ const OrdersPage = () => {
   };
 
   const getPlatformTag = (platform) => {
-    const map = { fifozone: { c: 'green', l: 'Fifozone' }, amazon: { c: 'orange', l: 'Amazon' }, flipkart: { c: 'gold', l: 'Flipkart' } };
+    const map = { 
+      fifozone: { c: 'green', l: 'Fifozone' }, 
+      amazon: { c: 'orange', l: 'Amazon' }, 
+      flipkart: { c: 'gold', l: 'Flipkart' },
+      meesho: { c: 'pink', l: 'Meesho' } 
+    };
     const p = map[platform];
     return p ? <Tag color={p.c}>{p.l}</Tag> : <Tag>{platform}</Tag>;
   };
@@ -215,7 +220,11 @@ const OrdersPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Input placeholder="Search Order ID, name..." prefix={<Search size={16} />} value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} />
           <Select value={filters.platform} onChange={v => handleFilterChange('platform', v)}>
-            <Option value="All">All Platforms</Option><Option value="fifozone">Fifozone</Option><Option value="amazon">Amazon</Option><Option value="flipkart">Flipkart</Option>
+            <Option value="All">All Platforms</Option>
+            <Option value="fifozone">Fifozone</Option>
+            <Option value="amazon">Amazon</Option>
+            <Option value="flipkart">Flipkart</Option>
+            <Option value="meesho">Meesho</Option>
           </Select>
           <Select value={filters.status} onChange={v => handleFilterChange('status', v)}>
             <Option value="All">All Statuses</Option><Option value="pending">Pending</Option><Option value="processing">Processing</Option><Option value="shipped">Shipped</Option><Option value="delivered">Delivered</Option>
