@@ -345,36 +345,40 @@ class SyncService {
             }
           }
 
-          // Create the unified Order record
-          const orderNumber = await this.generateOrderNumber();
-          const order = new Order({
-            orderNumber,
-            platformOrderId: rawOrd.platformOrderId,
-            platform: item.key,
-            customer: rawOrd.customer,
-            shippingAddress: rawOrd.shippingAddress,
-            items: resolvedItems,
-            subtotal: rawOrd.subtotal,
-            shippingCharge: rawOrd.shippingCharge || 0,
-            totalAmount: rawOrd.totalAmount,
-            paymentMethod: rawOrd.paymentMethod,
-            paymentStatus: rawOrd.paymentStatus,
-            status: internalStatus,
-            statusHistory: [{ status: internalStatus, note: `Order imported via platform sync (${rawOrd.platformStatus || 'pending'})` }],
-            rawPlatformData: rawOrd
-          });
+          try {
+            // Create the unified Order record
+            const orderNumber = await this.generateOrderNumber();
+            const order = new Order({
+              orderNumber,
+              platformOrderId: rawOrd.platformOrderId,
+              platform: item.key,
+              customer: rawOrd.customer,
+              shippingAddress: rawOrd.shippingAddress,
+              items: resolvedItems,
+              subtotal: rawOrd.subtotal,
+              shippingCharge: rawOrd.shippingCharge || 0,
+              totalAmount: rawOrd.totalAmount,
+              paymentMethod: rawOrd.paymentMethod,
+              paymentStatus: rawOrd.paymentStatus,
+              status: internalStatus,
+              statusHistory: [{ status: internalStatus, note: `Order imported via platform sync (${rawOrd.platformStatus || 'pending'})` }],
+              rawPlatformData: rawOrd
+            });
 
-          await order.save();
+            await order.save();
 
-          // Create New Order Notification
-          await notificationService.createNotification({
-            type: 'new_order',
-            title: `New Order Imported (${item.key.toUpperCase()})`,
-            message: `Order #${order.orderNumber} placed by ${order.customer.name} (Amount: INR ${order.totalAmount})`,
-            severity: 'success',
-            order: order._id,
-            platform: item.key
-          });
+            // Create New Order Notification
+            await notificationService.createNotification({
+              type: 'new_order',
+              title: `New Order Imported (${item.key.toUpperCase()})`,
+              message: `Order #${order.orderNumber} placed by ${order.customer.name} (Amount: INR ${order.totalAmount})`,
+              severity: 'info',
+              order: order._id,
+              platform: item.key
+            });
+          } catch (err) {
+            logger.error(`[Sync] Failed to save order ${rawOrd.platformOrderId}: ${err.message}`);
+          }
         }
 
         await PlatformSync.findOneAndUpdate(

@@ -563,16 +563,16 @@ class WooCommerceService {
         platformOrderId: String(order.id),
         platformStatus: order.status,
         customer: {
-          name: `${order.billing.first_name} ${order.billing.last_name}`.trim(),
-          email: order.billing.email,
-          phone: order.billing.phone
+          name: `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown Customer',
+          email: order.billing.email || '',
+          phone: order.billing.phone || ''
         },
         shippingAddress: {
-          line1: order.shipping.address_1,
-          line2: order.shipping.address_2,
-          city: order.shipping.city,
-          state: order.shipping.state,
-          pincode: order.shipping.postcode
+          line1: order.shipping.address_1 || order.billing.address_1 || 'N/A',
+          line2: order.shipping.address_2 || order.billing.address_2 || '',
+          city: order.shipping.city || order.billing.city || 'Unknown',
+          state: order.shipping.state || order.billing.state || 'XX',
+          pincode: order.shipping.postcode || order.billing.postcode || '000000'
         },
         items: order.line_items.map(item => ({
           sku: item.sku,
