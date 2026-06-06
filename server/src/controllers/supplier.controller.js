@@ -37,13 +37,35 @@ exports.getSuppliers = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, suppliers, 'Suppliers fetched'));
 });
 
+const InventoryLog = require('../models/InventoryLog.model');
+
 exports.createSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.create(req.body);
+  
+  await InventoryLog.create({
+    productName: `Supplier: ${supplier.name}`,
+    changeType: 'supplier_created',
+    platform: 'internal',
+    changeQuantity: 0,
+    performedBy: req.user ? req.user._id : null,
+    note: `Created new supplier: ${supplier.name} (${supplier.gstin || 'No GST'})`
+  });
+
   res.status(201).json(new ApiResponse(201, supplier, 'Supplier created'));
 });
 
 exports.updateSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  
+  await InventoryLog.create({
+    productName: `Supplier: ${supplier.name}`,
+    changeType: 'supplier_updated',
+    platform: 'internal',
+    changeQuantity: 0,
+    performedBy: req.user ? req.user._id : null,
+    note: `Updated supplier details for ${supplier.name}`
+  });
+
   res.json(new ApiResponse(200, supplier, 'Supplier updated'));
 });
 

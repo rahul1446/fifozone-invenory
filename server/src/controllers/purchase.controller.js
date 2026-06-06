@@ -58,6 +58,16 @@ exports.createPurchase = asyncHandler(async (req, res) => {
   const data = req.body;
   const purchase = await Purchase.create(data);
 
+  // Generic log for invoice creation
+  await InventoryLog.create({
+    productName: `Invoice: ${purchase.invoiceNo}`,
+    changeType: purchase.status === 'Posted' ? 'purchase_receipt' : 'purchase_draft',
+    platform: 'internal',
+    changeQuantity: 0,
+    performedBy: req.user ? req.user._id : null,
+    note: `${purchase.status === 'Posted' ? 'Posted' : 'Drafted'} new invoice from ${purchase.supplier} for ₹${purchase.grandTotal}`
+  });
+
   // If status is Posted, we need to add stock
   if (purchase.status === 'Posted' && purchase.items && purchase.items.length > 0) {
     for (const item of purchase.items) {
@@ -144,6 +154,15 @@ exports.updatePurchase = asyncHandler(async (req, res) => {
   // Update the purchase record
   const updatedPurchase = await Purchase.findByIdAndUpdate(purchaseId, data, { new: true });
 
+  await InventoryLog.create({
+    productName: `Invoice: ${updatedPurchase.invoiceNo}`,
+    changeType: updatedPurchase.status === 'Posted' ? 'purchase_receipt' : 'purchase_draft',
+    platform: 'internal',
+    changeQuantity: 0,
+    performedBy: req.user ? req.user._id : null,
+    note: `Updated ${updatedPurchase.status === 'Posted' ? 'and Posted' : 'Draft'} invoice from ${updatedPurchase.supplier} for ₹${updatedPurchase.grandTotal}`
+  });
+
   // If the new status is Posted, add the new stock
   if (updatedPurchase.status === 'Posted' && updatedPurchase.items && updatedPurchase.items.length > 0) {
     for (const item of updatedPurchase.items) {
@@ -190,6 +209,15 @@ exports.deletePurchase = asyncHandler(async (req, res) => {
   if (purchase.status === 'Posted') {
     await reversePurchaseStock(purchase, req.user);
   }
+
+  await InventoryLog.create({
+    productName: `Invoice: ${purchase.invoiceNo}`,
+    changeType: 'system_event',
+    platform: 'internal',
+    changeQuantity: 0,
+    performedBy: req.user ? req.user._id : null,
+    note: `Deleted invoice from ${purchase.supplier}`
+  });
 
   await Purchase.findByIdAndDelete(req.params.id);
   res.json(new ApiResponse(200, {}, 'Purchase deleted successfully'));

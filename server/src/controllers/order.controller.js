@@ -41,9 +41,15 @@ const getOrders = asyncHandler(async (req, res) => {
   }
   if (status && status !== 'All') {
     query.status = status.toLowerCase();
+  } else {
+    // If 'All' is selected, exclude drafts just like WooCommerce does
+    query.status = { $nin: ['draft', 'trash'] };
   }
   if (paymentStatus && paymentStatus !== 'All') {
     query.paymentStatus = paymentStatus.toLowerCase();
+  }
+  if (req.query.paymentMethod && req.query.paymentMethod !== 'All') {
+    query.paymentMethod = { $regex: new RegExp(`^${req.query.paymentMethod}$`, 'i') };
   }
 
   // Date range

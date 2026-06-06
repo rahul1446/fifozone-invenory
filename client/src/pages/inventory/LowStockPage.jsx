@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Table, Tag, Button, Spin, message, Progress } from 'antd';
-import { AlertTriangle, Package, RefreshCw } from 'lucide-react';
-import { getProductsApi } from '../../api/productApi';
+import { Table, Tag, Button, Spin, message, Progress, Modal, Form, InputNumber } from 'antd';
+import { AlertTriangle, Package, RefreshCw, Edit3 } from 'lucide-react';
+import { getProductsApi, bulkEditProductsApi } from '../../api/productApi';
 import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
 import { useNavigate } from 'react-router-dom';
 
 const LowStockPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [form] = Form.useForm();
   
   const { products, pagination, stats, loading } = useSelector((state) => state.products);
 
@@ -17,6 +18,10 @@ const LowStockPage = () => {
     limit: 25,
     stock: 'Attention Required',
   });
+
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     dispatch(setProductsStart());
@@ -35,6 +40,46 @@ const LowStockPage = () => {
 
   const handleTableChange = (pagination) => {
     setFilters(prev => ({ ...prev, page: pagination.current, limit: pagination.pageSize }));
+  };
+
+  const onSelectChange = (newSelectedRowKeys) => {
+    setSelectedRowKeys(newSelectedRowKeys);
+  };
+
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: onSelectChange,
+  };
+
+  const handleMassEdit = async (values) => {
+    if (selectedRowKeys.length === 0) return;
+    
+    const updates = {};
+    if (values.stockAddQty !== undefined && values.stockAddQty !== null) {
+      updates.stockAddQty = values.stockAddQty;
+    }
+    if (values.lowStockThreshold !== undefined && values.lowStockThreshold !== null) {
+      updates.lowStockThreshold = values.lowStockThreshold;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      message.warning('Please enter at least one value to update');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await bulkEditProductsApi(selectedRowKeys, updates);
+      message.success(`Successfully updated ${selectedRowKeys.length} products`);
+      setIsModalVisible(false);
+      setSelectedRowKeys([]);
+      form.resetFields();
+      fetchProducts();
+    } catch (error) {
+      message.error(error?.response?.data?.message || 'Failed to apply mass edit');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns = [
@@ -91,7 +136,19 @@ const LowStockPage = () => {
           <AlertTriangle size={24} className="text-amber-500" />
           <div><h1 className="text-2xl font-bold text-slate-800">Low Stock Alerts</h1><p className="text-slate-500 text-sm">{totalAlerts} items need attention</p></div>
         </div>
-        <Button icon={<RefreshCw size={16} />} onClick={fetchProducts} loading={loading}>Refresh</Button>
+        <div className="flex items-center gap-3">
+          {selectedRowKeys.length > 0 && (
+            <Button 
+              type="primary" 
+              icon={<Edit3 size={16} />} 
+              onClick={() => setIsModalVisible(true)}
+              className="!bg-blue-600"
+            >
+              Mass Edit ({selectedRowKeys.length})
+            </Button>
+          )}
+          <Button icon={<RefreshCw size={16} />} onClick={fetchProducts} loading={loading}>Refresh</Button>
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-l-4 border-rose-500 p-5 flex items-center gap-4">
@@ -105,6 +162,7 @@ const LowStockPage = () => {
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <Table 
+          rowSelection={rowSelection}
           columns={columns} 
           dataSource={products} 
           rowKey="_id" 
@@ -124,6 +182,37 @@ const LowStockPage = () => {
           className="[&_.ant-table-thead_th]:bg-slate-50/50 [&_.ant-table-thead_th]:border-b [&_.ant-table-thead_th]:border-slate-100"
         />
       </div>
+
+      <Modal
+        title={`Mass Edit ${selectedRowKeys.length} Products`}
+        open={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        onOk={() => form.submit()}
+        confirmLoading={isSubmitting}
+        okText="Apply Changes"
+        destroyOnClose
+      >
+        <p className="text-slate-500 text-sm mb-4">
+          The values you enter below will be applied to all selected products. Leave a field blank to keep its current value.
+        </p>
+        <Form form={form} layout="vertical" onFinish={handleMassEdit}>
+          <Form.Item 
+            label="Add to Warehouse Stock" 
+            name="stockAddQty"
+            tooltip="Quickly add this quantity to the current stock. E.g. enter 10 to add 10 units."
+          >
+            <InputNumber placeholder="e.g. 50" style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item 
+            label="Set Low Stock Threshold" 
+            name="lowStockThreshold"
+            tooltip="Set a new global threshold level for these products."
+          >
+            <InputNumber placeholder="e.g. 10" style={{ width: '100%' }} min={0} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

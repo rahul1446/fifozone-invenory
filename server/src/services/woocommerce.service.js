@@ -42,6 +42,20 @@ class WooCommerceService {
     });
   }
 
+  // Helper to parse response data since some WP setups return a BOM or string
+  parseResponseData(data) {
+    if (typeof data === 'string') {
+      try {
+        // Strip BOM if present
+        const clean = data.charCodeAt(0) === 0xFEFF ? data.slice(1) : data;
+        return JSON.parse(clean);
+      } catch (e) {
+        return [];
+      }
+    }
+    return data || [];
+  }
+
   async pullProducts() {
     logger.info(`[${this.name}] Pulling products from REST API...`);
     
@@ -54,7 +68,7 @@ class WooCommerceService {
       // Paginate through all pages
       while (true) {
         const response = await client.get('products', { per_page: perPage, page, status: 'publish' });
-        const batch = response.data;
+        const batch = this.parseResponseData(response.data);
         if (!batch || batch.length === 0) break;
 
         const mapped = batch.map(prod => ({
@@ -120,7 +134,7 @@ class WooCommerceService {
       let page = 1;
       while (true) {
         const res = await client.get('products/categories', { per_page: 100, page });
-        const batch = res.data || [];
+        const batch = this.parseResponseData(res.data);
         if (batch.length === 0) break;
         batch.forEach(cat => {
           this._categoryCache.set(cat.name.trim().toLowerCase(), cat.id);
@@ -171,7 +185,7 @@ class WooCommerceService {
     try {
       while (true) {
         const res = await client.get('products/categories', { per_page: 100, page });
-        const batch = res.data || [];
+        const batch = this.parseResponseData(res.data);
         if (batch.length === 0) break;
         allCategories.push(...batch);
         
@@ -229,7 +243,8 @@ class WooCommerceService {
     if (!sku) return null;
     try {
       const res = await client.get('products', { sku, per_page: 1, status: 'any' });
-      if (res.data && res.data.length > 0) return res.data[0].id;
+      const data = this.parseResponseData(res.data);
+      if (data && data.length > 0) return data[0].id;
     } catch (_) {}
     return null;
   }
@@ -239,9 +254,10 @@ class WooCommerceService {
     if (!name) return null;
     try {
       const res = await client.get('products', { search: name, per_page: 20, status: 'any' });
-      if (res.data && res.data.length > 0) {
-        // Find exact name match (case-insensitive)
-        const match = res.data.find(p => p.name.toLowerCase().trim() === name.toLowerCase().trim());
+      const data = this.parseResponseData(res.data);
+      if (data && data.length > 0) {
+        // Find exact match (case-insensitive)
+        const match = data.find(p => p.name.toLowerCase().trim() === name.toLowerCase().trim());
         if (match) return match.id;
         // Partial match fallback
         return res.data[0].id;
@@ -368,7 +384,7 @@ class WooCommerceService {
     let existing = [];
     try {
       const res = await client.get(`products/${wooProductId}/variations`, { per_page: 100 });
-      existing = res.data || [];
+      existing = this.parseResponseData(res.data);
     } catch (_) {}
 
     const existingBySku = {};
@@ -556,11 +572,17 @@ class WooCommerceService {
     logger.info(`[${this.name}] Pulling orders from REST API...`);
     try {
       const client = await this.getClient();
-      // Fetch all recent orders regardless of status
-      const response = await client.get('orders', { status: 'any', per_page: 50 });
+      // Fetch actual placed orders and drafts
+      const response = await client.get('orders', { 
+        status: ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed', 'checkout-draft'], 
+        per_page: 100 
+      });
       
-      const orders = response.data.map(order => ({
+      const parsedOrders = this.parseResponseData(response.data);
+      
+      const orders = parsedOrders.map(order => ({
         platformOrderId: String(order.id),
+        number: order.number,
         platformStatus: order.status,
         orderDate: order.date_created,
         customer: {
@@ -585,8 +607,8 @@ class WooCommerceService {
         subtotal: parseFloat(order.total) - parseFloat(order.shipping_total),
         shippingCharge: parseFloat(order.shipping_total),
         totalAmount: parseFloat(order.total),
-        paymentMethod: order.payment_method_title,
-        paymentStatus: 'paid'
+        paymentMethod: order.payment_method === 'cod' ? 'cod' : (order.payment_method_title || order.payment_method || 'Prepaid'),
+        paymentStatus: (order.payment_method === 'cod' && !['completed', 'delivered'].includes(order.status)) ? 'pending' : 'paid'
       }));
       
       logger.info(`[${this.name}] Successfully pulled ${orders.length} orders.`);

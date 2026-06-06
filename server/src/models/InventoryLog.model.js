@@ -4,12 +4,11 @@ const InventoryLogSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
-    required: true,
     index: true
   },
   productName: {
     type: String,
-    required: true
+    default: 'System Action'
   },
   sku: {
     type: String,
@@ -28,7 +27,11 @@ const InventoryLogSchema = new mongoose.Schema({
       'restock',
       'damaged',
       'expired',
-      'purchase_receipt'
+      'purchase_receipt',
+      'purchase_draft',
+      'supplier_created',
+      'supplier_updated',
+      'system_event'
     ],
     required: true,
     index: true
@@ -45,15 +48,16 @@ const InventoryLogSchema = new mongoose.Schema({
   },
   previousStock: {
     type: Number,
-    required: true
+    default: 0
   },
   changeQuantity: {
     type: Number,
-    required: true // positive for addition, negative for deduction
+    required: true,
+    default: 0
   },
   newStock: {
     type: Number,
-    required: true
+    default: 0
   },
   note: {
     type: String,

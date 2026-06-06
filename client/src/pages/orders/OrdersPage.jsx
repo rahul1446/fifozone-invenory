@@ -53,86 +53,81 @@ const OrdersPage = () => {
 
   const columns = [
     {
-      title: <span className="text-[13px] font-bold text-slate-800">Product</span>,
-      key: 'product',
-      width: 400,
+      title: <span className="text-[13px] font-bold text-slate-800">Order</span>,
+      key: 'order',
       render: (_, record) => {
-        const item = record.items?.[0];
-        const title = item?.productSnapshot?.masterName || item?.productName || 'Unknown Product';
-        const img = item?.productSnapshot?.images?.[0];
+        const orderDisplayNumber = record.rawPlatformData?.number || (record.platformOrderId && `#${record.platformOrderId}`) || record.orderNumber;
         return (
-          <div className="flex items-center gap-4 py-2">
-            {img ? (
-              <img src={img} alt="product" className="w-10 h-10 rounded-md object-cover border border-slate-200" />
-            ) : (
-              <div className="w-10 h-10 rounded-md bg-slate-50 flex items-center justify-center border border-slate-100">
-                <Package size={18} className="text-slate-400" />
-              </div>
-            )}
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-slate-900 leading-snug line-clamp-1">
-                {title} {record.items?.length > 1 ? `+${record.items.length - 1}` : ''}
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium mt-0.5">{record.orderNumber}</span>
-            </div>
-          </div>
+          <span className="text-[13px] font-semibold text-blue-600 hover:text-blue-800">
+            {orderDisplayNumber} <span className="text-slate-700 ml-1">{record.customer?.name || 'Unknown'}</span>
+          </span>
         );
       }
     },
     {
-      title: <span className="text-[13px] font-bold text-slate-800">Channel</span>,
-      dataIndex: 'platform',
-      key: 'channel',
-      width: 180,
-      render: (p) => (
-        <span className="px-2.5 py-1 text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-full tracking-wider">
-          WEBSITE_{p?.toUpperCase() || 'UNKNOWN'}
-        </span>
+      key: 'preview',
+      width: 50,
+      render: (_, record) => (
+        <Button 
+          type="text" 
+          icon={<Eye size={16} className="text-slate-400 hover:text-blue-600" />} 
+          onClick={(e) => { e.stopPropagation(); openOrderDetails(record._id); }}
+        />
       )
     },
     {
-      title: <span className="text-[13px] font-bold text-slate-800">Qty</span>,
-      key: 'qty',
-      width: 100,
-      render: (_, record) => <span className="text-[13px] font-semibold text-slate-700">{record.items?.reduce((s, i) => s + (i.quantity || 1), 0) || 0}</span>
-    },
-    {
-      title: <span className="text-[13px] font-bold text-slate-800">Total</span>,
-      key: 'total',
-      width: 150,
-      render: (_, record) => <span className="text-[13px] font-bold text-slate-900">{formatCurrency(record.totalAmount || record.pricing?.total || 0)}</span>
+      title: <span className="text-[13px] font-bold text-slate-800">Date</span>,
+      key: 'date',
+      render: (_, record) => {
+        const dateStr = new Date(record.orderDate || record.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return <span className="text-[13px] font-medium text-slate-600">{dateStr}</span>;
+      }
     },
     {
       title: <span className="text-[13px] font-bold text-slate-800">Status</span>,
       dataIndex: 'status',
       key: 'status',
-      width: 150,
       render: (s) => {
         const isDelivered = s === 'delivered';
-        const color = isDelivered ? 'bg-emerald-50 text-emerald-600' : 
-                     s === 'pending' ? 'bg-amber-50 text-amber-600' : 
-                     s === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600';
+        const isProcessing = s === 'processing';
+        const isCancelled = s === 'cancelled';
+        
+        let colorClass = 'bg-slate-100 text-slate-600';
+        if (isProcessing) colorClass = 'bg-[#c6e1c6] text-[#5b841b]'; // Woo processing green
+        else if (isCancelled) colorClass = 'bg-[#e5e5e5] text-[#767676]'; // Woo cancelled gray
+        else if (isDelivered) colorClass = 'bg-emerald-100 text-emerald-700';
+
         return (
-          <span className={`px-3 py-1 text-[11px] font-bold rounded-full capitalize ${color}`}>
+          <span className={`px-2.5 py-1 text-[12px] font-semibold rounded-[4px] capitalize ${colorClass}`}>
             {s?.replace('_', ' ')}
           </span>
         );
       }
     },
     {
-      title: <span className="text-[13px] font-bold text-slate-800">Action</span>,
-      key: 'action',
-      width: 80,
-      align: 'center',
-      render: (_, record) => (
-        <Button 
-          type="text" 
-          icon={<Eye size={16} className="text-slate-400 hover:text-indigo-600" />} 
-          onClick={(e) => { e.stopPropagation(); openOrderDetails(record._id); }}
-        />
-      )
+      title: <span className="text-[13px] font-bold text-slate-800">Total</span>,
+      key: 'total',
+      render: (_, record) => <span className="text-[13px] font-medium text-slate-700">{formatCurrency(record.totalAmount || record.pricing?.total || 0)}</span>
+    },
+    {
+      title: <span className="text-[13px] font-bold text-slate-800">Origin</span>,
+      key: 'origin',
+      render: (_, record) => {
+        const platform = record.platform?.toLowerCase();
+        let originText = 'Direct';
+        if (platform === 'amazon') originText = 'Amazon';
+        if (platform === 'flipkart') originText = 'Flipkart';
+        
+        return <span className="text-[13px] font-medium text-slate-600">{originText}</span>;
+      }
     }
   ];
+
+  const rowSelection = {
+    onChange: (selectedRowKeys, selectedRows) => {
+      console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+    },
+  };
 
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-7xl mx-auto p-1">
@@ -193,42 +188,54 @@ const OrdersPage = () => {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-6 pt-5">
         
         {/* Filters Row */}
-        <div className="flex items-center gap-4 mb-5">
-          <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
-            <Filter size={16} />
-            <span className="text-[13px] text-slate-500 font-semibold">Filters</span>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
+              <Filter size={16} />
+              <span className="text-[13px] text-slate-500 font-semibold">Filters</span>
+            </div>
+            
+            <Select 
+              value={filters.status === 'All' ? null : filters.status} 
+              onChange={v => handleFilterChange('status', v || 'All')}
+              placeholder="Status"
+              className="w-[140px] font-medium"
+              options={[
+                { value: 'All', label: 'All Statuses' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'processing', label: 'Processing' },
+                { value: 'packed', label: 'Packed' },
+                { value: 'shipped', label: 'Shipped' },
+                { value: 'delivered', label: 'Delivered' },
+                { value: 'cancelled', label: 'Cancelled' },
+                { value: 'failed', label: 'Failed' },
+                { value: 'draft', label: 'Draft' }
+              ]}
+              allowClear
+            />
+            
+            <Select 
+              value={filters.platform === 'All' ? null : filters.platform}
+              onChange={v => handleFilterChange('platform', v || 'All')}
+              placeholder="Channel"
+              className="w-[140px] font-medium"
+              options={[
+                { value: 'All', label: 'All Channels' },
+                { value: 'fifozone', label: 'Fifozone' },
+                { value: 'amazon', label: 'Amazon' },
+                { value: 'flipkart', label: 'Flipkart' }
+              ]}
+              allowClear
+            />
           </div>
-          
-          <Select 
-            value={filters.status === 'All' ? null : filters.status} 
-            onChange={v => handleFilterChange('status', v || 'All')}
-            placeholder="Status"
-            className="w-32"
-            allowClear
-          >
-            <Option value="pending">Pending</Option>
-            <Option value="processing">Processing</Option>
-            <Option value="shipped">Shipped</Option>
-            <Option value="delivered">Delivered</Option>
-            <Option value="cancelled">Cancelled</Option>
-          </Select>
-
-          <Select 
-            value={filters.platform === 'All' ? null : filters.platform} 
-            onChange={v => handleFilterChange('platform', v || 'All')}
-            placeholder="Channel"
-            className="w-32"
-            allowClear
-          >
-            <Option value="fifozone">Fifozone</Option>
-            <Option value="amazon">Amazon</Option>
-            <Option value="flipkart">Flipkart</Option>
-            <Option value="meesho">Meesho</Option>
-          </Select>
+          <div className="text-[13px] font-medium text-slate-500">
+            Showing {orders.length} orders on this page (Total: {pagination?.total || 0})
+          </div>
         </div>
 
         {/* Table */}
         <Table
+          rowSelection={rowSelection}
           columns={columns}
           dataSource={orders}
           rowKey="_id"
@@ -238,7 +245,9 @@ const OrdersPage = () => {
             pageSize: pagination?.limit || 20,
             total: pagination?.total || 0,
             onChange: (page, limit) => setFilters(p => ({ ...p, page, limit })),
-            position: ['bottomCenter']
+            position: ['bottomCenter'],
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100']
           }}
           scroll={{ x: 1000 }}
           className="border-t border-slate-100"

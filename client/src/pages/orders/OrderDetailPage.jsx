@@ -12,6 +12,7 @@ import { getOrderByIdApi, updateOrderStatusApi } from '../../api/orderApi';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
+import { pushOrderToShiprocketApi, generateAwbApi, requestPickupApi } from '../../api/shiprocketApi';
 
 const STATUS_FLOW = [
   { value: 'pending',           label: 'Pending',          color: 'default' },
@@ -72,6 +73,11 @@ const OrderDetailPage = () => {
   const [trackingForm] = Form.useForm();
   const [noteForm] = Form.useForm();
 
+  // Shiprocket states
+  const [pushingOrder, setPushingOrder] = useState(false);
+  const [generatingAwb, setGeneratingAwb] = useState(false);
+  const [requestingPickup, setRequestingPickup] = useState(false);
+
   const fetchOrder = useCallback(async () => {
     setLoading(true);
     try {
@@ -124,6 +130,45 @@ const OrderDetailPage = () => {
       fetchOrder();
     } catch (err) {
       toast.error('Failed to save note');
+    }
+  };
+
+  const handlePushToShiprocket = async () => {
+    setPushingOrder(true);
+    try {
+      await pushOrderToShiprocketApi(id);
+      toast.success('Successfully pushed order to Shiprocket');
+      fetchOrder();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to push order');
+    } finally {
+      setPushingOrder(false);
+    }
+  };
+
+  const handleGenerateAwb = async () => {
+    setGeneratingAwb(true);
+    try {
+      await generateAwbApi(id);
+      toast.success('AWB generated successfully');
+      fetchOrder();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate AWB');
+    } finally {
+      setGeneratingAwb(false);
+    }
+  };
+
+  const handleRequestPickup = async () => {
+    setRequestingPickup(true);
+    try {
+      await requestPickupApi(id);
+      toast.success('Pickup requested successfully');
+      fetchOrder();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to request pickup');
+    } finally {
+      setRequestingPickup(false);
     }
   };
 
@@ -341,6 +386,40 @@ const OrderDetailPage = () => {
                 <ExternalLink size={12} /> Track Shipment
               </a>
             )}
+          </div>
+
+          {/* Shiprocket Actions */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Package size={16} className="text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-800">Shiprocket Automation</h2>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {!order.shiprocketOrderId ? (
+                <Button type="primary" onClick={handlePushToShiprocket} loading={pushingOrder} className="!bg-blue-600">
+                  Push to Shiprocket
+                </Button>
+              ) : (
+                <div className="space-y-4 w-full">
+                  <div className="flex gap-6 border-b border-slate-100 pb-4">
+                    <InfoBlock label="Shiprocket Order ID" value={order.shiprocketOrderId} />
+                    <InfoBlock label="Shipment ID" value={order.shiprocketShipmentId} />
+                    {order.awbCode && <InfoBlock label="AWB Code" value={order.awbCode} />}
+                  </div>
+                  <div className="flex gap-3">
+                    {!order.awbCode ? (
+                      <Button onClick={handleGenerateAwb} loading={generatingAwb} className="!border-blue-600 !text-blue-600">
+                        Generate AWB Tracking
+                      </Button>
+                    ) : (
+                      <Button type="primary" onClick={handleRequestPickup} loading={requestingPickup} className="!bg-emerald-600 !border-emerald-600">
+                        Request Courier Pickup
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

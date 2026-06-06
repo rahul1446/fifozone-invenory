@@ -38,12 +38,23 @@ const CodOrdersPage = () => {
   const collectedValue = collected.reduce((s, o) => s + (o.totalAmount || 0), 0);
 
   const columns = [
-    { title: 'Order ID', dataIndex: 'orderNumber', key: 'orderNumber', render: v => <span className="font-mono font-semibold text-slate-700">{v}</span> },
+    { 
+      title: 'Order ID', 
+      key: 'orderNumber', 
+      render: (_, record) => {
+        const orderDisplayNumber = record.rawPlatformData?.number || (record.platformOrderId && `#${record.platformOrderId}`) || record.orderNumber;
+        return <span className="font-mono font-semibold text-blue-600 hover:text-blue-800 cursor-pointer">{orderDisplayNumber}</span>;
+      }
+    },
     { title: 'Customer', dataIndex: ['customer', 'name'], key: 'customer' },
     { title: 'Platform', dataIndex: 'platform', key: 'platform', render: v => <Tag color={platformColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
     { title: 'Amount', dataIndex: 'totalAmount', key: 'amount', render: v => <span className="font-bold">&#8377;{(v || 0).toLocaleString('en-IN')}</span> },
     { title: 'COD Status', dataIndex: 'paymentStatus', key: 'codStatus', render: v => <Tag color={v === 'paid' ? 'green' : 'gold'}>{v === 'paid' ? 'Collected' : 'Pending'}</Tag> },
-    { title: 'Order Date', dataIndex: 'createdAt', key: 'date', render: v => v ? new Date(v).toLocaleDateString('en-IN') : '—' },
+    { title: 'Order Date', key: 'date', render: (_, record) => {
+        const dateStr = new Date(record.orderDate || record.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+        return <span>{dateStr}</span>;
+      }
+    },
   ];
 
   if (loading) return <div className="flex justify-center py-20"><Spin size="large" /></div>;

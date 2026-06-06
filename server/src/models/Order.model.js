@@ -91,7 +91,7 @@ const OrderSchema = new mongoose.Schema({
   // ── Status ──
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'return_requested', 'returned', 'refunded'],
+    enum: ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'return_requested', 'returned', 'refunded', 'failed', 'draft', 'packed'],
     default: 'pending',
     index: true
   },
@@ -108,6 +108,12 @@ const OrderSchema = new mongoose.Schema({
   trackingUrl: { type: String, default: '' },
   estimatedDelivery: { type: Date },
   deliveredAt: { type: Date },
+  
+  // ── Shiprocket ──
+  shiprocketOrderId: { type: String, default: '' },
+  shiprocketShipmentId: { type: String, default: '' },
+  awbCode: { type: String, default: '' },
+  shiprocketStatus: { type: String, default: '' },
 
   // ── Return ──
   hasReturn: { type: Boolean, default: false },

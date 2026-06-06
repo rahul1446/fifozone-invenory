@@ -254,8 +254,11 @@ class SyncService {
              const stat = rawOrd.platformStatus.toLowerCase();
              if (stat === 'processing') internalStatus = 'processing';
              else if (stat === 'completed') internalStatus = 'delivered';
-             else if (stat === 'cancelled' || stat === 'failed') internalStatus = 'cancelled';
+             else if (stat === 'cancelled') internalStatus = 'cancelled';
+             else if (stat === 'failed') internalStatus = 'failed';
              else if (stat === 'refunded') internalStatus = 'refunded';
+             else if (stat === 'checkout-draft') internalStatus = 'draft';
+             else if (stat === 'packed') internalStatus = 'packed';
           } else if (rawOrd.platformStatus) {
              // Fallback mapping for other platforms if they send platformStatus
              const stat = rawOrd.platformStatus.toLowerCase();
