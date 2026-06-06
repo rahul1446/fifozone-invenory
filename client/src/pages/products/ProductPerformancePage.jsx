@@ -1,31 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Table, Spin, message } from 'antd';
 import { TrendingUp, Package, AlertTriangle } from 'lucide-react';
 import { getProductsApi } from '../../api/productApi';
+import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
 
 const ProductPerformancePage = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  
+  const { products, pagination, stats, loading } = useSelector((state) => state.products);
+
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 25,
+    sortField: 'soldThisMonth',
+    sortOrder: 'desc',
+  });
+
+  const fetchProducts = useCallback(async () => {
+    dispatch(setProductsStart());
+    try {
+      // we add sort params if backend supports it, but for now we rely on the standard fetch
+      const response = await getProductsApi(filters);
+      dispatch(setProductsSuccess(response.data));
+    } catch (error) {
+      dispatch(setProductsFailure(error.message));
+      message.error('Failed to load product performance data');
+    }
+  }, [dispatch, filters]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await getProductsApi({ limit: 200 });
-        const data = res?.data?.products || res?.data || [];
-        const arr = Array.isArray(data) ? data : [];
-        // Sort by soldThisMonth desc
-        arr.sort((a, b) => (b.soldThisMonth || 0) - (a.soldThisMonth || 0));
-        setProducts(arr);
-      } catch {
-        message.error('Failed to load product performance data');
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchProducts();
+  }, [fetchProducts]);
 
+  const handleTableChange = (pagination) => {
+    setFilters(prev => ({ ...prev, page: pagination.current, limit: pagination.pageSize }));
+  };
+
+  // Currently these stats are calculated locally for the current page since we don't have global performance stats yet.
+  // Ideally, backend should send fast, slow, dead stats.
   const fast = products.filter(p => (p.soldThisMonth || 0) >= 10).length;
   const slow = products.filter(p => (p.soldThisMonth || 0) > 0 && (p.soldThisMonth || 0) < 10).length;
   const dead = products.filter(p => (p.soldThisMonth || 0) === 0).length;
@@ -41,13 +54,17 @@ const ProductPerformancePage = () => {
       title: '#',
       key: 'rank',
       width: 50,
-      render: (_, __, idx) => <span className="font-bold text-slate-400">#{idx + 1}</span>,
+      render: (_, __, idx) => <span className="font-bold text-slate-400">#{(filters.page - 1) * filters.limit + idx + 1}</span>,
     },
     {
       title: 'Product Name',
       dataIndex: 'masterName',
       key: 'name',
-      render: (text) => <span className="font-medium text-slate-800 text-sm">{text}</span>,
+      render: (text) => (
+        <div className="min-w-0" style={{ maxWidth: '280px' }}>
+          <p className="font-medium text-slate-800 text-sm truncate" title={text}>{text}</p>
+        </div>
+      ),
     },
     {
       title: 'SKU',
@@ -94,15 +111,15 @@ const ProductPerformancePage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-emerald-500 p-5 flex items-center gap-4">
           <div className="bg-emerald-50 p-3 rounded-full"><TrendingUp size={22} className="text-emerald-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">Fast Sellers</p><p className="font-bold text-2xl text-slate-800">{fast}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">Fast Sellers (Visible)</p><p className="font-bold text-2xl text-slate-800">{fast}</p></div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-amber-500 p-5 flex items-center gap-4">
           <div className="bg-amber-50 p-3 rounded-full"><Package size={22} className="text-amber-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">Slow Sellers</p><p className="font-bold text-2xl text-slate-800">{slow}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">Slow Sellers (Visible)</p><p className="font-bold text-2xl text-slate-800">{slow}</p></div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-rose-500 p-5 flex items-center gap-4">
           <div className="bg-rose-50 p-3 rounded-full"><AlertTriangle size={22} className="text-rose-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">Dead Stock</p><p className="font-bold text-2xl text-slate-800">{dead}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">Dead Stock (Visible)</p><p className="font-bold text-2xl text-slate-800">{dead}</p></div>
         </div>
       </div>
 
@@ -114,7 +131,15 @@ const ProductPerformancePage = () => {
           rowKey="_id"
           loading={loading}
           scroll={{ x: 800 }}
-          pagination={{ pageSize: 25, showSizeChanger: false, showTotal: (total) => `${total} products` }}
+          pagination={{ 
+            current: filters.page,
+            pageSize: filters.limit,
+            total: pagination.total,
+            showSizeChanger: true,
+            pageSizeOptions: ['25', '50', '100', '250'],
+            showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} products`
+          }}
+          onChange={handleTableChange}
           rowClassName="hover:bg-slate-50 transition-colors"
           className="text-sm"
           locale={{ emptyText: 'No product performance data available yet' }}

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Table, Select, Button, Input, message } from 'antd';
-import { Package, Plus, Search, Filter, Download, Eye, AlertTriangle } from 'lucide-react';
-import { getProductsApi } from '../../api/productApi';
+import { Table, Select, Button, Input, message, Tag, Dropdown, Modal } from 'antd';
+import { Package, Plus, Search, Filter, Download, Eye, AlertTriangle, MoreVertical, Edit, Trash2, PackagePlus } from 'lucide-react';
+import { getProductsApi, deleteProductApi, bulkEditProductsApi } from '../../api/productApi';
 import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -16,7 +16,7 @@ const ProductsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { products, pagination, loading } = useSelector((state) => state.products);
+  const { products, pagination, stats, loading } = useSelector((state) => state.products);
   
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchTerm, 400);
@@ -26,6 +26,45 @@ const ProductsPage = () => {
     page: 1,
     limit: 25,
   });
+
+  const [restockModalVisible, setRestockModalVisible] = useState(false);
+  const [restockProduct, setRestockProduct] = useState(null);
+  const [restockQty, setRestockQty] = useState('');
+
+  const handleDelete = (id) => {
+    Modal.confirm({
+      title: 'Are you sure you want to delete this product?',
+      content: 'This will soft-delete the product from the catalog and all synced platforms.',
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          await deleteProductApi(id);
+          message.success('Product deleted successfully');
+          fetchProducts();
+        } catch (error) {
+          message.error(error?.response?.data?.message || 'Failed to delete product');
+        }
+      }
+    });
+  };
+
+  const handleRestock = async () => {
+    if (!restockQty || isNaN(restockQty) || Number(restockQty) <= 0) {
+      return message.error('Please enter a valid quantity');
+    }
+    try {
+      await bulkEditProductsApi([restockProduct._id], { stockAddQty: Number(restockQty) });
+      message.success('Stock added successfully');
+      setRestockModalVisible(false);
+      setRestockQty('');
+      setRestockProduct(null);
+      fetchProducts();
+    } catch (error) {
+      message.error(error?.response?.data?.message || 'Failed to update stock');
+    }
+  };
 
   const fetchProducts = useCallback(async () => {
     dispatch(setProductsStart());
@@ -109,6 +148,30 @@ const ProductsPage = () => {
       ),
     },
     {
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PLATFORMS</span>,
+      key: 'platforms',
+      width: 120,
+      render: (_, record) => {
+        const platforms = [];
+        if (record.platformStatus?.fifozone && record.platformStatus.fifozone !== 'not_listed') platforms.push({ name: 'FZ', color: 'green' });
+        if (record.platformStatus?.amazon && record.platformStatus.amazon !== 'not_listed') platforms.push({ name: 'AMZ', color: 'orange' });
+        if (record.platformStatus?.flipkart && record.platformStatus.flipkart !== 'not_listed') platforms.push({ name: 'FLK', color: 'blue' });
+        if (record.platformStatus?.meesho && record.platformStatus.meesho !== 'not_listed') platforms.push({ name: 'MSH', color: 'pink' });
+        
+        if (platforms.length === 0) return <span className="text-[11px] text-slate-400">None</span>;
+        
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {platforms.map(p => (
+              <Tag key={p.name} color={p.color} className="m-0 text-[10px] px-1 border-0 leading-tight">
+                {p.name}
+              </Tag>
+            ))}
+          </div>
+        );
+      }
+    },
+    {
       title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS</span>,
       key: 'status',
       width: 100,
@@ -122,16 +185,51 @@ const ProductsPage = () => {
       title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ACTIONS</span>,
       key: 'actions',
       width: 80,
-      render: () => (
-        <Button type="text" size="small" icon={<Eye size={16} className="text-slate-600 hover:text-indigo-600 transition-colors" />} />
+      render: (_, record) => (
+        <Dropdown 
+          menu={{
+            items: [
+              {
+                key: 'edit',
+                label: 'Edit',
+                icon: <Edit size={14} />,
+                onClick: () => navigate(`/products/${record._id}/edit`)
+              },
+              {
+                key: 'restock',
+                label: 'Restock',
+                icon: <PackagePlus size={14} />,
+                onClick: () => {
+                  setRestockProduct(record);
+                  setRestockQty('');
+                  setRestockModalVisible(true);
+                }
+              },
+              {
+                type: 'divider'
+              },
+              {
+                key: 'delete',
+                label: 'Delete',
+                icon: <Trash2 size={14} />,
+                danger: true,
+                onClick: () => handleDelete(record._id)
+              }
+            ]
+          }} 
+          trigger={['click']}
+          placement="bottomRight"
+        >
+          <Button type="text" size="small" icon={<MoreVertical size={16} className="text-slate-500" />} />
+        </Dropdown>
       ),
     },
   ];
 
-  const totalProducts = pagination?.total || 0;
-  const inStockCount = products?.filter(p => p.totalStock > 0).length || 0;
-  const lowStockCount = products?.filter(p => p.totalStock > 0 && p.totalStock <= 5).length || 0;
-  const outOfStockCount = products?.filter(p => p.totalStock === 0).length || 0;
+  const totalProducts = stats?.total || pagination?.total || 0;
+  const inStockCount = stats?.inStock || 0;
+  const lowStockCount = stats?.lowStock || 0;
+  const outOfStockCount = stats?.outOfStock || 0;
 
   return (
     <div className="space-y-6 animate-fade-in pb-10 max-w-[1400px] mx-auto p-1">
@@ -262,11 +360,36 @@ const ProductsPage = () => {
               setFilters(prev => ({ ...prev, page, limit: pageSize }));
             }
           }}
+          rowClassName="hover:bg-slate-50/50 transition-colors"
+          className="premium-table border-t border-slate-100 [&_.ant-table-thead_th]:bg-slate-50/50 [&_.ant-table-thead_th]:border-b [&_.ant-table-thead_th]:border-slate-100"
           scroll={{ x: 1000 }}
-          className="premium-table border-t border-slate-100"
         />
       </div>
 
+      <Modal
+        title="Add Stock"
+        open={restockModalVisible}
+        onOk={handleRestock}
+        onCancel={() => setRestockModalVisible(false)}
+        okText="Update Stock"
+      >
+        <div className="py-4 space-y-4">
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-1">Product</p>
+            <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">{restockProduct?.masterName}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-1">Quantity to Add</p>
+            <Input 
+              type="number" 
+              placeholder="e.g. 50" 
+              value={restockQty} 
+              onChange={e => setRestockQty(e.target.value)} 
+              onPressEnter={handleRestock}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

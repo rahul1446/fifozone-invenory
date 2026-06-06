@@ -23,11 +23,12 @@ const productSlice = createSlice({
       state.error = null;
     },
     setProductsSuccess: (state, action) => {
-      const { products, categories, brands, pagination } = action.payload;
+      const { products, categories, brands, pagination, stats } = action.payload;
       state.products = products;
       state.categories = categories || [];
       state.brands = brands || [];
       state.pagination = pagination || state.pagination;
+      state.stats = stats || { total: 0, inStock: 0, lowStock: 0, outOfStock: 0 };
       state.loading = false;
     },
     setProductsFailure: (state, action) => {

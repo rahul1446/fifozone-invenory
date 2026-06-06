@@ -81,6 +81,8 @@ const getProducts = asyncHandler(async (req, res) => {
     } else if (stock === 'In Stock') {
       query.totalStock = { $gt: 0 };
       query.$expr = { $gt: ['$totalStock', '$lowStockThreshold'] };
+    } else if (stock === 'Attention Required') {
+      query.$expr = { $lte: ['$totalStock', '$lowStockThreshold'] };
     }
   }
 
@@ -90,6 +92,10 @@ const getProducts = asyncHandler(async (req, res) => {
   const skip = (pageNum - 1) * limitNum;
 
   const total = await Product.countDocuments(query);
+  const inStockCount = await Product.countDocuments({ ...query, totalStock: { $gt: 0 } });
+  const outOfStockCount = await Product.countDocuments({ ...query, totalStock: 0 });
+  const lowStockCount = await Product.countDocuments({ ...query, totalStock: { $gt: 0, $lte: 5 } });
+
   const products = await Product.find(query)
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -104,6 +110,12 @@ const getProducts = asyncHandler(async (req, res) => {
       products,
       categories: categoriesList,
       brands: brandsList,
+      stats: {
+        total,
+        inStock: inStockCount,
+        lowStock: lowStockCount,
+        outOfStock: outOfStockCount
+      },
       pagination: {
         total,
         page: pageNum,

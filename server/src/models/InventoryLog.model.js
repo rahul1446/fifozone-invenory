@@ -27,7 +27,8 @@ const InventoryLogSchema = new mongoose.Schema({
       'delivered',
       'restock',
       'damaged',
-      'expired'
+      'expired',
+      'purchase_receipt'
     ],
     required: true,
     index: true

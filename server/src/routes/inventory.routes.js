@@ -19,5 +19,7 @@ router.delete('/suppliers/:id', requireAuth, requireRole(['admin', 'manager']), 
 // Purchases
 router.get('/purchases', requireAuth, purchaseCtrl.getPurchases);
 router.post('/purchases', requireAuth, requireRole(['admin', 'manager']), purchaseCtrl.createPurchase);
+router.patch('/purchases/:id', requireAuth, requireRole(['admin', 'manager']), purchaseCtrl.updatePurchase);
+router.delete('/purchases/:id', requireAuth, requireRole(['admin', 'manager']), purchaseCtrl.deletePurchase);
 
 module.exports = router;

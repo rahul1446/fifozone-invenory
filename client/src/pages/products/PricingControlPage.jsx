@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Table, Tag, Button, Input, Spin, message } from 'antd';
 import { TrendingUp, Search, Download } from 'lucide-react';
 import { getProductsApi } from '../../api/productApi';
+import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const MarginBadge = ({ margin }) => {
   if (!margin && margin !== 0) return <span className="text-slate-400 text-xs">—</span>;
@@ -10,30 +13,40 @@ const MarginBadge = ({ margin }) => {
 };
 
 const PricingControlPage = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const dispatch = useDispatch();
+  
+  const { products, pagination, stats, loading } = useSelector((state) => state.products);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
+
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 25,
+  });
+
+  const fetchProducts = useCallback(async () => {
+    dispatch(setProductsStart());
+    try {
+      const params = {
+        ...filters,
+        search: debouncedSearch,
+      };
+      const response = await getProductsApi(params);
+      dispatch(setProductsSuccess(response.data));
+    } catch (error) {
+      dispatch(setProductsFailure(error.message));
+      message.error('Failed to fetch pricing data');
+    }
+  }, [dispatch, filters, debouncedSearch]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await getProductsApi({ limit: 200 });
-        const data = res?.data?.products || res?.data || [];
-        setProducts(Array.isArray(data) ? data : []);
-      } catch {
-        message.error('Failed to load pricing data');
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchProducts();
+  }, [fetchProducts]);
 
-  const filtered = products.filter(p =>
-    (p.masterName || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.sku || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const handleTableChange = (pagination) => {
+    setFilters(prev => ({ ...prev, page: pagination.current, limit: pagination.pageSize }));
+  };
 
   const columns = [
     {
@@ -41,7 +54,11 @@ const PricingControlPage = () => {
       dataIndex: 'masterName',
       key: 'name',
       width: 280,
-      render: (text) => <span className="font-medium text-slate-800 text-xs">{text}</span>,
+      render: (text) => (
+        <div className="min-w-0 flex-1" style={{ maxWidth: '240px' }}>
+          <p className="font-medium text-slate-800 text-xs truncate" title={text}>{text}</p>
+        </div>
+      ),
     },
     {
       title: 'SKU',
@@ -71,6 +88,10 @@ const PricingControlPage = () => {
     },
   ];
 
+  const totalProducts = stats?.total || pagination?.total || 0;
+  const inStockCount = stats?.inStock || 0;
+  const outOfStockCount = stats?.outOfStock || 0;
+
   return (
     <div className="p-6 min-h-screen bg-slate-50">
       <div className="mb-6">
@@ -81,15 +102,15 @@ const PricingControlPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-violet-500 p-5 flex items-center gap-4">
           <div className="bg-violet-50 p-3 rounded-full"><TrendingUp size={22} className="text-violet-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">Total Products</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{products.length}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">Total Products</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{totalProducts}</p></div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-emerald-500 p-5 flex items-center gap-4">
           <div className="bg-emerald-50 p-3 rounded-full"><TrendingUp size={22} className="text-emerald-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">In Stock</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{products.filter(p => p.totalStock > 0).length}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">In Stock</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{inStockCount}</p></div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-rose-500 p-5 flex items-center gap-4">
           <div className="bg-rose-50 p-3 rounded-full"><TrendingUp size={22} className="text-rose-600" /></div>
-          <div><p className="text-slate-500 text-sm font-medium">Out of Stock</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{products.filter(p => p.totalStock === 0).length}</p></div>
+          <div><p className="text-slate-500 text-sm font-medium">Out of Stock</p><p className="font-bold text-2xl text-slate-800 mt-0.5">{outOfStockCount}</p></div>
         </div>
       </div>
 
@@ -100,8 +121,8 @@ const PricingControlPage = () => {
             <Input
               placeholder="Search product or SKU..."
               prefix={<Search size={14} className="text-slate-400" />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setFilters(prev => ({ ...prev, page: 1 })); }}
               className="w-56 rounded-lg text-sm"
             />
             <Button icon={<Download size={14} />} className="rounded-lg border-slate-200 text-slate-600">Export</Button>
@@ -109,11 +130,19 @@ const PricingControlPage = () => {
         </div>
         <Table
           columns={columns}
-          dataSource={filtered}
+          dataSource={products}
           rowKey="_id"
           loading={loading}
           scroll={{ x: 700 }}
-          pagination={{ pageSize: 25, showSizeChanger: false, showTotal: (total) => `${total} products` }}
+          pagination={{ 
+            current: filters.page,
+            pageSize: filters.limit,
+            total: pagination.total,
+            showSizeChanger: true,
+            pageSizeOptions: ['25', '50', '100', '250'],
+            showTotal: (total, range) => `Showing ${range[0]}-${range[1]} of ${total} products`
+          }}
+          onChange={handleTableChange}
           rowClassName="hover:bg-slate-50 transition-colors"
           className="text-sm"
           locale={{ emptyText: 'No products found' }}

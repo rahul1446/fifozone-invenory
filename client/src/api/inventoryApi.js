@@ -39,3 +39,13 @@ export const createPurchaseApi = async (data) => {
   const response = await axiosInstance.post('/inventory/purchases', data);
   return response.data;
 };
+
+export const updatePurchaseApi = async (id, data) => {
+  const response = await axiosInstance.patch(`/inventory/purchases/${id}`, data);
+  return response.data;
+};
+
+export const deletePurchaseApi = async (id) => {
+  const response = await axiosInstance.delete(`/inventory/purchases/${id}`);
+  return response.data;
+};
