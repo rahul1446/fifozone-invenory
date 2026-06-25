@@ -90,6 +90,11 @@ const ProductSchema = new mongoose.Schema({
     enum: [0, 5, 12, 18, 28],
     default: 18
   },
+  hsnCode: {
+    type: String,
+    trim: true,
+    default: ''
+  },
 
   // ── Stock / Inventory ──
   totalStock: {

@@ -505,6 +505,32 @@ const importCSV = asyncHandler(async (req, res) => {
   );
 });
 
+// Bulk update HSN codes from Excel upload
+const bulkUpdateHsn = asyncHandler(async (req, res) => {
+  const { entries } = req.body; // [{ masterName, hsnCode }]
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return res.status(400).json(new ApiResponse(400, null, 'No entries provided'));
+  }
+
+  let updated = 0;
+  let notFound = [];
+
+  for (const entry of entries) {
+    if (!entry.masterName || !entry.hsnCode) continue;
+    const result = await Product.updateMany(
+      { masterName: { $regex: new RegExp(`^${entry.masterName.trim()}$`, 'i') } },
+      { $set: { hsnCode: entry.hsnCode.toString().trim() } }
+    );
+    if (result.matchedCount > 0) {
+      updated += result.matchedCount;
+    } else {
+      notFound.push(entry.masterName);
+    }
+  }
+
+  res.json(new ApiResponse(200, { updated, notFound }, `Updated HSN for ${updated} products. ${notFound.length} not found.`));
+});
+
 module.exports = {
   getProducts,
   getProductById,
@@ -514,5 +540,6 @@ module.exports = {
   bulkEdit,
   bulkDelete,
   bulkSync,
-  importCSV
+  importCSV,
+  bulkUpdateHsn
 };

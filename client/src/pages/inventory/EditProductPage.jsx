@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, InputNumber, Select, Switch, Card, Button, message, Tabs, Table, Modal, Tag, TreeSelect } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Trash2, History, PackageSearch, ImagePlus, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, History, PackageSearch, ImagePlus, Plus, ExternalLink } from 'lucide-react';
 import { getProductByIdApi, updateProductApi, deleteProductApi } from '../../api/productApi';
 import { getWooCommerceCategoriesApi } from '../../api/platformApi';
 import { getInventoryLogsApi } from '../../api/inventoryApi';
@@ -19,6 +19,7 @@ const EditProductPage = () => {
   const [fetching, setFetching] = useState(true);
   const [categoryTree, setCategoryTree] = useState([]);
   const [productName, setProductName] = useState('');
+  const [productUrl, setProductUrl] = useState('');
   const [images, setImages] = useState([]); // [{url, isPrimary, filename}]
   
   // Tab states
@@ -44,6 +45,7 @@ const EditProductPage = () => {
       const response = await getProductByIdApi(id);
       const data = response.data;
       setProductName(data.masterName);
+      setProductUrl(data.platformIds?.fifozone?.url || '');
       
       form.setFieldsValue({
         masterName: data.masterName,
@@ -482,11 +484,18 @@ const EditProductPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-24">
-      <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-        <Button icon={<ArrowLeft size={18} />} onClick={() => navigate('/inventory/products')} type="text" className="text-slate-500" />
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Edit Product — {productName}</h1>
+      <div className="flex items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-4">
+          <Button icon={<ArrowLeft size={18} />} onClick={() => navigate('/inventory/products')} type="text" className="text-slate-500" />
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Edit Product — {productName}</h1>
+          </div>
         </div>
+        {productUrl && (
+          <Button icon={<ExternalLink size={16} />} onClick={() => window.open(productUrl, '_blank')} className="text-indigo-600 border-indigo-200 hover:border-indigo-400">
+            View Live
+          </Button>
+        )}
       </div>
 
       <Tabs 

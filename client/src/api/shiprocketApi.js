@@ -5,6 +5,11 @@ export const pushOrderToShiprocketApi = async (id) => {
   return response.data;
 };
 
+export const bulkPushOrdersToShiprocketApi = async (orderIds) => {
+  const response = await axiosInstance.post(`/shiprocket/orders/bulk-push`, { orderIds });
+  return response.data;
+};
+
 export const generateAwbApi = async (id) => {
   const response = await axiosInstance.post(`/shiprocket/orders/${id}/awb`);
   return response.data;

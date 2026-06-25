@@ -101,6 +101,7 @@ class SyncService {
                 url: typeof img === 'string' ? img : img.url,
                 isPrimary: idx === 0
               })),
+              shortDescription: rawProd.shortDescription || '',
               description: rawProd.description || '',
               isActive: true,
             });
@@ -115,6 +116,8 @@ class SyncService {
             if (!product.manualOverride) {
               if (rawProd.mrp && rawProd.mrp > 0) product.mrp = rawProd.mrp;
               if (rawProd.masterName) product.masterName = rawProd.masterName;
+              if (rawProd.description) product.description = rawProd.description;
+              if (rawProd.shortDescription) product.shortDescription = rawProd.shortDescription;
             } else {
               logger.info(`[Sync] Skipping name/price overwrite for "${product.masterName}" — manualOverride is set`);
             }

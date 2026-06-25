@@ -75,7 +75,11 @@ const FifozoneAppPage = () => {
     { title: 'Phone', key: 'phone', render: (_, r) => r.customer?.phone || '—' },
     { title: 'Amount', dataIndex: 'totalAmount', key: 'amount', render: v => <span className="font-bold">₹{(v || 0).toLocaleString('en-IN')}</span> },
     { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={statusColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
-    { title: 'Date', dataIndex: 'createdAt', key: 'date', render: v => v ? new Date(v).toLocaleDateString('en-IN') : '—' },
+    { title: 'Date', key: 'date', render: (_, r) => {
+        const dateStr = new Date(r.orderDate || r.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+        return <span>{dateStr}</span>;
+      }
+    },
   ];
 
   return (

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Table, Select, Button, Input, message, Tag, Dropdown, Modal } from 'antd';
-import { Package, Plus, Search, Filter, Download, Eye, AlertTriangle, MoreVertical, Edit, Trash2, PackagePlus } from 'lucide-react';
+import { Package, Plus, Search, Filter, Download, Eye, AlertTriangle, MoreVertical, Edit, Trash2, PackagePlus, ExternalLink } from 'lucide-react';
 import { getProductsApi, deleteProductApi, bulkEditProductsApi } from '../../api/productApi';
 import { setProductsStart, setProductsSuccess, setProductsFailure } from '../../store/productSlice';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -168,6 +168,20 @@ const ProductsPage = () => {
               </Tag>
             ))}
           </div>
+        );
+      }
+    },
+    {
+      title: <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">LINK</span>,
+      key: 'link',
+      width: 60,
+      render: (_, record) => {
+        const url = record.platformIds?.fifozone?.url;
+        if (!url) return <span className="text-[11px] text-slate-400">—</span>;
+        return (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 p-1">
+            <ExternalLink size={16} />
+          </a>
         );
       }
     },

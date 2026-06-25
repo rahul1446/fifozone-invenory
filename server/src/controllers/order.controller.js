@@ -329,7 +329,7 @@ const getReturns = asyncHandler(async (req, res) => {
 // Resolve Return and Restock Items
 const resolveReturn = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status, note } = req.body; // status: approved, rejected, received, restocked
+  const { status, note, itemConditions } = req.body; // status: approved, rejected, received, restocked
 
   const returnReq = await ReturnRequest.findById(id);
   if (!returnReq) {
@@ -338,6 +338,15 @@ const resolveReturn = asyncHandler(async (req, res) => {
 
   returnReq.status = status;
   returnReq.note = note || returnReq.note;
+
+  // Apply frontend item conditions if provided (Mapping of itemId -> condition)
+  if (itemConditions && typeof itemConditions === 'object') {
+    for (let item of returnReq.items) {
+      if (itemConditions[item._id.toString()]) {
+        item.condition = itemConditions[item._id.toString()];
+      }
+    }
+  }
 
   // Stock Restoring Event
   if (status === 'restocked' && !returnReq.stockRestored) {
@@ -413,9 +422,12 @@ const resolveReturn = asyncHandler(async (req, res) => {
 
 // Create Manual Order (for offline/phone/WhatsApp customers)
 const createManualOrder = asyncHandler(async (req, res) => {
-  const { customerName, customerPhone, customerAddress, items, platform, note } = req.body;
+  const { customerName, customerPhone, customerAddress, items, platform, note, discount, discountReason, paymentMethod } = req.body;
   const orderNumber = `MAN-${Date.now()}`;
-  const totalAmount = (items || []).reduce((s, i) => s + (i.qty * i.price), 0);
+  const subtotal = (items || []).reduce((s, i) => s + (i.qty * i.price), 0);
+  const discountAmount = parseFloat(discount) || 0;
+  const totalAmount = Math.max(0, subtotal - discountAmount);
+
   const order = await Order.create({
     orderNumber,
     platform: platform || 'fifozone',
@@ -425,16 +437,23 @@ const createManualOrder = asyncHandler(async (req, res) => {
       phone: customerPhone || '',
       address: { line1: customerAddress || '', city: '', state: '', pincode: '', country: 'India' }
     },
+    shippingAddress: { line1: customerAddress || '', city: '-', state: '-', pincode: '000000', country: 'India' },
     items: (items || []).map(i => ({
       productName: i.productName,
       quantity: i.qty,
       unitPrice: i.price,
+      totalPrice: i.qty * i.price,
       lineTotal: i.qty * i.price,
-      productSnapshot: { masterName: i.productName, sku: i.sku || 'MANUAL' }
+      productSnapshot: { masterName: i.productName, sku: i.sku || 'MANUAL', sellingPrice: i.price }
     })),
+    subtotal,
+    discount: discountAmount,
+    discountReason: discountReason || '',
     totalAmount,
+    paymentMethod: paymentMethod || 'cod',
     paymentStatus: 'pending',
     status: 'pending',
+    internalNote: note || '',
     statusHistory: [{ status: 'pending', note: note || 'Manual order created' }],
   });
   res.status(201).json(new ApiResponse(201, order, 'Manual order created successfully'));

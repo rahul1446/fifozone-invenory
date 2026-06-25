@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Tag, Button, Modal, Form, Input, Select, Spin, message, Divider, Drawer, Space } from 'antd';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Table, Tag, Button, Modal, Form, Input, Select, Spin, message, Divider, Drawer, Space, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { Users, MapPin, Phone, Mail, Plus, RefreshCw, Edit, FileText, Eye } from 'lucide-react';
 import { getSuppliersApi, createSupplierApi, updateSupplierApi, getPurchasesApi } from '../../api/inventoryApi';
 import { useNavigate } from 'react-router-dom';
@@ -18,8 +19,33 @@ const SuppliersPage = () => {
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [filterDates, setFilterDates] = useState(null);
+  const [filterProduct, setFilterProduct] = useState('');
   const [form] = Form.useForm();
   const navigate = useNavigate();
+
+  const filteredPurchases = useMemo(() => {
+    return purchases.filter(p => {
+      let matchDate = true;
+      let matchProduct = true;
+
+      if (filterDates && filterDates[0] && filterDates[1]) {
+        const pDate = dayjs(p.invoiceDate, 'DD-MM-YYYY');
+        const dateToCompare = pDate.isValid() ? pDate : dayjs(p.purchaseDate);
+        if (dateToCompare.isValid()) {
+           matchDate = dateToCompare.isAfter(filterDates[0].startOf('day')) && dateToCompare.isBefore(filterDates[1].endOf('day'));
+        }
+      }
+
+      if (filterProduct) {
+        matchProduct = p.items && p.items.some(item => 
+          item.productName?.toLowerCase().includes(filterProduct.toLowerCase())
+        );
+      }
+
+      return matchDate && matchProduct;
+    });
+  }, [purchases, filterDates, filterProduct]);
 
   const fetchSuppliers = async () => {
     setLoading(true);
@@ -160,7 +186,7 @@ const SuppliersPage = () => {
             <Form.Item name="gstin" label="GSTIN / UIN *" rules={[{ required: true, message: 'GSTIN is required' }]} tooltip="15-digit GST Identification Number">
               <Input placeholder="e.g. 07AASPM9782F1ZY" />
             </Form.Item>
-            <Form.Item name="panNo" label="PAN Number *" rules={[{ required: true, message: 'PAN is required' }]} tooltip="10-character Permanent Account Number">
+            <Form.Item name="panNo" label="PAN Number" tooltip="10-character Permanent Account Number">
               <Input placeholder="e.g. AANCA0973A" />
             </Form.Item>
             <Form.Item name="fssaiLic" label="FSSAI Licence No." tooltip="Enter FSSAI licence number if applicable">
@@ -251,8 +277,26 @@ const SuppliersPage = () => {
       </Modal>
 
       <Drawer
-        title={<div className="font-bold text-slate-800">History: {selectedSupplierForHistory?.name}</div>}
-        width={750}
+        title={
+          <div className="flex flex-col gap-2">
+            <div className="font-bold text-slate-800">History: {selectedSupplierForHistory?.name}</div>
+            <div className="flex gap-2 items-center">
+              <DatePicker.RangePicker 
+                format="DD-MM-YYYY"
+                onChange={(dates) => setFilterDates(dates)} 
+                allowClear 
+              />
+              <Input 
+                placeholder="Search by product name..." 
+                value={filterProduct} 
+                onChange={(e) => setFilterProduct(e.target.value)}
+                allowClear
+                style={{ width: 250 }}
+              />
+            </div>
+          </div>
+        }
+        width={850}
         onClose={() => setDrawerOpen(false)}
         open={drawerOpen}
         bodyStyle={{ padding: 0 }}
@@ -260,9 +304,28 @@ const SuppliersPage = () => {
         <div className="p-4 bg-slate-50 min-h-full">
           <Table
             loading={loadingPurchases}
-            dataSource={purchases}
+            dataSource={filteredPurchases}
             rowKey="_id"
             pagination={{ pageSize: 15 }}
+            expandable={{
+              expandedRowRender: (record) => (
+                <div className="pl-8 py-2 bg-white rounded shadow-sm border border-slate-100">
+                  <div className="font-semibold text-slate-600 mb-2">Products in Invoice:</div>
+                  <Table
+                    dataSource={record.items || []}
+                    columns={[
+                      { title: 'Product Name', dataIndex: 'productName', key: 'productName' },
+                      { title: 'Batch', dataIndex: 'batchNo', key: 'batchNo' },
+                      { title: 'Qty', dataIndex: 'qty', key: 'qty' },
+                      { title: 'Rate', dataIndex: 'rate', key: 'rate', render: v => `₹${v}` }
+                    ]}
+                    pagination={false}
+                    size="small"
+                    rowKey={(r, i) => i}
+                  />
+                </div>
+              )
+            }}
             columns={[
               { title: 'Date', dataIndex: 'invoiceDate', key: 'date' },
               { title: 'Invoice No.', dataIndex: 'invoiceNo', key: 'invoiceNo', render: v => <span className="font-mono text-xs">{v}</span> },

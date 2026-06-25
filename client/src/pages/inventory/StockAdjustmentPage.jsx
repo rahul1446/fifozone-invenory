@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Form, Input, Button, Select, DatePicker, Switch, Card, Row, Col, Divider, Table, message, Space, Typography, InputNumber, Tag } from 'antd';
-import { PlusOutlined, MinusCircleOutlined, SaveOutlined, SendOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Select, DatePicker, Switch, Card, Row, Col, Divider, Table, message, Space, Typography, InputNumber, Tag, AutoComplete, Modal, Upload, Alert } from 'antd';
+import { PlusOutlined, MinusCircleOutlined, SaveOutlined, SendOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { getSuppliersApi, getPurchasesApi, createPurchaseApi, updatePurchaseApi, deletePurchaseApi } from '../../api/inventoryApi';
 import { getProductsApi } from '../../api/productApi';
+import { bulkUpdateHsnApi } from '../../api/productApi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import InvoicePreviewModal from '../../components/inventory/InvoicePreviewModal';
+import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
@@ -38,6 +40,9 @@ const StockAdjustmentPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   const [previewInvoice, setPreviewInvoice] = useState(null);
+  const [hsnModalOpen, setHsnModalOpen] = useState(false);
+  const [hsnUploadData, setHsnUploadData] = useState([]);
+  const [hsnUploading, setHsnUploading] = useState(false);
 
   // Auto-calculated states
   const [netTaxableValue, setNetTaxableValue] = useState(0);
@@ -191,6 +196,132 @@ const StockAdjustmentPage = () => {
     }
   };
 
+  const handleSupplierChange = (val) => {
+    const selectedSupplier = suppliers.find(s => s.name === val);
+    if (selectedSupplier) {
+      form.setFieldsValue({
+        gstInvoiceNo: selectedSupplier.gstin || '',
+        placeOfSupply: selectedSupplier.state || '',
+        transitInsurance: selectedSupplier.transitInsurancePolicy || ''
+      });
+    }
+  };
+
+  const handleProductSelect = (val, itemIndex) => {
+    const product = productsList.find(p => p.masterName === val);
+    if (product) {
+      const items = form.getFieldValue('items') || [];
+      const updatedItems = [...items];
+      updatedItems[itemIndex] = {
+        ...updatedItems[itemIndex],
+        productName: val,
+        hsnSac: product.hsnCode || updatedItems[itemIndex]?.hsnSac || '',
+        mrp: product.mrp || updatedItems[itemIndex]?.mrp || 0,
+        manufacturerName: product.manufacturer || updatedItems[itemIndex]?.manufacturerName || '',
+        gstRate: product.gstPercent || updatedItems[itemIndex]?.gstRate || 0,
+      };
+      form.setFieldsValue({ items: updatedItems });
+    }
+  };
+
+  const handleHsnExcelUpload = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+        // Accept columns: Product Name / product_name / masterName + HSN Code / hsn_code / hsnCode
+        const parsed = rows
+          .map(row => ({
+            masterName: row['Product Name'] || row['product_name'] || row['masterName'] || '',
+            hsnCode: String(row['HSN Code'] || row['hsn_code'] || row['hsnCode'] || row['HSN/SAC'] || '').trim()
+          }))
+          .filter(r => r.masterName && r.hsnCode);
+        setHsnUploadData(parsed);
+        if (parsed.length === 0) {
+          message.error('No valid rows found. Ensure columns are: "Product Name" and "HSN Code"');
+        }
+      } catch (err) {
+        message.error('Failed to parse Excel file');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return false; // prevent auto upload
+  };
+
+  const handleHsnSave = async () => {
+    if (hsnUploadData.length === 0) return;
+    setHsnUploading(true);
+    try {
+      const res = await bulkUpdateHsnApi(hsnUploadData);
+      const { updated, notFound } = res.data || {};
+      message.success(`HSN updated for ${updated} products!`);
+      if (notFound && notFound.length > 0) {
+        message.warning(`Not matched: ${notFound.slice(0, 5).join(', ')}${notFound.length > 5 ? '...' : ''}`);
+      }
+      setHsnModalOpen(false);
+      setHsnUploadData([]);
+      await fetchData(); // refresh product list with new HSN codes
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Failed to update HSN codes');
+    } finally {
+      setHsnUploading(false);
+    }
+  };
+
+  const getBatchOptions = (productName) => {
+    if (!productName) return [{ value: 'none', label: 'Select a product first', disabled: true }];
+    const batchesMap = new Map();
+    history.forEach(inv => {
+      (inv.items || []).forEach(item => {
+        if (item.productName === productName && item.batchNo) {
+          if (!batchesMap.has(item.batchNo)) {
+            batchesMap.set(item.batchNo, item);
+          }
+        }
+      });
+    });
+    
+    const options = Array.from(batchesMap.values()).map(item => ({
+      value: item.batchNo,
+      label: (
+        <div className="flex justify-between items-center">
+          <span className="font-bold">{item.batchNo}</span>
+          <span className="text-xs text-slate-400">Exp: {item.expiryDate || 'N/A'}</span>
+        </div>
+      ),
+      mfgDate: item.mfgDate,
+      expiryDate: item.expiryDate,
+      mrp: item.mrp,
+      manufacturerName: item.manufacturerName
+    }));
+
+    if (options.length === 0) {
+      options.push({ value: 'none', label: 'No saved batches. Type a new one.', disabled: true });
+    }
+
+    return options;
+  };
+
+  const handleBatchSelect = (val, option, namePath) => {
+    const items = form.getFieldValue('items') || [];
+    const updatedItems = [...items];
+    const currentItem = updatedItems[namePath] || {};
+    
+    updatedItems[namePath] = {
+      ...currentItem,
+      batchNo: val,
+      mfgDate: option.mfgDate || currentItem.mfgDate,
+      expiryDate: option.expiryDate || currentItem.expiryDate,
+      mrp: option.mrp || currentItem.mrp,
+      manufacturerName: option.manufacturerName || currentItem.manufacturerName,
+    };
+    form.setFieldsValue({ items: updatedItems });
+    handleValuesChange(null, { items: updatedItems });
+  };
+
   const columns = [
     { title: 'Date', dataIndex: 'invoiceDate', key: 'date' },
     { title: 'Supplier', dataIndex: 'supplier', key: 'supplier', render: v => <span className="font-semibold">{v}</span> },
@@ -244,7 +375,7 @@ const StockAdjustmentPage = () => {
           <Row gutter={16}>
             <Col xs={24} sm={12} md={8}>
               <Form.Item name="supplier" label="Supplier *" rules={[{ required: true, message: 'Supplier is required' }]} tooltip="Select from saved supplier list">
-                <Select showSearch placeholder="e.g. Ravindera Medicos">
+                <Select showSearch placeholder="e.g. Ravindera Medicos" onChange={handleSupplierChange}>
                   {suppliers.map(s => <Option key={s._id} value={s.name}>{s.name}</Option>)}
                 </Select>
               </Form.Item>
@@ -304,7 +435,19 @@ const StockAdjustmentPage = () => {
           </Row>
         </Card>
 
-        <Card title="Product Rows" className="shadow-sm border-slate-100 mb-6">
+        <Card 
+          title="Product Rows" 
+          className="shadow-sm border-slate-100 mb-6"
+          extra={
+            <Button 
+              icon={<FileExcelOutlined />} 
+              onClick={() => setHsnModalOpen(true)}
+              size="small"
+            >
+              Upload HSN Codes
+            </Button>
+          }
+        >
           <Form.List name="items">
             {(fields, { add, remove }) => (
               <>
@@ -320,7 +463,7 @@ const StockAdjustmentPage = () => {
                     <Row gutter={16}>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item {...restField} name={[name, 'productName']} label="Product Name / Description *" rules={[{ required: true, message: 'Required' }]}>
-                          <Select showSearch placeholder="e.g. Sebolytic 200ml (T)">
+                          <Select showSearch placeholder="e.g. Sebolytic 200ml (T)" onChange={(val) => handleProductSelect(val, name)}>
                             {productsList.map(p => <Option key={p._id} value={p.masterName}>{p.masterName}</Option>)}
                           </Select>
                         </Form.Item>
@@ -331,8 +474,33 @@ const StockAdjustmentPage = () => {
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
-                        <Form.Item {...restField} name={[name, 'batchNo']} label="Batch No.">
-                          <Input placeholder="e.g. GC348" />
+                        <Form.Item shouldUpdate={(prevValues, currentValues) => {
+                          const prevItems = prevValues.items || [];
+                          const currentItems = currentValues.items || [];
+                          return prevItems[name]?.productName !== currentItems[name]?.productName;
+                        }} noStyle>
+                          {() => {
+                            const currentProductName = form.getFieldValue(['items', name, 'productName']);
+                            const batchOptions = getBatchOptions(currentProductName);
+                            return (
+                              <Form.Item {...restField} name={[name, 'batchNo']} label="Batch No.">
+                                <AutoComplete
+                                  options={batchOptions}
+                                  placeholder="e.g. GC348"
+                                  onSelect={(val, option) => {
+                                    if(val !== 'none') handleBatchSelect(val, option, name);
+                                  }}
+                                  filterOption={(inputValue, option) => {
+                                    if (option.disabled) return true;
+                                    return option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1;
+                                  }}
+                                  onFocus={() => {
+                                    // Triggering focus might require an open state, but with options it should open naturally
+                                  }}
+                                />
+                              </Form.Item>
+                            );
+                          }}
                         </Form.Item>
                       </Col>
                       
@@ -474,6 +642,84 @@ const StockAdjustmentPage = () => {
         invoice={previewInvoice} 
         onClose={() => setPreviewInvoice(null)} 
       />
+
+      {/* HSN Upload Modal */}
+      <Modal
+        title={<span className="font-bold flex items-center gap-2"><FileExcelOutlined className="text-green-600" /> Upload HSN / SAC Codes from Excel</span>}
+        open={hsnModalOpen}
+        onCancel={() => { setHsnModalOpen(false); setHsnUploadData([]); }}
+        width={700}
+        footer={[
+          <Button key="cancel" onClick={() => { setHsnModalOpen(false); setHsnUploadData([]); }}>Cancel</Button>,
+          <Button 
+            key="save" 
+            type="primary" 
+            loading={hsnUploading} 
+            disabled={hsnUploadData.length === 0}
+            onClick={handleHsnSave}
+            className="!bg-emerald-600 !border-emerald-600"
+          >
+            Save {hsnUploadData.length > 0 ? `(${hsnUploadData.length} products)` : ''}
+          </Button>
+        ]}
+      >
+        <div className="space-y-4">
+          <Alert
+            type="info"
+            showIcon
+            message="Excel Format"
+            description={
+              <div className="text-sm">
+                Your Excel file must have two columns:
+                <ul className="mt-1 ml-4 list-disc">
+                  <li><strong>Product Name</strong> — must match exactly as saved in the system</li>
+                  <li><strong>HSN Code</strong> — the HSN / SAC code for that product</li>
+                </ul>
+                <a
+                  href="#"
+                  className="text-indigo-600 font-semibold mt-1 inline-block"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const ws = XLSX.utils.aoa_to_sheet([['Product Name', 'HSN Code'], ['Example Product 1', '33051090'], ['Example Product 2', '30049099']]);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'HSN Codes');
+                    XLSX.writeFile(wb, 'hsn_template.xlsx');
+                  }}
+                >
+                  ⬇ Download Template
+                </a>
+              </div>
+            }
+          />
+          <Upload.Dragger
+            accept=".xlsx,.xls,.csv"
+            beforeUpload={handleHsnExcelUpload}
+            showUploadList={false}
+            maxCount={1}
+          >
+            <p className="text-4xl mb-2">📊</p>
+            <p className="font-semibold text-slate-700">Click or drag Excel file here</p>
+            <p className="text-slate-400 text-sm">Supports .xlsx, .xls, .csv</p>
+          </Upload.Dragger>
+
+          {hsnUploadData.length > 0 && (
+            <div>
+              <div className="font-semibold text-slate-700 mb-2">Preview ({hsnUploadData.length} rows)</div>
+              <Table
+                dataSource={hsnUploadData.slice(0, 10)}
+                columns={[
+                  { title: 'Product Name', dataIndex: 'masterName', key: 'name', ellipsis: true },
+                  { title: 'HSN Code', dataIndex: 'hsnCode', key: 'hsn', render: v => <Tag color="blue">{v}</Tag> }
+                ]}
+                pagination={false}
+                size="small"
+                rowKey={(r, i) => i}
+                footer={() => hsnUploadData.length > 10 ? <span className="text-slate-400 text-xs">...and {hsnUploadData.length - 10} more rows</span> : null}
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

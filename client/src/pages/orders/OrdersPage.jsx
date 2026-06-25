@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Table, Select, Button, message } from 'antd';
-import { RefreshCw, Bug, Printer, Download, Package, Eye, Filter, ShoppingCart } from 'lucide-react';
+import { Table, Select, Button, message, DatePicker } from 'antd';
+import { RefreshCw, Bug, Printer, Download, Package, Eye, Filter, ShoppingCart, Truck } from 'lucide-react';
+import dayjs from 'dayjs';
+import * as XLSX from 'xlsx';
 import { getOrdersApi } from '../../api/orderApi';
+import { bulkPushOrdersToShiprocketApi } from '../../api/shiprocketApi';
 import { setOrdersStart, setOrdersSuccess, setOrdersFailure } from '../../store/orderSlice';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -13,12 +16,16 @@ const OrdersPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { orders, pagination, loading } = useSelector(state => state.orders);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [pushing, setPushing] = useState(false);
 
   const [filters, setFilters] = useState({
     search: '',
     platform: 'All',
     status: 'All',
     paymentStatus: 'All',
+    startDate: null,
+    endDate: null,
     page: 1,
     limit: 20
   });
@@ -40,6 +47,65 @@ const OrdersPage = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const handleDateRangeChange = (dates) => {
+    if (dates) {
+      setFilters(prev => ({ 
+        ...prev, 
+        startDate: dates[0].format('YYYY-MM-DD'), 
+        endDate: dates[1].format('YYYY-MM-DD'),
+        page: 1 
+      }));
+    } else {
+      setFilters(prev => ({ ...prev, startDate: null, endDate: null, page: 1 }));
+    }
+  };
+
+  const handleBulkPush = async () => {
+    if (selectedRowKeys.length === 0) return;
+    setPushing(true);
+    try {
+      const res = await bulkPushOrdersToShiprocketApi(selectedRowKeys);
+      message.success(`Pushed ${res.data.successful} orders. Failed: ${res.data.failed}`);
+      setSelectedRowKeys([]);
+      fetchOrders();
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Bulk push failed');
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExport = () => {
+    if (!orders || orders.length === 0) {
+      message.warning('No orders to export');
+      return;
+    }
+    const exportData = orders.map(o => ({
+      'Order ID': o.orderNumber || o.platformOrderId || o._id,
+      'Customer Name': o.customer?.name || 'Unknown',
+      'Date': new Date(o.orderDate || o.createdAt).toLocaleDateString(),
+      'Status': o.status,
+      'Platform': o.platform || 'Direct',
+      'Total Amount': o.totalAmount || o.pricing?.total || 0,
+      'Payment Status': o.paymentStatus || 'pending'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.writeFile(workbook, `Fifozone_Orders_${dayjs().format('YYYY-MM-DD')}.xlsx`);
+  };
+
+  const handleDebug = () => {
+    console.log('--- DEBUG: CURRENT ORDERS DATA ---', orders);
+    console.log('--- DEBUG: CURRENT FILTERS ---', filters);
+    message.info('Debug data has been logged to the browser console! (Press F12 to view)');
   };
 
   const openOrderDetails = (id) => {
@@ -124,8 +190,9 @@ const OrdersPage = () => {
   ];
 
   const rowSelection = {
-    onChange: (selectedRowKeys, selectedRows) => {
-      console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+    selectedRowKeys,
+    onChange: (newSelectedRowKeys) => {
+      setSelectedRowKeys(newSelectedRowKeys);
     },
   };
 
@@ -145,10 +212,21 @@ const OrdersPage = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button icon={<Bug size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Debug</Button>
+          {selectedRowKeys.length > 0 && (
+            <Button 
+              type="primary" 
+              icon={<Truck size={14} />} 
+              onClick={handleBulkPush} 
+              loading={pushing} 
+              className="font-semibold rounded-lg h-9 bg-blue-600 hover:bg-blue-700 border-none shadow-sm text-xs mr-2"
+            >
+              Push to Shiprocket ({selectedRowKeys.length})
+            </Button>
+          )}
+          <Button onClick={handleDebug} icon={<Bug size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Debug</Button>
           <Button icon={<RefreshCw size={14} />} onClick={fetchOrders} loading={loading} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Refresh</Button>
-          <Button icon={<Printer size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Print</Button>
-          <Button icon={<Download size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Export</Button>
+          <Button onClick={handlePrint} icon={<Printer size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Print</Button>
+          <Button onClick={handleExport} icon={<Download size={14} />} className="text-slate-600 font-semibold rounded-lg h-9 border-slate-200 shadow-sm text-xs">Export</Button>
         </div>
       </div>
 
@@ -226,6 +304,16 @@ const OrdersPage = () => {
                 { value: 'flipkart', label: 'Flipkart' }
               ]}
               allowClear
+            />
+            <DatePicker.RangePicker 
+              onChange={handleDateRangeChange} 
+              className="w-[240px]" 
+              ranges={{
+                Today: [dayjs(), dayjs()],
+                Yesterday: [dayjs().subtract(1, 'days'), dayjs().subtract(1, 'days')],
+                'Last 7 Days': [dayjs().subtract(6, 'days'), dayjs()],
+                'Last 30 Days': [dayjs().subtract(29, 'days'), dayjs()],
+              }}
             />
           </div>
           <div className="text-[13px] font-medium text-slate-500">

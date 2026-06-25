@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
+const dns = require('dns');
 const logger = require('../utils/logger');
+
+// Force Node.js to use Google DNS for SRV record resolution (system DNS may not support SRV)
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const connectDB = async () => {
   try {

@@ -33,6 +33,7 @@ const fallbackStats = {
   pendingOrders: 0,
   returnsPending: 0,
   deadProducts: 0,
+  outOfStockCount: 0,
 };
 
 const fallbackSyncStatus = [];
@@ -228,6 +229,7 @@ const DashboardPage = () => {
           pendingOrders: rawData.stats.pendingOrdersCount,
           returnsPending: rawData.stats.pendingReturnsCount,
           deadProducts: rawData.stats.deadProductsCount,
+          outOfStockCount: rawData.stats.outOfStockCount ?? 0,
         };
         setStats(mappedStats);
         
@@ -343,10 +345,22 @@ const DashboardPage = () => {
 
   // ── Filter chart data by range ──
   const filteredRevenueData = (() => {
-    const sliceMap = { '7D': 7, '30D': 30, '90D': 90, '1Y': 365 };
+    const sliceMap = { 'Today': 1, '7 Days': 7, '30 Days': 30, 'Month': 30, '90 Days': 90, 'Year': 90, 'Lifetime': 90 };
     const count = sliceMap[chartRange] || 30;
     return revenueData.slice(-Math.min(count, revenueData.length));
   })();
+
+  // ── Compute Real Metrics from filtered data ──
+  const totalPeriodRevenue = filteredRevenueData.reduce((s, d) => s + (d.Total || 0), 0);
+  const totalPeriodOrders = filteredRevenueData.reduce((s, d) => s + (d.TotalOrders || 0), 0);
+  const avgOrderValue = totalPeriodOrders > 0 ? totalPeriodRevenue / totalPeriodOrders : 0;
+
+  // Compute Per-Platform Metrics
+  const platformStats = {
+    fifozone: { rev: filteredRevenueData.reduce((s, d) => s + (d.Fifozone || 0), 0), ord: filteredRevenueData.reduce((s, d) => s + (d.FifozoneOrders || 0), 0) },
+    amazon: { rev: filteredRevenueData.reduce((s, d) => s + (d.Amazon || 0), 0), ord: filteredRevenueData.reduce((s, d) => s + (d.AmazonOrders || 0), 0) },
+    flipkart: { rev: filteredRevenueData.reduce((s, d) => s + (d.Flipkart || 0), 0), ord: filteredRevenueData.reduce((s, d) => s + (d.FlipkartOrders || 0), 0) },
+  };
 
   // ── Computed values ──
   const displayStats = stats || fallbackStats;
@@ -474,7 +488,7 @@ const DashboardPage = () => {
         />
         <StatCard
           title="OUT OF STOCK"
-          value={statsLoading ? '' : displayStats.deadProducts?.toLocaleString('en-IN')}
+          value={statsLoading ? '' : displayStats.outOfStockCount?.toLocaleString('en-IN')}
           icon={<Package className="w-5 h-5" />}
           color="red"
           loading={statsLoading}
@@ -485,7 +499,7 @@ const DashboardPage = () => {
       <div className="flex items-center gap-4 py-2">
         <span className="text-sm font-semibold text-slate-500">Time Range:</span>
         <div className="flex items-center gap-2">
-          {['Today', '7 Days', '30 Days', 'Month', 'Year', 'Lifetime'].map((range) => (
+          {['Today', '7 Days', '30 Days', '90 Days'].map((range) => (
             <button
               key={range}
               onClick={() => { setChartRange(range); setCustomDateRange(null); }}
@@ -518,15 +532,15 @@ const DashboardPage = () => {
 
       {/* Row 3: Performance Metrics */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-800 mb-6">Performance Metrics</h3>
+        <h3 className="text-sm font-bold text-slate-800 mb-6">Performance Metrics ({chartRange})</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">TOTAL REVENUE</p>
-            <p className="text-2xl font-bold text-emerald-500">{formatCurrency(displayStats.revenueToday ? displayStats.revenueToday * 30 : 3350)}</p>
+            <p className="text-2xl font-bold text-emerald-500">{formatCurrency(totalPeriodRevenue)}</p>
           </div>
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">TOTAL ORDERS</p>
-            <p className="text-2xl font-bold text-blue-600">{displayStats.ordersToday ? displayStats.ordersToday * 30 : 11}</p>
+            <p className="text-2xl font-bold text-blue-600">{totalPeriodOrders}</p>
           </div>
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">UNITS SOLD</p>
@@ -535,9 +549,7 @@ const DashboardPage = () => {
           </div>
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">AVG ORDER VALUE</p>
-            <p className="text-2xl font-bold text-orange-500">
-              {formatCurrency(displayStats.ordersToday ? displayStats.revenueToday / displayStats.ordersToday : 305)}
-            </p>
+            <p className="text-2xl font-bold text-orange-500">{formatCurrency(avgOrderValue)}</p>
           </div>
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">GROWTH %</p>
@@ -549,13 +561,13 @@ const DashboardPage = () => {
 
       {/* Row 4: Channel Performance */}
       <div>
-        <h3 className="text-sm font-bold text-slate-800 mb-4 px-1">Channel Performance</h3>
+        <h3 className="text-sm font-bold text-slate-800 mb-4 px-1">Channel Performance ({chartRange})</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {ALL_PLATFORMS.map((platform) => {
-            const isFifo = platform.key === 'fifozone';
-            const rev = isFifo ? (displayStats.revenueToday ? displayStats.revenueToday * 30 : 3350) : 0;
-            const ord = isFifo ? (displayStats.ordersToday ? displayStats.ordersToday * 30 : 11) : 0;
-            const pend = isFifo ? displayStats.pendingOrders : 0;
+            const pStats = platformStats[platform.key] || { rev: 0, ord: 0 };
+            const rev = pStats.rev;
+            const ord = pStats.ord;
+            const pend = platform.key === 'fifozone' ? displayStats.pendingOrders : 0;
             const dotColor = platform.key === 'amazon' ? 'bg-amber-500' : platform.key === 'flipkart' ? 'bg-blue-500' : platform.key === 'meesho' ? 'bg-pink-500' : 'bg-indigo-500';
 
             return (
@@ -589,7 +601,7 @@ const DashboardPage = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-slate-800">Trends & Analytics</h3>
-            <span className="text-[11px] text-slate-400">Monthly breakdown</span>
+            <span className="text-[11px] text-slate-400">Revenue breakdown</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">METRIC:</span>
@@ -608,12 +620,29 @@ const DashboardPage = () => {
           </div>
         </div>
         
-        <div className="flex flex-col items-center justify-center py-24">
-          <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
-            <TrendingUp className="w-8 h-8 text-slate-300" />
+        {filteredRevenueData && filteredRevenueData.length > 0 ? (
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={filteredRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => `₹${val/1000}k`} />
+                <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
+                <Bar dataKey="Fifozone" stackId="a" fill="#8b5cf6" radius={[0, 0, 4, 4]} barSize={32} />
+                <Bar dataKey="Amazon" stackId="a" fill="#f59e0b" />
+                <Bar dataKey="Flipkart" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <p className="text-sm font-bold text-slate-700">No Data Available</p>
-        </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
+              <TrendingUp className="w-8 h-8 text-slate-300" />
+            </div>
+            <p className="text-sm font-bold text-slate-700">No Data Available</p>
+          </div>
+        )}
       </div>
     </div>
   );

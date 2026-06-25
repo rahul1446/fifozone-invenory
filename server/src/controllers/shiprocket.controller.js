@@ -20,6 +20,43 @@ exports.pushOrder = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, order, 'Order pushed to Shiprocket successfully'));
 });
 
+exports.bulkPushOrders = asyncHandler(async (req, res) => {
+  const { orderIds } = req.body;
+  if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+    throw new ApiError(400, 'No order IDs provided');
+  }
+
+  const results = { successful: 0, failed: 0, errors: [] };
+
+  for (const id of orderIds) {
+    try {
+      const order = await Order.findById(id);
+      if (!order) {
+        results.failed++;
+        results.errors.push({ id, message: 'Order not found' });
+        continue;
+      }
+      if (order.shiprocketOrderId) {
+        results.failed++;
+        results.errors.push({ id, message: 'Already pushed to Shiprocket' });
+        continue;
+      }
+
+      const srResponse = await ShiprocketService.createOrder(order);
+      order.shiprocketOrderId = srResponse.order_id;
+      order.shiprocketShipmentId = srResponse.shipment_id;
+      order.shiprocketStatus = srResponse.status;
+      await order.save();
+      results.successful++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push({ id, message: err.message });
+    }
+  }
+
+  res.json(new ApiResponse(200, results, `Bulk push completed. ${results.successful} succeeded, ${results.failed} failed.`));
+});
+
 exports.generateAWB = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) throw new ApiError(404, 'Order not found');

@@ -40,16 +40,18 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
   // Today Orders and revenue
   const todayOrders = await Order.find({
-    createdAt: { $gte: startOfToday, $lte: endOfToday }
+    createdAt: { $gte: startOfToday, $lte: endOfToday },
+    status: { $nin: ['draft', 'trash'] }
   });
   const todayOrdersCount = todayOrders.length;
-  const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.status !== 'cancelled' ? order.totalAmount : 0), 0);
+  const todayRevenue = todayOrders.reduce((sum, order) => sum + (['cancelled', 'failed'].includes(order.status) ? 0 : order.totalAmount), 0);
 
   // Yesterday comparison
   const yesterdayOrders = await Order.find({
-    createdAt: { $gte: startOfYesterday, $lte: endOfYesterday }
+    createdAt: { $gte: startOfYesterday, $lte: endOfYesterday },
+    status: { $nin: ['draft', 'trash'] }
   });
-  const yesterdayRevenue = yesterdayOrders.reduce((sum, order) => sum + (order.status !== 'cancelled' ? order.totalAmount : 0), 0);
+  const yesterdayRevenue = yesterdayOrders.reduce((sum, order) => sum + (['cancelled', 'failed'].includes(order.status) ? 0 : order.totalAmount), 0);
 
   const lowStockProductsCount = await Product.countDocuments({
     isActive: true,
@@ -82,43 +84,52 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     .limit(10)
     .select('masterName brand category totalSold mrp');
 
-  // 6. Last 30 days revenue chart data
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  // 6. Last 90 days revenue chart data
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  ninetyDaysAgo.setHours(0, 0, 0, 0);
 
-  const last30DaysOrders = await Order.find({
-    createdAt: { $gte: thirtyDaysAgo },
-    status: { $ne: 'cancelled' }
+  const last90DaysOrders = await Order.find({
+    createdAt: { $gte: ninetyDaysAgo },
+    status: { $nin: ['draft', 'trash'] }
   });
 
   const revenueChartData = [];
-  for (let i = 29; i >= 0; i--) {
+  for (let i = 89; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     d.setHours(0, 0, 0, 0);
     const endD = new Date(d);
     endD.setHours(23, 59, 59, 999);
 
-    const dayOrders = last30DaysOrders.filter(o => 
+    const dayOrders = last90DaysOrders.filter(o => 
       new Date(o.createdAt) >= d && new Date(o.createdAt) <= endD
     );
 
-    const fifozoneRev = dayOrders.filter(o => o.platform === 'fifozone').reduce((s, o) => s + o.totalAmount, 0);
-    const amazonRev = dayOrders.filter(o => o.platform === 'amazon').reduce((s, o) => s + o.totalAmount, 0);
-    const flipkartRev = dayOrders.filter(o => o.platform === 'flipkart').reduce((s, o) => s + o.totalAmount, 0);
+    const fifoOrders = dayOrders.filter(o => o.platform === 'fifozone');
+    const amzOrders = dayOrders.filter(o => o.platform === 'amazon');
+    const flpOrders = dayOrders.filter(o => o.platform === 'flipkart');
+
+    const fifozoneRev = fifoOrders.reduce((s, o) => s + (['cancelled', 'failed'].includes(o.status) ? 0 : o.totalAmount), 0);
+    const amazonRev = amzOrders.reduce((s, o) => s + (['cancelled', 'failed'].includes(o.status) ? 0 : o.totalAmount), 0);
+    const flipkartRev = flpOrders.reduce((s, o) => s + (['cancelled', 'failed'].includes(o.status) ? 0 : o.totalAmount), 0);
 
     revenueChartData.push({
       date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
       Fifozone: fifozoneRev,
       Amazon: amazonRev,
       Flipkart: flipkartRev,
-      Total: fifozoneRev + amazonRev + flipkartRev
+      Total: fifozoneRev + amazonRev + flipkartRev,
+      FifozoneOrders: fifoOrders.length,
+      AmazonOrders: amzOrders.length,
+      FlipkartOrders: flpOrders.length,
+      TotalOrders: dayOrders.length
     });
   }
 
-  // Dead products count
+  // Dead and Out of Stock products count
   const deadProductsCount = await Product.countDocuments({ isActive: true, isDead: true });
+  const outOfStockCount = await Product.countDocuments({ isActive: true, totalStock: { $lte: 0 } });
 
   res.status(200).json(
     new ApiResponse(200, {
@@ -135,7 +146,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         lowStockProductsCount,
         pendingOrdersCount,
         pendingReturnsCount,
-        deadProductsCount
+        deadProductsCount,
+        outOfStockCount
       },
       syncStatus,
       recentOrders,

@@ -6,7 +6,7 @@ const SupplierSchema = new mongoose.Schema({
   name: { type: String, required: true },
   supplierCode: String,
   gstin: { type: String, required: true },
-  panNo: { type: String, required: true },
+  panNo: { type: String },
   fssaiLic: String,
   drugLic20B: String,
   drugLic21B: String,

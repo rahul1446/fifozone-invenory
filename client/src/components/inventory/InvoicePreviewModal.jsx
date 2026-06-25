@@ -1,10 +1,19 @@
-import React from 'react';
-import { Modal, Descriptions, Table, Tag, Typography, Divider } from 'antd';
+import React, { useRef } from 'react';
+import { Modal, Descriptions, Table, Tag, Typography, Divider, Button } from 'antd';
+import { PrinterOutlined } from '@ant-design/icons';
+import { useReactToPrint } from 'react-to-print';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
 
 const InvoicePreviewModal = ({ open, invoice, onClose }) => {
+  const componentRef = useRef();
+  
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: invoice ? `Invoice-${invoice.invoiceNo}` : 'Invoice',
+  });
+
   if (!invoice) return null;
 
   const columns = [
@@ -32,11 +41,18 @@ const InvoicePreviewModal = ({ open, invoice, onClose }) => {
       title={<span className="text-lg font-bold">Invoice Preview: {invoice.invoiceNo}</span>}
       open={open}
       onCancel={onClose}
-      footer={null}
       width={900}
       style={{ top: 20 }}
+      footer={[
+        <Button key="close" onClick={onClose}>
+          Close
+        </Button>,
+        <Button key="print" type="primary" icon={<PrinterOutlined />} onClick={handlePrint}>
+          Print / Download PDF
+        </Button>,
+      ]}
     >
-      <div className="space-y-4">
+      <div ref={componentRef} className="p-6 bg-white space-y-4">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-slate-500 text-xs uppercase tracking-wider mb-1">Supplier</div>

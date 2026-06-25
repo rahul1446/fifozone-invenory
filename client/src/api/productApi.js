@@ -55,3 +55,8 @@ export const uploadImageApi = async (file) => {
   });
   return response.data;
 };
+
+export const bulkUpdateHsnApi = async (entries) => {
+  const response = await axiosInstance.post('/products/bulk-update-hsn', { entries });
+  return response.data;
+};

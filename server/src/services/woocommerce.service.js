@@ -2,6 +2,27 @@ const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 const PlatformCredential = require('../models/PlatformCredential.model');
 const logger = require('../utils/logger');
 
+const decodeHtml = (str) => {
+  if (!str) return '';
+  // First replace common entities
+  let decoded = str
+    .replace(/&amp;/g, '&')
+    .replace(/&#038;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-')
+    .replace(/&#8217;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&#8230;/g, '...')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+  
+  // replace block elements with newlines before stripping tags
+  decoded = decoded.replace(/<\/?(p|div|br|h1|h2|h3|h4|h5|h6|li|ul|ol)[^>]*>/gi, '\n');
+  
+  // Then strip all HTML tags
+  return decoded.replace(/<[^>]*>?/gm, '').replace(/\n\s*\n/g, '\n\n').trim();
+};
+
 class WooCommerceService {
   constructor() {
     this.name = 'WooCommerce';
@@ -73,7 +94,7 @@ class WooCommerceService {
 
         const mapped = batch.map(prod => ({
           platformProductId: String(prod.id),
-          masterName: prod.name,
+          masterName: decodeHtml(prod.name),
           sku: prod.sku || `WC-${prod.id}`,
           barcode: '',
           brand: prod.brands?.[0]?.name || 'Generic',
@@ -84,7 +105,8 @@ class WooCommerceService {
           slug: prod.slug,
           url: prod.permalink,
           images: prod.images ? prod.images.map(img => img.src) : [],
-          description: prod.short_description || prod.description || '',
+          shortDescription: decodeHtml(prod.short_description || ''),
+          description: decodeHtml(prod.description || ''),
           weight: prod.weight ? parseFloat(prod.weight) : undefined,
         }));
 
@@ -599,7 +621,7 @@ class WooCommerceService {
         },
         items: order.line_items.map(item => ({
           sku: item.sku || '',
-          name: item.name || 'Unknown Product',
+          name: decodeHtml(item.name) || 'Unknown Product',
           platformProductId: String(item.product_id || ''),
           quantity: item.quantity,
           unitPrice: parseFloat(item.price)

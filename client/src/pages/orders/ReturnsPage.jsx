@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Spin, message } from 'antd';
-import { RotateCcw, Eye, Package, Inbox } from 'lucide-react';
+import { Table, Button, Spin, message, Modal, Select } from 'antd';
+import { RotateCcw, Eye, Package, Inbox, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getReturnsApi } from '../../api/orderApi';
+import { getReturnsApi, resolveReturnApi } from '../../api/orderApi';
 import { formatCurrency } from '../../utils/formatters';
 
 const ReturnsPage = () => {
@@ -10,12 +10,17 @@ const ReturnsPage = () => {
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal State
+  const [processModalOpen, setProcessModalOpen] = useState(false);
+  const [selectedReturn, setSelectedReturn] = useState(null);
+  const [itemConditions, setItemConditions] = useState({});
+  const [processingStatus, setProcessingStatus] = useState(false);
+
   const fetchReturns = async () => {
     setLoading(true);
     try {
       const res = await getReturnsApi();
       const data = res?.data?.orders || res?.data || res?.returns || [];
-      // If we don't get valid data, default to empty array to show empty state
       setReturns(Array.isArray(data) ? data : []);
     } catch (err) {
       setReturns([]);
@@ -25,6 +30,38 @@ const ReturnsPage = () => {
   };
 
   useEffect(() => { fetchReturns(); }, []);
+
+  const openProcessModal = (record) => {
+    setSelectedReturn(record);
+    const initialConditions = {};
+    (record.items || []).forEach(item => {
+      initialConditions[item._id] = item.condition || 'good';
+    });
+    setItemConditions(initialConditions);
+    setProcessModalOpen(true);
+  };
+
+  const handleConditionChange = (itemId, condition) => {
+    setItemConditions(prev => ({ ...prev, [itemId]: condition }));
+  };
+
+  const handleProcessReturn = async () => {
+    if (!selectedReturn) return;
+    setProcessingStatus(true);
+    try {
+      await resolveReturnApi(selectedReturn._id, {
+        status: 'restocked',
+        itemConditions: itemConditions
+      });
+      message.success('Return processed and inventory adjusted successfully');
+      setProcessModalOpen(false);
+      fetchReturns();
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Failed to process return');
+    } finally {
+      setProcessingStatus(false);
+    }
+  };
 
   const totalReturns = returns.length;
   const rtoOrders = returns.filter(r => r.returnType === 'rto').length;
@@ -94,10 +131,15 @@ const ReturnsPage = () => {
       align: 'center',
       render: (_, record) => (
         <Button 
-          type="text" 
-          icon={<Eye size={16} className="text-slate-400 hover:text-indigo-600" />} 
-          onClick={(e) => { e.stopPropagation(); navigate(`/returns/${record._id}`); }}
-        />
+          type="primary" 
+          ghost
+          size="small"
+          className="text-xs font-semibold"
+          onClick={(e) => { e.stopPropagation(); openProcessModal(record); }}
+          disabled={record.status === 'restocked'}
+        >
+          {record.status === 'restocked' ? 'Processed' : 'Process'}
+        </Button>
       )
     }
   ];
@@ -183,6 +225,74 @@ const ReturnsPage = () => {
           />
         </div>
       )}
+
+      {/* Process Return Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-5 h-5 text-indigo-600" />
+            <span className="font-bold text-slate-800">Process Return Items</span>
+          </div>
+        }
+        open={processModalOpen}
+        onCancel={() => setProcessModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setProcessModalOpen(false)} className="font-semibold text-slate-600">Cancel</Button>,
+          <Button key="submit" type="primary" loading={processingStatus} onClick={handleProcessReturn} className="font-semibold bg-indigo-600">Confirm & Process</Button>
+        ]}
+        width={700}
+      >
+        <div className="py-4 space-y-4">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex gap-2">
+            <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>Select the physical condition of each returned item. Items marked as <b>Good</b> will be restocked to sellable inventory. Items marked as <b>Damaged, Opened, or Expired</b> will be permanently written off.</p>
+          </div>
+
+          <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm">
+            <Table
+              dataSource={selectedReturn?.items || []}
+              rowKey="_id"
+              pagination={false}
+              size="small"
+              columns={[
+                {
+                  title: 'Product',
+                  key: 'product',
+                  render: (_, item) => {
+                    const title = item.productSnapshot?.masterName || item.productName || 'Unknown Product';
+                    return <span className="text-sm font-semibold text-slate-800">{title}</span>;
+                  }
+                },
+                {
+                  title: 'Qty',
+                  dataIndex: 'quantity',
+                  key: 'qty',
+                  width: 60,
+                  render: (q) => <span className="font-bold">{q}</span>
+                },
+                {
+                  title: 'Condition',
+                  key: 'condition',
+                  width: 150,
+                  render: (_, item) => (
+                    <Select
+                      value={itemConditions[item._id]}
+                      onChange={(val) => handleConditionChange(item._id, val)}
+                      className="w-full"
+                      options={[
+                        { value: 'good', label: '✅ Good / Sellable' },
+                        { value: 'damaged', label: '❌ Damaged' },
+                        { value: 'opened', label: '📦 Opened / Used' },
+                        { value: 'expired', label: '⚠️ Expired' }
+                      ]}
+                    />
+                  )
+                }
+              ]}
+            />
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

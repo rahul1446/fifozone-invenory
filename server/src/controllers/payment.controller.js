@@ -155,11 +155,7 @@ const MOCK_SETTLEMENTS = [
 ];
 
 exports.getSettlements = asyncHandler(async (req, res) => {
-  let data = await Settlement.find().sort({ settlementDate: -1 });
-  if (data.length === 0) {
-    await Settlement.insertMany(MOCK_SETTLEMENTS);
-    data = await Settlement.find().sort({ settlementDate: -1 });
-  }
+  const data = await Settlement.find().sort({ settlementDate: -1 });
   res.json(new ApiResponse(200, data, 'Settlements fetched'));
 });
 
