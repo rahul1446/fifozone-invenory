@@ -197,7 +197,8 @@ const DashboardLayout = () => {
         { label: 'Returns & RTO',    path: '/orders/returns',    icon: <RotateCcw size={18} /> },
         { label: 'COD Orders',       path: '/orders/cod',        icon: <Banknote size={18} /> },
         { label: 'Cancelled Orders', path: '/orders/cancelled',  icon: <XCircle size={18} /> },
-        { label: 'Manual Orders',    path: '/orders/manual',     icon: <FilePlus size={18} /> },
+        { label: 'Manual Orders',    path: '/orders/manual',      icon: <FilePlus size={18} /> },
+        { label: 'Shipments',         path: '/orders/shipments',   icon: <Truck size={18} /> },
       ]
     },
     {
@@ -208,6 +209,7 @@ const DashboardLayout = () => {
         { label: 'Add Product',     path: '/products/add',             icon: <Layers size={18} /> },
         { label: 'Channel Listing', path: '/products/channel-listing', icon: <Globe size={18} /> },
         { label: 'Pricing Control', path: '/products/pricing',         icon: <Tag size={18} /> },
+        { label: 'Discounts',       path: '/products/discounts',       icon: <Tag size={18} /> },
         { label: 'Performance',     path: '/products/performance',     icon: <BarChart3 size={18} /> },
       ]
     },
@@ -251,9 +253,9 @@ const DashboardLayout = () => {
       type: 'group',
       label: 'SYSTEM',
       children: [
-        { label: 'General Settings', path: '/settings/general', icon: <Settings size={18} /> },
-        { label: 'Platform Sync', path: '/settings/platforms', icon: <Globe size={18} /> },
-        { label: 'My Profile', path: '/settings/profile', icon: <User size={18} /> },
+        { label: 'General Settings', path: '/settings/general',   icon: <Settings size={18} /> },
+        { label: 'Platform Sync',    path: '/settings/platforms', icon: <Globe size={18} /> },
+        { label: 'My Profile',       path: '/settings/profile',   icon: <User size={18} /> },
       ]
     },
   ];

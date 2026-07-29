@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Button, Tag, Modal, Input, Select, Form, Spin, Divider, Timeline, Steps
+  Button, Tag, Modal, Input, Select, Form, Spin, Divider, Timeline, Steps, Popconfirm, message as antdMessage
 } from 'antd';
 import {
   ArrowLeft, Package, MapPin, CreditCard, Truck, MessageSquare,
@@ -12,7 +12,11 @@ import { getOrderByIdApi, updateOrderStatusApi } from '../../api/orderApi';
 import { formatCurrency, formatRelativeTime } from '../../utils/formatters';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
-import { pushOrderToShiprocketApi, generateAwbApi, requestPickupApi } from '../../api/shiprocketApi';
+import {
+  pushOrderToShiprocketApi, generateAwbApi, requestPickupApi,
+  cancelShiprocketOrderApi, printLabelApi, printInvoiceApi, trackShipmentApi,
+  getPickupLocationsApi
+} from '../../api/shiprocketApi';
 
 const STATUS_FLOW = [
   { value: 'pending',           label: 'Pending',          color: 'default' },
@@ -74,9 +78,21 @@ const OrderDetailPage = () => {
   const [noteForm] = Form.useForm();
 
   // Shiprocket states
-  const [pushingOrder, setPushingOrder] = useState(false);
-  const [generatingAwb, setGeneratingAwb] = useState(false);
+  const [pushingOrder,     setPushingOrder]     = useState(false);
+  const [generatingAwb,    setGeneratingAwb]    = useState(false);
   const [requestingPickup, setRequestingPickup] = useState(false);
+  const [cancellingOrder,  setCancellingOrder]  = useState(false);
+  const [printingLabel,    setPrintingLabel]    = useState(false);
+  const [printingInvoice,  setPrintingInvoice]  = useState(false);
+  const [trackModal,       setTrackModal]       = useState(false);
+  const [trackData,        setTrackData]        = useState(null);
+  const [trackLoading,     setTrackLoading]     = useState(false);
+
+  // Pickup location modal
+  const [pickupModalOpen,   setPickupModalOpen]   = useState(false);
+  const [pickupLocations,   setPickupLocations]   = useState([]);
+  const [pickupLoading,     setPickupLoading]     = useState(false);
+  const [selectedPickup,    setSelectedPickup]    = useState(null);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -133,14 +149,51 @@ const OrderDetailPage = () => {
     }
   };
 
-  const handlePushToShiprocket = async () => {
-    setPushingOrder(true);
+  const [pushError, setPushError] = useState('');
+
+  // Step 1: Open modal and fetch real pickup locations from Shiprocket
+  const openPickupModal = async () => {
+    setPickupModalOpen(true);
+    setPickupLoading(true);
+    setSelectedPickup(null);
+    setPushError('');
     try {
-      await pushOrderToShiprocketApi(id);
-      toast.success('Successfully pushed order to Shiprocket');
+      const res = await getPickupLocationsApi();
+      const locs = res?.data?.data || res?.data || [];
+      setPickupLocations(Array.isArray(locs) ? locs : []);
+      // Auto-select: prefer PRIMARY, else select first
+      const primary = locs.find(l => l.primary);
+      setSelectedPickup(primary?.name || locs[0]?.name || null);
+    } catch (err) {
+      toast.error('Could not fetch pickup locations from Shiprocket');
+      setPickupLocations([]);
+    } finally {
+      setPickupLoading(false);
+    }
+  };
+
+  // Step 2: Push with the selected pickup location
+  const handlePushToShiprocket = async () => {
+    if (!selectedPickup) return toast.error('Please select a pickup location');
+    setPushingOrder(true);
+    setPushError('');
+    try {
+      await pushOrderToShiprocketApi(id, selectedPickup);
+      toast.success('✅ Order pushed to Shiprocket successfully!');
+      setPickupModalOpen(false);
       fetchOrder();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to push order');
+      const data = err.response?.data;
+      // Shiprocket told us the VALID locations — show them in the picker
+      if (data?.code === 'WRONG_PICKUP_LOCATION' && Array.isArray(data?.pickupLocations)) {
+        setPickupLocations(data.pickupLocations);
+        setSelectedPickup(null);
+        setPushError('⚠️ "' + selectedPickup + '" is not a valid pickup location. Please choose one from the list below.');
+      } else {
+        const msg = data?.message || err.message || 'Failed to push order';
+        setPushError(msg);
+        toast.error(msg);
+      }
     } finally {
       setPushingOrder(false);
     }
@@ -169,6 +222,61 @@ const OrderDetailPage = () => {
       toast.error(err.response?.data?.message || 'Failed to request pickup');
     } finally {
       setRequestingPickup(false);
+    }
+  };
+
+  const handleCancelSROrder = async () => {
+    setCancellingOrder(true);
+    try {
+      await cancelShiprocketOrderApi(id);
+      toast.success('Order cancelled on Shiprocket');
+      fetchOrder();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to cancel');
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
+  const handlePrintLabel = async () => {
+    setPrintingLabel(true);
+    try {
+      const res = await printLabelApi(id);
+      const url = res?.data?.data?.label_url;
+      if (url) window.open(url, '_blank');
+      else toast.error('Label URL not available. Check Shiprocket dashboard.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate label');
+    } finally {
+      setPrintingLabel(false);
+    }
+  };
+
+  const handlePrintInvoice = async () => {
+    setPrintingInvoice(true);
+    try {
+      const res = await printInvoiceApi(id);
+      const url = res?.data?.data?.invoice_url;
+      if (url) window.open(url, '_blank');
+      else toast.error('Invoice URL not available.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate invoice');
+    } finally {
+      setPrintingInvoice(false);
+    }
+  };
+
+  const handleTrack = async () => {
+    setTrackModal(true);
+    setTrackLoading(true);
+    try {
+      const res = await trackShipmentApi(id);
+      setTrackData(res?.data?.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to track shipment');
+      setTrackModal(false);
+    } finally {
+      setTrackLoading(false);
     }
   };
 
@@ -390,37 +498,158 @@ const OrderDetailPage = () => {
 
           {/* Shiprocket Actions */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Package size={16} className="text-blue-600" />
-              <h2 className="text-sm font-semibold text-slate-800">Shiprocket Automation</h2>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {!order.shiprocketOrderId ? (
-                <Button type="primary" onClick={handlePushToShiprocket} loading={pushingOrder} className="!bg-blue-600">
-                  Push to Shiprocket
-                </Button>
-              ) : (
-                <div className="space-y-4 w-full">
-                  <div className="flex gap-6 border-b border-slate-100 pb-4">
-                    <InfoBlock label="Shiprocket Order ID" value={order.shiprocketOrderId} />
-                    <InfoBlock label="Shipment ID" value={order.shiprocketShipmentId} />
-                    {order.awbCode && <InfoBlock label="AWB Code" value={order.awbCode} />}
-                  </div>
-                  <div className="flex gap-3">
-                    {!order.awbCode ? (
-                      <Button onClick={handleGenerateAwb} loading={generatingAwb} className="!border-blue-600 !text-blue-600">
-                        Generate AWB Tracking
-                      </Button>
-                    ) : (
-                      <Button type="primary" onClick={handleRequestPickup} loading={requestingPickup} className="!bg-emerald-600 !border-emerald-600">
-                        Request Courier Pickup
-                      </Button>
-                    )}
-                  </div>
-                </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Package size={16} className="text-blue-600" />
+                <h2 className="text-sm font-semibold text-slate-800">Shiprocket</h2>
+              </div>
+              {order.shiprocketOrderId && (
+                <span className="text-xs bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-md">Connected</span>
               )}
             </div>
+
+            {!order.shiprocketOrderId ? (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-400">Push this order to Shiprocket to assign a courier and generate AWB.</p>
+                <Button type="primary" onClick={openPickupModal}
+                  className="!bg-blue-600 !border-blue-600 w-full font-semibold">
+                  🚀 Push to Shiprocket
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* IDs */}
+                <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">SR Order ID</span>
+                    <span className="font-mono font-bold text-slate-600">{order.shiprocketOrderId}</span>
+                  </div>
+                  {order.shiprocketShipmentId && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Shipment ID</span>
+                      <span className="font-mono font-bold text-slate-600">{order.shiprocketShipmentId}</span>
+                    </div>
+                  )}
+                  {order.awbCode && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">AWB Code</span>
+                      <span className="font-mono font-bold text-indigo-600">{order.awbCode}</span>
+                    </div>
+                  )}
+                  {order.courierPartner && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Courier</span>
+                      <span className="font-semibold text-slate-700">{order.courierPartner}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Step actions */}
+                <div className="space-y-2">
+                  {!order.awbCode && (
+                    <Button block onClick={handleGenerateAwb} loading={generatingAwb}
+                      className="!border-blue-400 !text-blue-600 hover:!bg-blue-50 font-semibold">
+                      📋 Generate AWB Tracking
+                    </Button>
+                  )}
+                  {order.awbCode && order.status !== 'shipped' && order.status !== 'delivered' && (
+                    <Button block type="primary" onClick={handleRequestPickup} loading={requestingPickup}
+                      className="!bg-emerald-600 !border-emerald-600 font-semibold">
+                      📦 Request Courier Pickup
+                    </Button>
+                  )}
+                  {order.shiprocketShipmentId && (
+                    <Button block onClick={handlePrintLabel} loading={printingLabel}
+                      className="!border-purple-400 !text-purple-600 hover:!bg-purple-50 font-semibold">
+                      🏷️ Print Shipping Label
+                    </Button>
+                  )}
+                  {order.shiprocketOrderId && (
+                    <Button block onClick={handlePrintInvoice} loading={printingInvoice}
+                      className="!border-slate-400 !text-slate-600 hover:!bg-slate-50 font-semibold">
+                      🧾 Print Invoice
+                    </Button>
+                  )}
+                  {order.awbCode && (
+                    <Button block onClick={handleTrack}
+                      className="!border-blue-400 !text-blue-600 hover:!bg-blue-50 font-semibold">
+                      🔍 Track Shipment
+                    </Button>
+                  )}
+                </div>
+
+                {/* Cancel */}
+                {order.status !== 'cancelled' && order.status !== 'delivered' && (
+                  <Popconfirm
+                    title="Cancel this order on Shiprocket?"
+                    description="This will cancel the shipment. The order cannot be re-pushed."
+                    onConfirm={handleCancelSROrder}
+                    okText="Yes, Cancel" cancelText="No" okType="danger">
+                    <Button block danger loading={cancellingOrder} className="!text-xs mt-1">
+                      ✕ Cancel Shiprocket Order
+                    </Button>
+                  </Popconfirm>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Tracking Modal */}
+          <Modal
+            title={<span className="font-bold">📍 Shipment Tracking — {order.orderNumber}</span>}
+            open={trackModal}
+            onCancel={() => { setTrackModal(false); setTrackData(null); }}
+            footer={null}
+            width={540}
+          >
+            {trackLoading && <div className="text-center py-10"><Spin size="large" /></div>}
+            {!trackLoading && trackData && (() => {
+              const td = trackData.tracking_data;
+              const activities = td?.shipment_track_activities || [];
+              return (
+                <div className="mt-4 space-y-4">
+                  <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-slate-400">Current Status</p>
+                      <p className="font-bold text-slate-800 mt-0.5">{td?.current_status || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Courier</p>
+                      <p className="font-semibold text-slate-700 mt-0.5">{td?.courier_name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">AWB</p>
+                      <p className="font-mono font-bold text-indigo-600 mt-0.5">{td?.awb_code || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">ETA</p>
+                      <p className="font-semibold text-slate-700 mt-0.5">{td?.etd || '—'}</p>
+                    </div>
+                  </div>
+                  {activities.length > 0 && (
+                    <div className="max-h-[300px] overflow-y-auto pr-1">
+                      <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-3">Activity Log</p>
+                      <Timeline items={activities.map((a, i) => ({
+                        color: i === 0 ? 'green' : 'gray',
+                        children: (
+                          <div key={i}>
+                            <p className="text-sm font-semibold text-slate-700">{a.activity}</p>
+                            <p className="text-xs text-slate-400">{a.location} · {dayjs(a.date).format('DD MMM YYYY, hh:mm A')}</p>
+                          </div>
+                        )
+                      }))} />
+                    </div>
+                  )}
+                  {td?.track_url && (
+                    <a href={td.track_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-blue-600 font-semibold hover:underline">
+                      <ExternalLink size={14} /> Open tracking page
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
+          </Modal>
         </div>
 
         {/* Right: Sidebar */}
@@ -611,6 +840,105 @@ const OrderDetailPage = () => {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* ── Pickup Location Modal ── */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📦</span>
+            <span className="font-bold text-slate-800">Select Pickup Location</span>
+          </div>
+        }
+        open={pickupModalOpen}
+        onCancel={() => { setPickupModalOpen(false); setPushError(''); }}
+        footer={null}
+        destroyOnClose
+      >
+        <div className="mt-2 space-y-4">
+          <p className="text-sm text-slate-500">
+            Choose the pickup address where this order will be collected from.
+          </p>
+
+          {pickupLoading ? (
+            <div className="flex justify-center py-8">
+              <Spin tip="Loading your Shiprocket pickup locations..." />
+            </div>
+          ) : pickupLocations.length === 0 ? (
+            /* API couldn't load locations — show manual input */
+            <div className="space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                ⚠️ Could not auto-load your pickup locations. Enter the exact name from your{' '}
+                <a href="https://app.shiprocket.in/settings/warehouse" target="_blank" rel="noreferrer" className="underline font-semibold">
+                  Shiprocket → Pickup Addresses
+                </a> page (case-sensitive).
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">Pickup Location Name</label>
+                <input
+                  type="text"
+                  value={selectedPickup || ''}
+                  onChange={e => setSelectedPickup(e.target.value)}
+                  placeholder='e.g. "warehouse" or "Office"'
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  autoFocus
+                />
+                <p className="text-xs text-slate-400 mt-1">Common locations for your account: warehouse, Office, Home, Home-2, Home-3, home-1</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pickupLocations.map(loc => (
+                <button
+                  key={loc.id}
+                  onClick={() => setSelectedPickup(loc.name)}
+                  className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                    selectedPickup === loc.name
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-800 text-sm">{loc.name}</span>
+                      {loc.primary && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                          PRIMARY
+                        </span>
+                      )}
+                    </div>
+                    {selectedPickup === loc.name && (
+                      <span className="text-blue-600 text-xs font-bold">✓ Selected</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{loc.address}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {pushError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-red-700 mb-1">❌ Push failed</p>
+              <p className="text-xs text-red-600 break-words">{pushError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <Button className="flex-1" onClick={() => { setPickupModalOpen(false); setPushError(''); }}>
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              className="flex-1 !bg-blue-600 !border-blue-600 font-semibold"
+              loading={pushingOrder}
+              disabled={!selectedPickup || pickupLoading}
+              onClick={handlePushToShiprocket}
+            >
+              🚀 Push to Shiprocket
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

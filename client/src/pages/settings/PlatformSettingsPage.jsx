@@ -1,49 +1,67 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Input, Button, message, Modal, Spin, Select } from 'antd';
-import { Globe, Package, ShoppingBag, Save, CheckCircle2, XCircle, Wifi, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Globe, Package, ShoppingBag, Save, CheckCircle2, XCircle, Wifi, RefreshCw, Truck } from 'lucide-react';
 import { updateCredentialsApi, getCredentialsStatusApi, triggerManualSyncApi } from '../../api/platformApi';
+import { getSettingsApi, updateSettingsApi, testShiprocketApi } from '../../api/settingsApi';
 import axiosInstance from '../../api/axiosInstance';
 import toast from 'react-hot-toast';
 
 const PlatformSettingsPage = () => {
-  const [wooForm] = Form.useForm();
-  const [amazonForm] = Form.useForm();
-  const [flipkartForm] = Form.useForm();
-  const [meeshoForm] = Form.useForm();
+  const [wooForm]       = Form.useForm();
+  const [amazonForm]    = Form.useForm();
+  const [flipkartForm]  = Form.useForm();
+  const [meeshoForm]    = Form.useForm();
+  const [shiprocketForm]= Form.useForm();
 
   // Each key: 'fifozone' | 'amazon' | 'flipkart'
-  const [saving, setSaving] = useState({});
-  const [testing, setTesting] = useState({});
-  const [syncing, setSyncing] = useState(false);
-  const [status, setStatus] = useState({ fifozone: false, amazon: false, flipkart: false, meesho: false });
-  const [testResult, setTestResult] = useState({});
-  const [loadingCreds, setLoadingCreds] = useState(true);
+  const [saving, setSaving]           = useState({});
+  const [testing, setTesting]          = useState({});
+  const [syncing, setSyncing]          = useState(false);
+  const [status, setStatus]            = useState({ fifozone: false, amazon: false, flipkart: false, meesho: false, shiprocket: false });
+  const [testResult, setTestResult]    = useState({});
+  const [loadingCreds, setLoadingCreds]= useState(true);
+  const [srHasPassword, setSrHasPassword] = useState(false); // track if password already saved in DB
   const [addPlatformModalOpen, setAddPlatformModalOpen] = useState(false);
-  const [addPlatformForm] = Form.useForm();
+  const [addPlatformForm]              = Form.useForm();
 
   const fetchStatus = useCallback(async () => {
     setLoadingCreds(true);
     try {
-      const res = await getCredentialsStatusApi();
-      const rawData = res?.data?.data || res?.data;
-      
+      const [platformRes, settingsRes] = await Promise.all([
+        getCredentialsStatusApi(),
+        getSettingsApi(),
+      ]);
+      const rawData    = platformRes?.data?.data || platformRes?.data;
+      const settingsData = settingsRes?.data?.data || settingsRes?.data;
+
       setStatus({
-        fifozone: rawData?.fifozone?.connected || false,
-        amazon: rawData?.amazon?.connected || false,
-        flipkart: rawData?.flipkart?.connected || false,
-        meesho: rawData?.meesho?.connected || false,
+        fifozone:   rawData?.fifozone?.connected   || false,
+        amazon:     rawData?.amazon?.connected     || false,
+        flipkart:   rawData?.flipkart?.connected   || false,
+        meesho:     rawData?.meesho?.connected     || false,
+        shiprocket: settingsData?.shiprocket?.isConfigured || false,
       });
 
-      if (rawData?.fifozone) wooForm.setFieldsValue(rawData.fifozone);
-      if (rawData?.amazon) amazonForm.setFieldsValue(rawData.amazon);
-      if (rawData?.flipkart) flipkartForm.setFieldsValue(rawData.flipkart);
-      if (rawData?.meesho) meeshoForm.setFieldsValue(rawData.meesho);
+      if (rawData?.fifozone)  wooForm.setFieldsValue(rawData.fifozone);
+      if (rawData?.amazon)    amazonForm.setFieldsValue(rawData.amazon);
+      if (rawData?.flipkart)  flipkartForm.setFieldsValue(rawData.flipkart);
+      if (rawData?.meesho)    meeshoForm.setFieldsValue(rawData.meesho);
+
+      // Pre-fill shiprocket email + pickup — NEVER pre-fill password
+      if (settingsData?.shiprocket) {
+        shiprocketForm.setFieldsValue({
+          srEmail:  settingsData.shiprocket.email          || '',
+          srPickup: settingsData.shiprocket.pickupLocation || 'Primary',
+          srPassword: '', // always blank — user must type it to change
+        });
+        setSrHasPassword(!!settingsData.shiprocket.hasPassword);
+      }
     } catch (error) {
       console.error('Failed to fetch credentials status', error);
     } finally {
       setLoadingCreds(false);
     }
-  }, [wooForm, amazonForm, flipkartForm, meeshoForm]);
+  }, [wooForm, amazonForm, flipkartForm, meeshoForm, shiprocketForm]);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
@@ -101,12 +119,74 @@ const PlatformSettingsPage = () => {
     }
   };
 
+  // Save Shiprocket credentials (goes to Settings DB, not platform credentials)
+  const handleSaveShiprocket = async () => {
+    try {
+      const vals = await shiprocketForm.validateFields();
+      const newPassword = vals.srPassword?.trim();
+
+      // If no new password entered and one is already stored, that's fine — just update email/pickup
+      if (!newPassword && srHasPassword) {
+        setSaving(prev => ({ ...prev, shiprocket: true }));
+        await updateSettingsApi({
+          shiprocket: {
+            email:          vals.srEmail?.trim(),
+            pickupLocation: vals.srPickup?.trim() || 'Primary',
+            // password omitted → backend won't touch existing password
+          }
+        });
+        toast.success('Shiprocket settings updated! (Password unchanged)');
+        fetchStatus();
+        return;
+      }
+
+      if (!newPassword) {
+        return toast.error('Please enter your Shiprocket password.');
+      }
+
+      setSaving(prev => ({ ...prev, shiprocket: true }));
+      await updateSettingsApi({
+        shiprocket: {
+          email:          vals.srEmail?.trim(),
+          password:       newPassword,
+          pickupLocation: vals.srPickup?.trim() || 'Primary',
+        }
+      });
+      toast.success('✅ Shiprocket credentials saved!');
+      shiprocketForm.setFieldValue('srPassword', ''); // clear after save
+      setStatus(prev => ({ ...prev, shiprocket: true }));
+      setSrHasPassword(true);
+      fetchStatus();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to save Shiprocket credentials');
+    } finally {
+      setSaving(prev => ({ ...prev, shiprocket: false }));
+    }
+  };
+
+  // Test Shiprocket connection
+  const handleTestShiprocket = async () => {
+    setTesting(prev => ({ ...prev, shiprocket: true }));
+    setTestResult(prev => ({ ...prev, shiprocket: null }));
+    try {
+      const res = await testShiprocketApi();
+      setTestResult(prev => ({ ...prev, shiprocket: { ok: true, message: res?.data?.message || '✅ Connected!' } }));
+    } catch (err) {
+      // Show the REAL error from the backend (now includes actual Shiprocket response)
+      const msg = err?.response?.data?.message || err?.message || 'Connection failed';
+      setTestResult(prev => ({ ...prev, shiprocket: { ok: false, message: msg } }));
+    } finally {
+      setTesting(prev => ({ ...prev, shiprocket: false }));
+    }
+  };
+
   const handleAddPlatform = async (values) => {
     // Mocking adding a custom platform as backend doesn't fully support custom dynamic platforms yet
     toast.success(`Connected new account for ${values.platformName}`);
     setAddPlatformModalOpen(false);
     addPlatformForm.resetFields();
   };
+
 
   const PlatformCard = ({ icon, title, subtitle, color, iconBg, platformKey, form, children }) => {
     const connected = status[platformKey];
@@ -354,6 +434,102 @@ const PlatformSettingsPage = () => {
           </Form.Item>
         </div>
       </PlatformCard>
+
+      {/* ─── Shiprocket ─── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Truck size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">Shiprocket</h3>
+              <p className="text-xs text-slate-500">Shipping · AWB · Label · Tracking · Pickup</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {status.shiprocket ? (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                <CheckCircle2 size={13} /> Connected
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-full">
+                <XCircle size={13} /> Not Connected
+              </span>
+            )}
+          </div>
+        </div>
+
+        {testResult.shiprocket && (
+          <div className={`mx-6 mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium ${
+            testResult.shiprocket.ok
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            {testResult.shiprocket.ok ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+            {testResult.shiprocket.message}
+          </div>
+        )}
+
+        <div className="p-6">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-5">
+            <p className="text-xs text-blue-700">
+              Enter your <strong>Shiprocket login email and password</strong>. The Pickup Location must match exactly
+              what's configured in <a href="https://app.shiprocket.in/settings/warehouse" target="_blank"
+              rel="noreferrer" className="underline font-semibold">Shiprocket → Manage Pickup Addresses</a>.
+            </p>
+          </div>
+          <Form form={shiprocketForm} layout="vertical">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Form.Item label="Shiprocket Email" name="srEmail"
+                rules={[{ required: true, message: 'Email required' }, { type: 'email' }]}>
+                <Input placeholder="your@email.com" autoComplete="off" size="large" />
+              </Form.Item>
+              <Form.Item label="Pickup Location" name="srPickup"
+                rules={[{ required: true, message: 'Required' }]}
+                extra='e.g. "Primary" — must match Shiprocket dashboard exactly'>
+                <Input placeholder="Primary" size="large" />
+              </Form.Item>
+              <Form.Item
+                label={
+                  <span className="flex items-center gap-2">
+                    Password
+                    {srHasPassword && (
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        ✓ Password saved
+                      </span>
+                    )}
+                  </span>
+                }
+                name="srPassword"
+                rules={srHasPassword ? [] : [{ required: true, message: 'Password is required for first-time setup' }]}
+                className="md:col-span-2"
+                extra={srHasPassword ? 'Leave blank to keep your existing password. Enter a new one to change it.' : 'Enter your Shiprocket account password.'}
+              >
+                <Input.Password
+                  placeholder={srHasPassword ? 'Leave blank to keep existing password' : 'Enter your Shiprocket password'}
+                  autoComplete="new-password" size="large" visibilityToggle
+                />
+              </Form.Item>
+            </div>
+            <div className="flex items-center justify-between flex-wrap gap-3 mt-4">
+              <Button type="default" icon={<Wifi size={15} />}
+                loading={testing.shiprocket}
+                onClick={handleTestShiprocket}
+                className="!flex !items-center !gap-1.5 !text-sm border-slate-300">
+                Test Connection
+              </Button>
+              <Button type="primary"
+                loading={saving.shiprocket}
+                icon={<Save size={15} />}
+                onClick={handleSaveShiprocket}
+                className="!flex !items-center !gap-1.5 !text-sm !bg-blue-600 hover:!bg-blue-500 !border-blue-600">
+                Save Credentials
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </div>
 
       <Modal
         title="Connect New Account"

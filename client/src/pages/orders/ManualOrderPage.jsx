@@ -3,6 +3,7 @@ import { Form, Input, Select, Button, message, Divider, Spin } from 'antd';
 import { Plus, Trash2, ShoppingCart, User, Search, Package } from 'lucide-react';
 import { createManualOrderApi } from '../../api/orderApi';
 import { getProductsApi } from '../../api/productApi';
+import { validateCouponApi } from '../../api/promotionApi';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -70,6 +71,9 @@ const ManualOrderPage = () => {
   const [discount, setDiscount] = useState(0);
   const [discountReason, setDiscountReason] = useState('');
   const [hideOutOfStock, setHideOutOfStock] = useState(true);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { couponCode, discountAmount, couponName }
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Client-side filter as a fallback (backend search already narrows it)
   const filteredProducts = products.filter(p => {
@@ -81,7 +85,32 @@ const ManualOrderPage = () => {
   });
 
   const subtotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-  const finalAmount = Math.max(0, subtotal - discount);
+  const manualDiscount = discount || 0;
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const totalDiscountApplied = manualDiscount + couponDiscount;
+  const finalAmount = Math.max(0, subtotal - totalDiscountApplied);
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return message.warning('Enter a coupon code');
+    if (subtotal === 0) return message.warning('Add products first');
+    setCouponLoading(true);
+    try {
+      const res = await validateCouponApi({ couponCode: couponCode.trim(), cartTotal: subtotal });
+      const data = res?.data?.data;
+      setAppliedCoupon(data);
+      message.success(`✅ ${data.message}`);
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Invalid coupon code');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+  };
 
   const handleSubmit = async () => {
     try {
@@ -98,8 +127,10 @@ const ManualOrderPage = () => {
         platform: vals.platform || 'fifozone',
         paymentMethod: vals.paymentMethod || 'cod',
         note: vals.notes,
-        discount,
-        discountReason,
+        discount: totalDiscountApplied,
+        discountReason: appliedCoupon
+          ? `Coupon: ${appliedCoupon.couponCode}${discountReason ? ` + ${discountReason}` : ''}`
+          : discountReason,
         items: items.map(i => ({ productName: i.productName, qty: i.qty, price: i.price })),
       });
       message.success({
@@ -111,6 +142,8 @@ const ManualOrderPage = () => {
       setItems([]);
       setDiscount(0);
       setDiscountReason('');
+      setAppliedCoupon(null);
+      setCouponCode('');
     } catch {
       message.error('Please fill in all required customer details');
     } finally {
@@ -256,6 +289,50 @@ const ManualOrderPage = () => {
                 
                 <Divider className="my-4 border-slate-100" />
 
+                {/* Coupon Code Section */}
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-indigo-600 font-semibold text-[13px]">🎟️ Apply Coupon Code</span>
+                  </div>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between bg-white border border-indigo-200 rounded-lg px-3 py-2">
+                      <div>
+                        <span className="font-mono font-bold text-indigo-700 tracking-widest">{appliedCoupon.couponCode}</span>
+                        <span className="text-xs text-slate-500 ml-2">{appliedCoupon.couponName}</span>
+                        <div className="text-emerald-600 text-xs font-semibold mt-0.5">
+                          You save ₹{appliedCoupon.discountAmount.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        className="text-xs text-red-400 hover:text-red-600 font-semibold border border-red-200 px-2 py-1 rounded-lg transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponCode}
+                        onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                        onPressEnter={applyCoupon}
+                        placeholder="Enter coupon code e.g. SAVE20"
+                        className="font-mono tracking-widest text-sm rounded-lg"
+                        maxLength={30}
+                      />
+                      <Button
+                        type="primary"
+                        loading={couponLoading}
+                        onClick={applyCoupon}
+                        className="!bg-indigo-500 !border-indigo-500 hover:!bg-indigo-600 font-semibold rounded-lg"
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Discount Section */}
                 <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 mb-3 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
@@ -302,10 +379,22 @@ const ManualOrderPage = () => {
                     <span>Subtotal ({items.reduce((s,i) => s+i.qty,0)} items)</span>
                     <span className="font-medium">₹{subtotal.toLocaleString('en-IN')}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-[13px] text-indigo-600">
+                      <span>🎟️ Coupon ({appliedCoupon.couponCode})</span>
+                      <span className="font-semibold">- ₹{appliedCoupon.discountAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                   {discount > 0 && (
                     <div className="flex justify-between text-[13px] text-orange-600">
-                      <span>Discount {discountReason ? `(${discountReason})` : ''}</span>
+                      <span>🏷️ Discount {discountReason ? `(${discountReason})` : ''}</span>
                       <span className="font-semibold">- ₹{discount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {totalDiscountApplied > 0 && (
+                    <div className="flex justify-between text-[12px] text-slate-400 border-t border-dashed border-slate-200 pt-1">
+                      <span>Total savings</span>
+                      <span className="font-semibold text-emerald-500">- ₹{totalDiscountApplied.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center bg-emerald-50 rounded-xl p-4 border border-emerald-100 mt-2">

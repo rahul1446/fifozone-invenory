@@ -21,6 +21,7 @@ import DeliveredOrdersPage from '../pages/orders/DeliveredOrdersPage';
 import CodOrdersPage from '../pages/orders/CodOrdersPage';
 import CancelledOrdersPage from '../pages/orders/CancelledOrdersPage';
 import ManualOrderPage from '../pages/orders/ManualOrderPage';
+import ShipmentsPage from '../pages/orders/ShipmentsPage';
 
 // Products
 import ProductsPage from '../pages/inventory/ProductsPage';
@@ -29,6 +30,7 @@ import EditProductPage from '../pages/inventory/EditProductPage';
 import ChannelListingPage from '../pages/products/ChannelListingPage';
 import PricingControlPage from '../pages/products/PricingControlPage';
 import ProductPerformancePage from '../pages/products/ProductPerformancePage';
+import DiscountsPage from '../pages/products/DiscountsPage';
 
 // Inventory
 import InventoryLedgerPage from '../pages/inventory/InventoryLedgerPage';
@@ -60,6 +62,7 @@ import UserManagementPage from '../pages/settings/UserManagementPage';
 import ProfilePage from '../pages/settings/ProfilePage';
 import PlatformSettingsPage from '../pages/settings/PlatformSettingsPage';
 import GeneralSettingsPage from '../pages/settings/GeneralSettingsPage';
+import SettingsPage from '../pages/settings/SettingsPage';
 
 const AppRouter = () => {
   return (
@@ -88,6 +91,7 @@ const AppRouter = () => {
         <Route path="/orders/cod" element={<CodOrdersPage />} />
         <Route path="/orders/cancelled" element={<CancelledOrdersPage />} />
         <Route path="/orders/manual" element={<ManualOrderPage />} />
+        <Route path="/orders/shipments" element={<ShipmentsPage />} />
         <Route path="/orders/:id" element={<OrderDetailPage />} />
 
         {/* Products — both /products and /inventory/products paths work */}
@@ -96,6 +100,7 @@ const AppRouter = () => {
         <Route path="/products/:id/edit" element={<EditProductPage />} />
         <Route path="/products/channel-listing" element={<ChannelListingPage />} />
         <Route path="/products/pricing" element={<PricingControlPage />} />
+        <Route path="/products/discounts" element={<DiscountsPage />} />
         <Route path="/products/performance" element={<ProductPerformancePage />} />
         {/* Aliases under /inventory/products (used by sidebar & dashboard links) */}
         <Route path="/inventory/products" element={<ProductsPage />} />
@@ -131,6 +136,7 @@ const AppRouter = () => {
         <Route path="/users" element={<UserManagementPage />} />
         <Route path="/settings" element={<GeneralSettingsPage />} />
         <Route path="/settings/general" element={<GeneralSettingsPage />} />
+        <Route path="/settings/integrations" element={<SettingsPage />} />
         <Route path="/settings/profile" element={<ProfilePage />} />
         <Route path="/settings/platforms" element={<PlatformSettingsPage />} />
         <Route path="/settings/users" element={<UserManagementPage />} />
