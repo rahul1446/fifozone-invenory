@@ -24,20 +24,39 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const query = { isActive: true };
 
-  // Text search
-  if (search) {
-    query.$or = [
-      { masterName: { $regex: search, $options: 'i' } },
-      { sku: { $regex: search, $options: 'i' } },
-      { brand: { $regex: search, $options: 'i' } },
-      { barcode: { $regex: search, $options: 'i' } },
-      { alternateNames: { $regex: search, $options: 'i' } }
-    ];
+  // By default, only show products listed on at least one platform
+  // Pass listing=all to see everything (including bulk-imported unlisted products)
+  const listing = req.query.listing;
+  if (listing !== 'all') {
+    if (platform && platform !== 'All') {
+      // Filter to a specific platform
+      query[`platformStatus.${platform.toLowerCase()}`] = { $ne: 'not_listed' };
+    } else {
+      // Default: show products listed on ANY platform
+      if (!query.$and) query.$and = [];
+      query.$and.push({
+        $or: [
+          { 'platformStatus.fifozone': { $nin: ['not_listed', undefined] } },
+          { 'platformStatus.amazon': { $nin: ['not_listed', undefined] } },
+          { 'platformStatus.flipkart': { $nin: ['not_listed', undefined] } },
+          { 'platformStatus.meesho': { $nin: ['not_listed', undefined] } },
+        ]
+      });
+    }
   }
 
-  // Filter by Platform listing
-  if (platform && platform !== 'All') {
-    query[`platformStatus.${platform.toLowerCase()}`] = { $ne: 'not_listed' };
+  // Text search
+  if (search) {
+    if (!query.$and) query.$and = [];
+    query.$and.push({
+      $or: [
+        { masterName: { $regex: search, $options: 'i' } },
+        { sku: { $regex: search, $options: 'i' } },
+        { brand: { $regex: search, $options: 'i' } },
+        { barcode: { $regex: search, $options: 'i' } },
+        { alternateNames: { $regex: search, $options: 'i' } }
+      ]
+    });
   }
 
   // Filter by Status
@@ -45,11 +64,15 @@ const getProducts = asyncHandler(async (req, res) => {
     if (platform && platform !== 'All') {
       query[`platformStatus.${platform.toLowerCase()}`] = status.toLowerCase();
     } else {
-      query.$or = [
-        { 'platformStatus.fifozone': status.toLowerCase() },
-        { 'platformStatus.amazon': status.toLowerCase() },
-        { 'platformStatus.flipkart': status.toLowerCase() }
-      ];
+      if (!query.$and) query.$and = [];
+      query.$and.push({
+        $or: [
+          { 'platformStatus.fifozone': status.toLowerCase() },
+          { 'platformStatus.amazon': status.toLowerCase() },
+          { 'platformStatus.flipkart': status.toLowerCase() },
+          { 'platformStatus.meesho': status.toLowerCase() },
+        ]
+      });
     }
   }
 

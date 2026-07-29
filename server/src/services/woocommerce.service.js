@@ -88,9 +88,13 @@ class WooCommerceService {
 
       // Paginate through all pages
       while (true) {
+        logger.info(`[${this.name}] Fetching products page ${page} (per_page=${perPage})...`);
         const response = await client.get('products', { per_page: perPage, page, status: 'publish' });
         const batch = this.parseResponseData(response.data);
-        if (!batch || batch.length === 0) break;
+        if (!batch || batch.length === 0) {
+          logger.info(`[${this.name}] Page ${page} returned 0 products — stopping pagination.`);
+          break;
+        }
 
         const mapped = batch.map(prod => ({
           platformProductId: String(prod.id),
@@ -111,20 +115,40 @@ class WooCommerceService {
         }));
 
         allProducts.push(...mapped);
+        logger.info(`[${this.name}] Page ${page}: got ${batch.length} products (total so far: ${allProducts.length})`);
 
-        // Check if this is the last page
-        const totalPages = parseInt(response.headers?.['x-wp-totalpages'] || '1');
-        if (page >= totalPages) break;
+        // Determine if there are more pages using two strategies:
+        // Strategy 1: Check the x-wp-totalpages header (most reliable when present)
+        const hdrs = response.headers || {};
+        const totalPagesHeader = hdrs['x-wp-totalpages'] || hdrs['X-WP-TotalPages'] || hdrs['X-Wp-Totalpages'];
+        const totalItemsHeader = hdrs['x-wp-total'] || hdrs['X-WP-Total'] || hdrs['X-Wp-Total'];
+
+        if (totalPagesHeader) {
+          const totalPages = parseInt(totalPagesHeader, 10);
+          logger.info(`[${this.name}] x-wp-totalpages header = ${totalPages}, current page = ${page}`);
+          if (page >= totalPages) break;
+        } else if (totalItemsHeader) {
+          const totalItems = parseInt(totalItemsHeader, 10);
+          logger.info(`[${this.name}] x-wp-total header = ${totalItems}, fetched so far = ${allProducts.length}`);
+          if (allProducts.length >= totalItems) break;
+        } else {
+          // Strategy 2: No header available — use batch size as signal
+          // If we got fewer items than per_page, we've reached the last page
+          logger.info(`[${this.name}] No pagination headers found — using batch size (${batch.length}/${perPage}) to determine if done.`);
+          if (batch.length < perPage) break;
+        }
+
         page++;
       }
 
-      logger.info(`[${this.name}] Successfully pulled ${allProducts.length} products.`);
+      logger.info(`[${this.name}] ✅ Successfully pulled ${allProducts.length} total products across ${page} page(s).`);
       return allProducts;
     } catch (error) {
       logger.error(`[${this.name}] pullProducts error: ${error.message}`);
       throw error;
     }
   }
+
 
   // ─── Category name → WooCommerce category ID (with auto-create) ─────────────
   /**
@@ -594,52 +618,74 @@ class WooCommerceService {
     logger.info(`[${this.name}] Pulling orders from REST API...`);
     try {
       const client = await this.getClient();
-      // Fetch actual placed orders and drafts
-      const response = await client.get('orders', { 
-        status: ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed', 'checkout-draft'], 
-        per_page: 100 
-      });
+      const allOrders = [];
+      let page = 1;
+      const perPage = 100;
+
+      while (true) {
+        logger.info(`[${this.name}] Fetching orders page ${page}...`);
+        const response = await client.get('orders', { 
+          status: ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed', 'checkout-draft'], 
+          per_page: perPage,
+          page,
+        });
+        
+        const parsedOrders = this.parseResponseData(response.data);
+        if (!parsedOrders || parsedOrders.length === 0) break;
+
+        const mapped = parsedOrders.map(order => ({
+          platformOrderId: String(order.id),
+          number: order.number,
+          platformStatus: order.status,
+          orderDate: order.date_created,
+          customer: {
+            name: `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown Customer',
+            email: order.billing.email || '',
+            phone: order.billing.phone || ''
+          },
+          shippingAddress: {
+            line1: order.shipping.address_1 || order.billing.address_1 || 'N/A',
+            line2: order.shipping.address_2 || order.billing.address_2 || '',
+            city: order.shipping.city || order.billing.city || 'Unknown',
+            state: order.shipping.state || order.billing.state || 'XX',
+            pincode: order.shipping.postcode || order.billing.postcode || '000000'
+          },
+          items: order.line_items.map(item => ({
+            sku: item.sku || '',
+            name: decodeHtml(item.name) || 'Unknown Product',
+            platformProductId: String(item.product_id || ''),
+            quantity: item.quantity,
+            unitPrice: parseFloat(item.price)
+          })),
+          subtotal: parseFloat(order.total) - parseFloat(order.shipping_total),
+          shippingCharge: parseFloat(order.shipping_total),
+          totalAmount: parseFloat(order.total),
+          paymentMethod: order.payment_method === 'cod' ? 'cod' : (order.payment_method_title || order.payment_method || 'Prepaid'),
+          paymentStatus: (order.payment_method === 'cod' && !['completed', 'delivered'].includes(order.status)) ? 'pending' : 'paid'
+        }));
+
+        allOrders.push(...mapped);
+        logger.info(`[${this.name}] Page ${page}: got ${parsedOrders.length} orders (total so far: ${allOrders.length})`);
+
+        // Pagination: check headers or batch size
+        const hdrs = response.headers || {};
+        const totalPagesHeader = hdrs['x-wp-totalpages'] || hdrs['X-WP-TotalPages'] || hdrs['X-Wp-Totalpages'];
+        if (totalPagesHeader) {
+          if (page >= parseInt(totalPagesHeader, 10)) break;
+        } else {
+          if (parsedOrders.length < perPage) break;
+        }
+        page++;
+      }
       
-      const parsedOrders = this.parseResponseData(response.data);
-      
-      const orders = parsedOrders.map(order => ({
-        platformOrderId: String(order.id),
-        number: order.number,
-        platformStatus: order.status,
-        orderDate: order.date_created,
-        customer: {
-          name: `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown Customer',
-          email: order.billing.email || '',
-          phone: order.billing.phone || ''
-        },
-        shippingAddress: {
-          line1: order.shipping.address_1 || order.billing.address_1 || 'N/A',
-          line2: order.shipping.address_2 || order.billing.address_2 || '',
-          city: order.shipping.city || order.billing.city || 'Unknown',
-          state: order.shipping.state || order.billing.state || 'XX',
-          pincode: order.shipping.postcode || order.billing.postcode || '000000'
-        },
-        items: order.line_items.map(item => ({
-          sku: item.sku || '',
-          name: decodeHtml(item.name) || 'Unknown Product',
-          platformProductId: String(item.product_id || ''),
-          quantity: item.quantity,
-          unitPrice: parseFloat(item.price)
-        })),
-        subtotal: parseFloat(order.total) - parseFloat(order.shipping_total),
-        shippingCharge: parseFloat(order.shipping_total),
-        totalAmount: parseFloat(order.total),
-        paymentMethod: order.payment_method === 'cod' ? 'cod' : (order.payment_method_title || order.payment_method || 'Prepaid'),
-        paymentStatus: (order.payment_method === 'cod' && !['completed', 'delivered'].includes(order.status)) ? 'pending' : 'paid'
-      }));
-      
-      logger.info(`[${this.name}] Successfully pulled ${orders.length} orders.`);
-      return orders;
+      logger.info(`[${this.name}] ✅ Successfully pulled ${allOrders.length} total orders.`);
+      return allOrders;
     } catch (error) {
       logger.error(`[${this.name}] pullOrders error: ${error.message}`);
       throw error;
     }
   }
+
 }
 
 module.exports = new WooCommerceService();
