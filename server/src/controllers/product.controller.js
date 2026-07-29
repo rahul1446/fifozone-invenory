@@ -33,13 +33,14 @@ const getProducts = asyncHandler(async (req, res) => {
       query[`platformStatus.${platform.toLowerCase()}`] = { $ne: 'not_listed' };
     } else {
       // Default: show products listed on ANY platform
+      // Use $in with valid statuses — this excludes both 'not_listed' AND missing fields
       if (!query.$and) query.$and = [];
       query.$and.push({
         $or: [
-          { 'platformStatus.fifozone': { $nin: ['not_listed', undefined] } },
-          { 'platformStatus.amazon': { $nin: ['not_listed', undefined] } },
-          { 'platformStatus.flipkart': { $nin: ['not_listed', undefined] } },
-          { 'platformStatus.meesho': { $nin: ['not_listed', undefined] } },
+          { 'platformStatus.fifozone': { $in: ['active', 'inactive', 'draft'] } },
+          { 'platformStatus.amazon': { $in: ['active', 'inactive', 'draft'] } },
+          { 'platformStatus.flipkart': { $in: ['active', 'inactive', 'draft'] } },
+          { 'platformStatus.meesho': { $in: ['active', 'inactive', 'draft'] } },
         ]
       });
     }
