@@ -34,9 +34,7 @@ const validateImport = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiResponse(400, null, 'No products provided for validation'));
   }
 
-  if (products.length > 500) {
-    return res.status(400).json(new ApiResponse(400, null, 'Maximum 500 products per import batch'));
-  }
+  // No hard limit — large files are handled by processing in batches
 
   const validated = products.map((product, idx) => {
     const missingFields = [];
@@ -471,7 +469,7 @@ const downloadTemplate = asyncHandler(async (req, res) => {
     ['• Prices: numbers only, no ₹ symbol (e.g. 5200 not Rs.5200)'],
     ['• Leave cell empty if data unavailable — do NOT write N/A or -'],
     ['• Image URLs: must start with https://'],
-    ['• Maximum 500 products per import file'],
+    ['• No limit on number of products — large files are processed in batches automatically'],
   ];
 
   const ws2 = XLSX.utils.aoa_to_sheet(instructions);
