@@ -211,10 +211,7 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
         const headers = rows[0].map(h => String(h).trim()).filter(Boolean);
         const dataRows = rows.slice(1).filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined));
 
-        if (dataRows.length > 500) {
-          toast.error('This file contains more than 500 products. Please split it into smaller files.');
-          return;
-        }
+
 
         setRawHeaders(headers);
         setRawRows(dataRows);
@@ -603,7 +600,7 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
                     </p>
                     <p className="text-sm text-slate-400 mt-1">or <span className="text-emerald-600 underline">click to browse</span></p>
                   </div>
-                  <p className="text-xs text-slate-400">Supported: .csv, .xlsx, .xls · Max 10MB · Max 500 products</p>
+                  <p className="text-xs text-slate-400">Supported: .csv, .xlsx, .xls · Max 10MB · No product limit</p>
                 </div>
               </div>
 
