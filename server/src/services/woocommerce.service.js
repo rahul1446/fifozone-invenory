@@ -161,14 +161,16 @@ class WooCommerceService {
    *  3. If the category still isn't found, CREATE it in WooCommerce and cache
    *     the new ID so subsequent products reuse it without extra API calls.
    *
-   * @param {object} client  WooCommerce REST client
-   * @param {string} name    Raw category name from our product record
+   * @param {object} client    WooCommerce REST client
+   * @param {string} name      Raw category name from our product record
+   * @param {number} [parentId=0]  Optional parent category ID for subcategories
    * @returns {Promise<number|null>} WooCommerce category ID, or null on failure
    */
-  async resolveCategoryId(client, name) {
+  async resolveCategoryId(client, name, parentId = 0) {
     if (!name || !name.trim()) return null;
 
-    const key = name.trim().toLowerCase();
+    // Cache key includes parent so "Urinary Care" under "Dog Medicine" ≠ "Urinary Care" under "Cat Medicine"
+    const key = parentId ? `${parentId}::${name.trim().toLowerCase()}` : name.trim().toLowerCase();
 
     // 1. In-memory cache hit
     if (this._categoryCache.has(key)) {
@@ -183,7 +185,12 @@ class WooCommerceService {
         const batch = this.parseResponseData(res.data);
         if (batch.length === 0) break;
         batch.forEach(cat => {
-          this._categoryCache.set(cat.name.trim().toLowerCase(), cat.id);
+          // Cache both with and without parent for flexible lookups
+          const nameKey = cat.name.trim().toLowerCase();
+          this._categoryCache.set(nameKey, cat.id);
+          if (cat.parent && cat.parent > 0) {
+            this._categoryCache.set(`${cat.parent}::${nameKey}`, cat.id);
+          }
         });
         // Check if this is the last page
         const totalPages = parseInt(res.headers?.['x-wp-totalpages'] || '1');
@@ -200,14 +207,20 @@ class WooCommerceService {
       return this._categoryCache.get(key);
     }
 
-    // 4. Category not found — auto-create it in WooCommerce
+    // 4. Category not found — auto-create it in WooCommerce (with parent if provided)
     try {
-      logger.info(`[${this.name}] Category "${name}" not found in WooCommerce — creating it.`);
-      const res = await client.post('products/categories', { name: name.trim() });
+      const createPayload = { name: name.trim() };
+      if (parentId && parentId > 0) {
+        createPayload.parent = parentId;
+        logger.info(`[${this.name}] Subcategory "${name}" not found — creating under parent ID ${parentId}.`);
+      } else {
+        logger.info(`[${this.name}] Category "${name}" not found in WooCommerce — creating it.`);
+      }
+      const res = await client.post('products/categories', createPayload);
       const newId = res.data?.id;
       if (newId) {
         this._categoryCache.set(key, newId);
-        logger.info(`[${this.name}] Created WooCommerce category "${name}" with ID: ${newId}`);
+        logger.info(`[${this.name}] Created WooCommerce category "${name}" with ID: ${newId}${parentId ? ` (parent: ${parentId})` : ''}`);
         return newId;
       }
     } catch (err) {
@@ -217,6 +230,29 @@ class WooCommerceService {
 
     return null;
   }
+
+  /**
+   * Resolve a subcategory under a given parent category.
+   * If the parent doesn't exist yet, it is auto-created first.
+   *
+   * @param {object} client           WooCommerce REST client
+   * @param {string} categoryName     Parent category name (e.g. "Dog Medicine")
+   * @param {string} subCategoryName  Subcategory name (e.g. "Urinary Care")
+   * @returns {Promise<{categoryId: number|null, subCategoryId: number|null}>}
+   */
+  async resolveSubCategoryId(client, categoryName, subCategoryName) {
+    // 1. Resolve parent category first
+    const categoryId = await this.resolveCategoryId(client, categoryName, 0);
+
+    // 2. Resolve subcategory under the parent
+    let subCategoryId = null;
+    if (categoryId && subCategoryName && subCategoryName.trim()) {
+      subCategoryId = await this.resolveCategoryId(client, subCategoryName, categoryId);
+    }
+
+    return { categoryId, subCategoryId };
+  }
+
 
   // ─── Fetch WooCommerce Category Tree ─────────────────────────────────────────
   /**

@@ -217,18 +217,28 @@ const uploadImport = asyncHandler(async (req, res) => {
         totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
       }
 
-      // ── Resolve Categories ──
+      // ── Resolve Categories & Subcategories ──
       let categoryData = [];
       if (rawProduct.category) {
         const catNames = typeof rawProduct.category === 'string' 
           ? rawProduct.category.split(',').map(c => c.trim()).filter(Boolean) 
           : (Array.isArray(rawProduct.category) ? rawProduct.category : [rawProduct.category]);
+        
+        const subCatName = rawProduct.subCategory ? String(rawProduct.subCategory).trim() : null;
+
         try {
           const client = await WooCommerceService.getClient();
           for (const catName of catNames) {
             if (catName.includes('|')) {
+              // Already in id|name format
               categoryData.push(catName);
+            } else if (subCatName) {
+              // Has subcategory — resolve parent + child linked together
+              const { categoryId, subCategoryId } = await WooCommerceService.resolveSubCategoryId(client, catName, subCatName);
+              if (categoryId) categoryData.push(`${categoryId}|${catName}`);
+              if (subCategoryId) categoryData.push(`${subCategoryId}|${subCatName}`);
             } else {
+              // Just a category, no subcategory
               const id = await WooCommerceService.resolveCategoryId(client, catName);
               if (id) {
                 categoryData.push(`${id}|${catName}`);
@@ -237,11 +247,33 @@ const uploadImport = asyncHandler(async (req, res) => {
               }
             }
           }
+
+          // If subcategory was specified but no parent category, still resolve it as top-level
+          if (subCatName && catNames.length === 0) {
+            const id = await WooCommerceService.resolveCategoryId(client, subCatName);
+            if (id) categoryData.push(`${id}|${subCatName}`);
+          }
         } catch (err) {
           logger.warn(`[Import] Failed to resolve categories: ${err.message}`);
           categoryData = catNames;
         }
+      } else if (rawProduct.subCategory) {
+        // No category but has subcategory — resolve it as top-level
+        try {
+          const client = await WooCommerceService.getClient();
+          const subCatName = String(rawProduct.subCategory).trim();
+          const id = await WooCommerceService.resolveCategoryId(client, subCatName);
+          if (id) {
+            categoryData.push(`${id}|${subCatName}`);
+          } else {
+            categoryData.push(subCatName);
+          }
+        } catch (err) {
+          logger.warn(`[Import] Failed to resolve subcategory: ${err.message}`);
+          categoryData.push(String(rawProduct.subCategory).trim());
+        }
       }
+
 
       if (existing) {
         // ── UPDATE existing product ──
