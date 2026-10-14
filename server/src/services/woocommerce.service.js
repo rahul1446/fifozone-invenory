@@ -1,6 +1,7 @@
 const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
 const PlatformCredential = require('../models/PlatformCredential.model');
 const logger = require('../utils/logger');
+const FifozoneOmsService = require('./fifozoneOms.service');
 
 const decodeHtml = (str) => {
   if (!str) return '';
@@ -77,77 +78,12 @@ class WooCommerceService {
     return data || [];
   }
 
-  async pullProducts() {
-    logger.info(`[${this.name}] Pulling products from REST API...`);
-    
-    try {
-      const client = await this.getClient();
-      const allProducts = [];
-      let page = 1;
-      const perPage = 100;
-
-      // Paginate through all pages
-      while (true) {
-        logger.info(`[${this.name}] Fetching products page ${page} (per_page=${perPage})...`);
-        const response = await client.get('products', { per_page: perPage, page, status: 'publish' });
-        const batch = this.parseResponseData(response.data);
-        if (!batch || batch.length === 0) {
-          logger.info(`[${this.name}] Page ${page} returned 0 products — stopping pagination.`);
-          break;
-        }
-
-        const mapped = batch.map(prod => ({
-          platformProductId: String(prod.id),
-          masterName: decodeHtml(prod.name),
-          sku: prod.sku || `WC-${prod.id}`,
-          barcode: '',
-          brand: prod.brands?.[0]?.name || 'Generic',
-          category: prod.categories && prod.categories.length > 0 ? prod.categories[0].name : 'Uncategorized',
-          price: parseFloat(prod.price || prod.regular_price || 0),
-          mrp: parseFloat(prod.regular_price || prod.price || 0),
-          stock: prod.stock_quantity ?? 0,
-          slug: prod.slug,
-          url: prod.permalink,
-          images: prod.images ? prod.images.map(img => img.src) : [],
-          shortDescription: decodeHtml(prod.short_description || ''),
-          description: decodeHtml(prod.description || ''),
-          weight: prod.weight ? parseFloat(prod.weight) : undefined,
-        }));
-
-        allProducts.push(...mapped);
-        logger.info(`[${this.name}] Page ${page}: got ${batch.length} products (total so far: ${allProducts.length})`);
-
-        // Determine if there are more pages using two strategies:
-        // Strategy 1: Check the x-wp-totalpages header (most reliable when present)
-        const hdrs = response.headers || {};
-        const totalPagesHeader = hdrs['x-wp-totalpages'] || hdrs['X-WP-TotalPages'] || hdrs['X-Wp-Totalpages'];
-        const totalItemsHeader = hdrs['x-wp-total'] || hdrs['X-WP-Total'] || hdrs['X-Wp-Total'];
-
-        if (totalPagesHeader) {
-          const totalPages = parseInt(totalPagesHeader, 10);
-          logger.info(`[${this.name}] x-wp-totalpages header = ${totalPages}, current page = ${page}`);
-          if (page >= totalPages) break;
-        } else if (totalItemsHeader) {
-          const totalItems = parseInt(totalItemsHeader, 10);
-          logger.info(`[${this.name}] x-wp-total header = ${totalItems}, fetched so far = ${allProducts.length}`);
-          if (allProducts.length >= totalItems) break;
-        } else {
-          // Strategy 2: No header available — use batch size as signal
-          // If we got fewer items than per_page, we've reached the last page
-          logger.info(`[${this.name}] No pagination headers found — using batch size (${batch.length}/${perPage}) to determine if done.`);
-          if (batch.length < perPage) break;
-        }
-
-        page++;
-      }
-
-      logger.info(`[${this.name}] ✅ Successfully pulled ${allProducts.length} total products across ${page} page(s).`);
-      return allProducts;
-    } catch (error) {
-      logger.error(`[${this.name}] pullProducts error: ${error.message}`);
-      throw error;
-    }
+  // ─── 1. LOAD / PULL PRODUCTS (Routed to custom high-speed OMS API) ───────────
+  async pullProducts(options = {}) {
+    logger.info(`[${this.name}] Routing pullProducts to custom high-speed Fifozone OMS API...`);
+    return await FifozoneOmsService.pullProducts(options);
   }
+
 
 
   // ─── Category name → WooCommerce category ID (with auto-create) ─────────────
@@ -499,155 +435,34 @@ class WooCommerceService {
     logger.info(`[${this.name}] Synced ${variants.length} variations for product ID ${wooProductId}`);
   }
 
-  // ─── CREATE a new product on WooCommerce ─────────────────────────────────────
+  // ─── 2. CREATE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
   async createProduct(product) {
-    logger.info(`[${this.name}] Creating product: ${product.masterName}`);
-    try {
-      const client = await this.getClient();
-
-      // Resolve category names → WooCommerce category IDs before building payload
-      let categoryIds = [];
-      const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
-      for (const catVal of cats) {
-        if (typeof catVal === 'string' && catVal.includes('|')) {
-          categoryIds.push(Number(catVal.split('|')[0]));
-        } else if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
-          categoryIds.push(Number(catVal));
-        } else {
-          const id = await this.resolveCategoryId(client, catVal);
-          if (id) categoryIds.push(id);
-        }
-      }
-
-      // Don't create if already exists (check by SKU)
-      const existingId = await this.findWooProductId(client, product.sku);
-      if (existingId) {
-        logger.info(`[${this.name}] SKU ${product.sku} already exists on WooCommerce (ID: ${existingId}), updating instead.`);
-        const payload = this.buildWooPayload(product, categoryIds);
-        await client.put(`products/${existingId}`, payload);
-        // Sync variations if variable product
-        if (product.variants?.length > 0) {
-          await this.syncVariations(client, existingId, product.variants);
-        }
-        return { success: true, wooProductId: existingId, action: 'updated' };
-      }
-
-      const payload = this.buildWooPayload(product, categoryIds);
-      const res = await client.post('products', payload);
-      const wooId = res.data?.id;
-
-      // Sync variations for variable products
-      if (wooId && product.variants?.length > 0) {
-        await this.syncVariations(client, wooId, product.variants);
-      }
-
-      logger.info(`[${this.name}] Created product on WooCommerce with ID: ${wooId}`);
-      return { success: true, wooProductId: wooId, action: 'created' };
-    } catch (error) {
-      logger.error(`[${this.name}] createProduct error for "${product.masterName}": ${error.message}`);
-      throw error;
-    }
+    logger.info(`[${this.name}] Routing createProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    return await FifozoneOmsService.createProduct(product);
   }
 
-  // ─── UPDATE an existing product on WooCommerce ───────────────────────────────
+  // ─── 3. UPDATE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
   async updateProduct(product, wooProductId) {
-    logger.info(`[${this.name}] Updating product: ${product.masterName}`);
-    try {
-      const client = await this.getClient();
-
-      // Resolve category names → WooCommerce category IDs before building payload
-      let categoryIds = [];
-      const cats = Array.isArray(product.category) ? product.category : (product.category ? [product.category] : []);
-      for (const catVal of cats) {
-        if (typeof catVal === 'string' && catVal.includes('|')) {
-          categoryIds.push(Number(catVal.split('|')[0]));
-        } else if (!isNaN(catVal) && Number.isInteger(Number(catVal))) {
-          categoryIds.push(Number(catVal));
-        } else {
-          const id = await this.resolveCategoryId(client, catVal);
-          if (id) categoryIds.push(id);
-        }
-      }
-
-      const overrideId = wooProductId && !isNaN(Number(wooProductId)) ? wooProductId : null;
-      const prodWithOverride = overrideId
-        ? { ...product, platformIds: { ...product.platformIds, fifozone: { productId: overrideId } } }
-        : product;
-
-      const wooId = await this.resolveWooId(client, prodWithOverride);
-
-      if (!wooId) {
-        logger.info(`[${this.name}] Product not found on WooCommerce, creating new.`);
-        return this.createProduct(product);
-      }
-
-      const payload = this.buildWooPayload(product, categoryIds);
-      await client.put(`products/${wooId}`, payload);
-
-      // Sync variations if this is a variable product
-      if (product.variants?.length > 0) {
-        await this.syncVariations(client, wooId, product.variants);
-      }
-
-      logger.info(`[${this.name}] Updated WooCommerce product ID: ${wooId}`);
-      return { success: true, wooProductId: wooId, action: 'updated' };
-    } catch (error) {
-      logger.error(`[${this.name}] updateProduct error for "${product.masterName}": ${error.message}`);
-      throw error;
-    }
+    logger.info(`[${this.name}] Routing updateProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    return await FifozoneOmsService.updateProduct(product, wooProductId);
   }
 
-  // ─── DELETE a product from WooCommerce ───────────────────────────────────────
+  // ─── 4. DELETE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
   async deleteProduct(product) {
-    logger.info(`[${this.name}] Deleting product: ${product.masterName}`);
-    try {
-      const client = await this.getClient();
-
-      // Resolve the WooCommerce ID using all available lookup methods
-      const wooId = await this.resolveWooId(client, product);
-
-      if (!wooId) {
-        logger.warn(`[${this.name}] Could not find "${product.masterName}" on WooCommerce — skipping delete.`);
-        return { success: false, reason: 'Not found on WooCommerce' };
-      }
-
-      // Permanently delete from WooCommerce
-      await client.delete(`products/${wooId}`, { force: true });
-
-      logger.info(`[${this.name}] Permanently deleted WooCommerce product ID: ${wooId}`);
-      return { success: true, wooProductId: wooId };
-    } catch (error) {
-      logger.error(`[${this.name}] deleteProduct error for "${product.masterName}": ${error.message}`);
-      throw error;
-    }
+    logger.info(`[${this.name}] Routing deleteProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    return await FifozoneOmsService.deleteProduct(product);
   }
 
+  // ─── 5. PUSH STOCK (Routed to custom high-speed OMS API) ─────────────────────
   async pushStock(sku, quantity) {
-    logger.info(`[${this.name}] Pushing stock for SKU: ${sku} -> Quantity: ${quantity}`);
-    try {
-      const client = await this.getClient();
-      const wooId = await this.findWooProductId(client, sku);
-      if (!wooId) throw new Error(`Product with SKU ${sku} not found on WooCommerce`);
-      await client.put(`products/${wooId}`, { manage_stock: true, stock_quantity: quantity });
-      return { success: true, sku, quantity, platform: 'fifozone' };
-    } catch (error) {
-      logger.error(`[${this.name}] pushStock error for SKU ${sku}: ${error.message}`);
-      throw error;
-    }
+    logger.info(`[${this.name}] Routing pushStock to custom high-speed Fifozone OMS API for SKU: ${sku}`);
+    return await FifozoneOmsService.pushStock(sku, quantity);
   }
 
+  // ─── 6. PUSH PRICE (Routed to custom high-speed OMS API) ─────────────────────
   async pushPrice(sku, price) {
-    logger.info(`[${this.name}] Pushing price for SKU: ${sku} -> Price: INR ${price}`);
-    try {
-      const client = await this.getClient();
-      const wooId = await this.findWooProductId(client, sku);
-      if (!wooId) throw new Error(`Product with SKU ${sku} not found on WooCommerce`);
-      await client.put(`products/${wooId}`, { regular_price: String(price) });
-      return { success: true, sku, price, platform: 'fifozone' };
-    } catch (error) {
-      logger.error(`[${this.name}] pushPrice error for SKU ${sku}: ${error.message}`);
-      throw error;
-    }
+    logger.info(`[${this.name}] Routing pushPrice to custom high-speed Fifozone OMS API for SKU: ${sku}`);
+    return await FifozoneOmsService.pushPrice(sku, price);
   }
 
   async pullOrders() {

@@ -1,4 +1,5 @@
 const WooCommerceService = require('./woocommerce.service');
+const FifozoneOmsService  = require('./fifozoneOms.service');
 const AmazonService      = require('./amazon.service');
 const FlipkartService    = require('./flipkart.service');
 const MeeshoService      = require('./meesho.service');
@@ -38,7 +39,7 @@ class SyncService {
     WooCommerceService.clearCategoryCache();
 
     const platforms = [
-      { service: WooCommerceService, key: 'fifozone' },
+      { service: FifozoneOmsService, key: 'fifozone' },
       { service: AmazonService,      key: 'amazon'   },
       { service: FlipkartService,    key: 'flipkart' },
       { service: MeeshoService,      key: 'meesho'   },
@@ -48,7 +49,8 @@ class SyncService {
       try {
         const cred = await PlatformCredential.findOne({ platform: item.key, isActive: true });
         const isMockPlatform = USE_MOCK() && (item.key === 'amazon' || item.key === 'flipkart' || item.key === 'meesho');
-        if (!cred && !isMockPlatform) continue;
+        const isOmsPlatform = item.key === 'fifozone' && !!(process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey);
+        if (!cred && !isMockPlatform && !isOmsPlatform) continue;
 
         await PlatformSync.findOneAndUpdate(
           { platform: item.key },
@@ -422,8 +424,8 @@ class SyncService {
     const sku = product.sku;
 
     if (product.platformStatus?.fifozone === 'active') {
-      try { await WooCommerceService.pushStock(sku, product.stockByPlatform?.fifozone ?? product.totalStock); }
-      catch (err) { logger.error(`Failed to push stock to WooCommerce for ${sku}: ${err.message}`); }
+      try { await FifozoneOmsService.pushStock(sku, product.stockByPlatform?.fifozone ?? product.totalStock); }
+      catch (err) { logger.error(`Failed to push stock to Fifozone OMS for ${sku}: ${err.message}`); }
     }
     if (product.platformStatus?.amazon === 'active') {
       try { await AmazonService.pushStock(sku, product.totalStock); }
@@ -440,8 +442,8 @@ class SyncService {
     const sku = product.sku;
 
     if (product.platformStatus?.fifozone === 'active' && product.sellingPrice?.fifozone > 0) {
-      try { await WooCommerceService.pushPrice(sku, product.sellingPrice.fifozone); }
-      catch (err) { logger.error(`Failed to push price to WooCommerce for ${sku}: ${err.message}`); }
+      try { await FifozoneOmsService.pushPrice(sku, product.sellingPrice.fifozone); }
+      catch (err) { logger.error(`Failed to push price to Fifozone OMS for ${sku}: ${err.message}`); }
     }
     if (product.platformStatus?.amazon === 'active' && product.sellingPrice?.amazon > 0) {
       try { await AmazonService.pushPrice(sku, product.sellingPrice.amazon); }
@@ -453,12 +455,12 @@ class SyncService {
     }
   }
 
-  // 5. Push a NEW product to WooCommerce
+  // 5. Push a NEW product to Fifozone
   async pushProductCreate(product) {
     try {
-      const result = await WooCommerceService.createProduct(product);
+      const result = await FifozoneOmsService.createProduct(product);
       if (result?.wooProductId) {
-        // Save WooCommerce product ID back to our DB record
+        // Save product ID back to our DB record
         await Product.findByIdAndUpdate(product._id, {
           $set: {
             'platformIds.fifozone.productId': String(result.wooProductId),
@@ -466,7 +468,7 @@ class SyncService {
             'lastSyncedAt.fifozone': new Date(),
           }
         });
-        logger.info(`[SyncService] "${product.masterName}" created on WooCommerce (ID: ${result.wooProductId})`);
+        logger.info(`[SyncService] "${product.masterName}" created on Fifozone OMS (ID: ${result.wooProductId})`);
       }
       return result;
     } catch (err) {
@@ -475,14 +477,14 @@ class SyncService {
     }
   }
 
-  // 6. Push an UPDATED product to WooCommerce
+  // 6. Push an UPDATED product to Fifozone
   async pushProductUpdate(product) {
     try {
-      const result = await WooCommerceService.updateProduct(product);
+      const result = await FifozoneOmsService.updateProduct(product);
       await Product.findByIdAndUpdate(product._id, {
         $set: { 'lastSyncedAt.fifozone': new Date() }
       });
-      logger.info(`[SyncService] "${product.masterName}" updated on WooCommerce`);
+      logger.info(`[SyncService] "${product.masterName}" updated on Fifozone OMS`);
       return result;
     } catch (err) {
       logger.error(`[SyncService] pushProductUpdate failed for "${product.masterName}": ${err.message}`);
@@ -490,11 +492,11 @@ class SyncService {
     }
   }
 
-  // 7. Push a DELETE to WooCommerce (trash the product)
+  // 7. Push a DELETE to Fifozone
   async pushProductDelete(product) {
     try {
-      const result = await WooCommerceService.deleteProduct(product);
-      logger.info(`[SyncService] "${product.masterName}" trashed on WooCommerce`);
+      const result = await FifozoneOmsService.deleteProduct(product);
+      logger.info(`[SyncService] "${product.masterName}" deleted on Fifozone OMS`);
       return result;
     } catch (err) {
       logger.error(`[SyncService] pushProductDelete failed for "${product.masterName}": ${err.message}`);

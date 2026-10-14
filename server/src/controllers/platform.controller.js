@@ -97,17 +97,16 @@ const testConnection = asyncHandler(async (req, res) => {
       }
 
       if (platform === 'fifozone') {
-        const WooCommerceService = require('../services/woocommerce.service');
+        const FifozoneOmsService = require('../services/fifozoneOms.service');
         try {
-          const client = await WooCommerceService.getClient();
-          const response = await client.get('products', { per_page: 1 });
-          const total = response.headers?.['x-wp-total'] || response.data?.length || '?';
+          const testRes = await FifozoneOmsService.testConnection();
+          const total = testRes.productCount || '?';
           return res.status(200).json(new ApiResponse(200,
             { success: true, productCount: total },
-            `✅ Connected to Fifozone WooCommerce! Found ${total} products.`
+            `✅ Connected to Fifozone High-Speed OMS API! Found ${total} products.`
           ));
         } catch (wooErr) {
-          // WooCommerce might not be reachable in dev — return graceful mock
+          // Fallback if offline
           return res.status(200).json(new ApiResponse(200,
             { success: true, mockMode: true },
             '✅ Fifozone connection verified (mock mode).'
@@ -146,13 +145,12 @@ const testConnection = asyncHandler(async (req, res) => {
   // ── LIVE MODE ────────────────────────────────────────────────────────────
   try {
     if (platform === 'fifozone') {
-      const WooCommerceService = require('../services/woocommerce.service');
-      const client = await WooCommerceService.getClient();
-      const response = await client.get('products', { per_page: 1 });
-      const total = response.headers?.['x-wp-total'] || response.data?.length || '?';
+      const FifozoneOmsService = require('../services/fifozoneOms.service');
+      const testRes = await FifozoneOmsService.testConnection();
+      const total = testRes.productCount || '?';
       return res.status(200).json(new ApiResponse(200,
         { success: true, productCount: total },
-        `Connected to Fifozone WooCommerce! Found ${total} products.`
+        `Connected to Fifozone High-Speed OMS API! Found ${total} products.`
       ));
     }
 

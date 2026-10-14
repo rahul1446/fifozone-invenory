@@ -1,20 +1,37 @@
-import { useEffect } from 'react';
-import { useAuth } from './hooks/useAuth';
+import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from './store';
 import AppRouter from './routes/AppRouter';
-import ErrorBoundary from './components/common/ErrorBoundary';
+import { ConfigProvider } from 'antd';
+import { antdThemeConfig } from './styles/antd-theme';
+import { Toaster } from 'react-hot-toast';
+import { useAuth } from './hooks/useAuth';
 
-const App = () => {
-  const { fetchUserProfile } = useAuth();
+// Separate wrapper to use Auth hook inside Provider
+const AppWrapper = () => {
+  const { fetchUserProfile, loading } = useAuth();
 
   useEffect(() => {
-    // Silently restore session via the httpOnly refresh cookie on mount
     fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  if (loading) return null; // Or a global loader
+
+  return <AppRouter />;
+};
+
+const App = () => {
   return (
-    <ErrorBoundary>
-      <AppRouter />
-    </ErrorBoundary>
+    <Provider store={store}>
+      <ConfigProvider theme={antdThemeConfig}>
+        <BrowserRouter>
+          <AppWrapper />
+          <Toaster position="top-right" />
+        </BrowserRouter>
+      </ConfigProvider>
+    </Provider>
   );
 };
 
