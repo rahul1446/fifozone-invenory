@@ -3,9 +3,6 @@ const SellingPartnerAPI = require('amazon-sp-api');
 const PlatformCredential = require('../models/PlatformCredential.model');
 const logger = require('../utils/logger');
 
-const USE_MOCK = () => process.env.USE_MOCK_API === 'true';
-const MOCK_BASE = () => process.env.AMAZON_MOCK_BASE_URL || 'http://localhost:5001/mock/amazon';
-
 class AmazonService {
   constructor() {
     this.name = 'Amazon India';
@@ -50,151 +47,112 @@ class AmazonService {
     });
   }
 
-  // ── Pull products (mock-aware) ────────────────────────────────────────────
+  // ── Pull products ────────────────────────────────────────────────────────
   async pullProducts() {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK MODE — fetching products from mock server`);
-      const res = await axios.get(`${MOCK_BASE()}/catalog/2022-04-01/items`, { timeout: 8000 });
-      const items = res.data?.items || res.data?.payload?.items || [];
+    try {
+      const client = await this.getClient();
+      logger.info(`[${this.name}] Fetching listings from Seller Central via SP-API...`);
+      const res = await client.callAPI({
+        operation: 'catalogItems.searchCatalogItems',
+        query: { keywords: ['pet', 'medicine'], marketplaceIds: ['A21TJRUUN4KGV'] },
+      });
+      const items = res?.items || [];
       return items.map(item => ({
-        asin:        item.asin,
-        masterName:  item.summaries?.[0]?.itemName || item.title || 'Amazon Product',
-        sku:         item.sku || item.sellerSku || item.asin,
-        brand:       item.summaries?.[0]?.brand || item.brand || 'Generic',
-        category:    'Pet Supplies',
-        mrp:         item.price || item.mrp || 0,
-        price:       item.sellingPrice || item.price || 0,
-        stock:       item.stock ?? 10,
-        url:         `https://www.amazon.in/dp/${item.asin}`,
+        asin:       item.asin,
+        masterName: item.summaries?.[0]?.itemName || 'Unknown Item',
+        sku:        item.asin,
+        brand:      item.summaries?.[0]?.brand || 'Generic',
+        category:   'Pet Supplies',
+        price: 0, stock: 0,
+        url: `https://www.amazon.in/dp/${item.asin}`,
       }));
+    } catch (err) {
+      logger.warn(`[${this.name}] pullProducts skipped: ${err.message}`);
+      return [];
     }
-
-    // ── Live mode ──
-    logger.info(`[${this.name}] Fetching listings from Seller Central via SP-API...`);
-    const client = await this.getClient();
-    const res = await client.callAPI({
-      operation: 'catalogItems.searchCatalogItems',
-      query: { keywords: ['pet', 'medicine'], marketplaceIds: ['A21TJRUUN4KGV'] },
-    });
-    const items = res?.items || [];
-    return items.map(item => ({
-      asin:       item.asin,
-      masterName: item.summaries?.[0]?.itemName || 'Unknown Item',
-      sku:        item.asin,
-      brand:      item.summaries?.[0]?.brand || 'Generic',
-      category:   'Pet Supplies',
-      price: 0, stock: 0,
-      url: `https://www.amazon.in/dp/${item.asin}`,
-    }));
   }
 
-  // ── Pull orders (mock-aware) ──────────────────────────────────────────────
+  // ── Pull orders ──────────────────────────────────────────────────────────
   async pullOrders() {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK MODE — fetching orders from mock server`);
-      const res = await axios.get(`${MOCK_BASE()}/orders/v0/orders`, { timeout: 8000 });
-      const orders = res.data?.payload?.Orders || res.data?.orders || [];
-      return orders.map(o => ({
-        platformOrderId: o.AmazonOrderId || o.orderId,
-        customer: {
-          name:  o.BuyerInfo?.BuyerName  || o.buyerName  || 'Amazon Customer',
-          email: o.BuyerInfo?.BuyerEmail || o.buyerEmail || 'amazon@amazon.in',
-          phone: o.phone || '',
-        },
-        shippingAddress: {
-          line1:   o.ShippingAddress?.AddressLine1 || o.shippingAddress?.line1 || '',
-          line2:   o.ShippingAddress?.AddressLine2 || o.shippingAddress?.line2 || '',
-          city:    o.ShippingAddress?.City         || o.shippingAddress?.city  || '',
-          state:   o.ShippingAddress?.StateOrRegion|| o.shippingAddress?.state || '',
-          pincode: o.ShippingAddress?.PostalCode   || o.shippingAddress?.pincode || '',
-        },
-        items: (o.orderItems || o.items || []).map(i => ({
-          sku:       i.SellerSKU   || i.sellerSku || i.sku,
-          asin:      i.ASIN        || i.asin,
-          quantity:  i.QuantityOrdered || i.quantity || 1,
-          unitPrice: i.ItemPrice   ? parseFloat(i.ItemPrice.Amount) : (i.unitPrice || 0),
-        })),
-        subtotal:      o.OrderTotal ? parseFloat(o.OrderTotal.Amount) : (o.subtotal || 0),
-        shippingCharge: 0,
-        totalAmount:   o.OrderTotal ? parseFloat(o.OrderTotal.Amount) : (o.totalAmount || 0),
-        paymentMethod: o.PaymentMethod || 'Amazon',
-        paymentStatus: 'paid',
-      }));
-    }
-
-    // ── Live mode ──
-    logger.info(`[${this.name}] Fetching orders via Amazon SP-API...`);
-    const client = await this.getClient();
-    const createdAfter = new Date(Date.now() - 7 * 86400000).toISOString();
-    const res = await client.callAPI({
-      operation: 'orders.getOrders',
-      query: { MarketplaceIds: ['A21TJRUUN4KGV'], CreatedAfter: createdAfter, OrderStatuses: ['Unshipped', 'PartiallyShipped'] },
-    });
-
-    const orders = [];
-    for (const order of (res?.payload?.Orders || [])) {
-      const itemsRes = await client.callAPI({
-        operation: 'orders.getOrderItems',
-        path: { orderId: order.AmazonOrderId },
+    try {
+      const client = await this.getClient();
+      logger.info(`[${this.name}] Fetching orders via Amazon SP-API...`);
+      const createdAfter = new Date(Date.now() - 7 * 86400000).toISOString();
+      const res = await client.callAPI({
+        operation: 'orders.getOrders',
+        query: { MarketplaceIds: ['A21TJRUUN4KGV'], CreatedAfter: createdAfter, OrderStatuses: ['Unshipped', 'PartiallyShipped'] },
       });
-      orders.push({
-        platformOrderId: order.AmazonOrderId,
-        customer: {
-          name:  order.BuyerInfo?.BuyerName  || 'Amazon Customer',
-          email: order.BuyerInfo?.BuyerEmail || 'amazon-customer@amazon.in',
-          phone: '',
-        },
-        shippingAddress: {
-          line1:   order.ShippingAddress?.AddressLine1   || '',
-          line2:   order.ShippingAddress?.AddressLine2   || '',
-          city:    order.ShippingAddress?.City            || '',
-          state:   order.ShippingAddress?.StateOrRegion  || '',
-          pincode: order.ShippingAddress?.PostalCode      || '',
-        },
-        items: (itemsRes?.payload?.OrderItems || []).map(i => ({
-          sku:       i.SellerSKU,
-          asin:      i.ASIN,
-          quantity:  i.QuantityOrdered,
-          unitPrice: i.ItemPrice ? parseFloat(i.ItemPrice.Amount) : 0,
-        })),
-        subtotal:       order.OrderTotal ? parseFloat(order.OrderTotal.Amount) : 0,
-        shippingCharge: 0,
-        totalAmount:    order.OrderTotal ? parseFloat(order.OrderTotal.Amount) : 0,
-        paymentMethod:  order.PaymentMethod || 'Amazon',
-        paymentStatus:  'paid',
-      });
+
+      const orders = [];
+      for (const order of (res?.payload?.Orders || [])) {
+        const itemsRes = await client.callAPI({
+          operation: 'orders.getOrderItems',
+          path: { orderId: order.AmazonOrderId },
+        });
+        orders.push({
+          platformOrderId: order.AmazonOrderId,
+          customer: {
+            name:  order.BuyerInfo?.BuyerName  || 'Amazon Customer',
+            email: order.BuyerInfo?.BuyerEmail || 'amazon-customer@amazon.in',
+            phone: '',
+          },
+          shippingAddress: {
+            line1:   order.ShippingAddress?.AddressLine1   || '',
+            line2:   order.ShippingAddress?.AddressLine2   || '',
+            city:    order.ShippingAddress?.City            || '',
+            state:   order.ShippingAddress?.StateOrRegion  || '',
+            pincode: order.ShippingAddress?.PostalCode      || '',
+          },
+          items: (itemsRes?.payload?.OrderItems || []).map(i => ({
+            sku:       i.SellerSKU,
+            asin:      i.ASIN,
+            quantity:  i.QuantityOrdered,
+            unitPrice: i.ItemPrice ? parseFloat(i.ItemPrice.Amount) : 0,
+          })),
+          subtotal:       order.OrderTotal ? parseFloat(order.OrderTotal.Amount) : 0,
+          shippingCharge: 0,
+          totalAmount:    order.OrderTotal ? parseFloat(order.OrderTotal.Amount) : 0,
+          paymentMethod:  order.PaymentMethod || 'Amazon',
+          paymentStatus:  'paid',
+        });
+      }
+      return orders;
+    } catch (err) {
+      logger.warn(`[${this.name}] pullOrders skipped: ${err.message}`);
+      return [];
     }
-    return orders;
   }
 
   async pushStock(sku, quantity) {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK — pushStock ${sku} → ${quantity}`);
+    try {
+      const client = await this.getClient();
+      await client.callAPI({
+        operation: 'listingsItems.patchListingsItem',
+        path: { sellerId: process.env.AMAZON_SELLER_ID || 'AXXXXXXXXXXXXX', sku },
+        query: { marketplaceIds: ['A21TJRUUN4KGV'] },
+        body: { productType: 'PRODUCT', patches: [{ op: 'replace', path: '/fulfillmentAvailability/0/quantity', value: [{ quantity }] }] },
+      });
       return { success: true, sku, quantity, platform: 'amazon' };
+    } catch (err) {
+      logger.warn(`[${this.name}] pushStock skipped: ${err.message}`);
+      return { success: false, reason: err.message };
     }
-    const client = await this.getClient();
-    await client.callAPI({
-      operation: 'listingsItems.patchListingsItem',
-      path: { sellerId: process.env.AMAZON_SELLER_ID || 'AXXXXXXXXXXXXX', sku },
-      query: { marketplaceIds: ['A21TJRUUN4KGV'] },
-      body: { productType: 'PRODUCT', patches: [{ op: 'replace', path: '/fulfillmentAvailability/0/quantity', value: [{ quantity }] }] },
-    });
-    return { success: true, sku, quantity, platform: 'amazon' };
   }
 
   async pushPrice(sku, price) {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK — pushPrice ${sku} → ₹${price}`);
+    try {
+      const client = await this.getClient();
+      await client.callAPI({
+        operation: 'listingsItems.patchListingsItem',
+        path: { sellerId: process.env.AMAZON_SELLER_ID || 'AXXXXXXXXXXXXX', sku },
+        query: { marketplaceIds: ['A21TJRUUN4KGV'] },
+        body: { productType: 'PRODUCT', patches: [{ op: 'replace', path: '/purchasableOffer/0/ourPrice', value: [{ schedule: [{ valueWithTax: price }] }] }] },
+      });
       return { success: true, sku, price, platform: 'amazon' };
+    } catch (err) {
+      logger.warn(`[${this.name}] pushPrice skipped: ${err.message}`);
+      return { success: false, reason: err.message };
     }
-    const client = await this.getClient();
-    await client.callAPI({
-      operation: 'listingsItems.patchListingsItem',
-      path: { sellerId: process.env.AMAZON_SELLER_ID || 'AXXXXXXXXXXXXX', sku },
-      query: { marketplaceIds: ['A21TJRUUN4KGV'] },
-      body: { productType: 'PRODUCT', patches: [{ op: 'replace', path: '/purchasableOffer/0/ourPrice', value: [{ schedule: [{ valueWithTax: price }] }] }] },
-    });
-    return { success: true, sku, price, platform: 'amazon' };
   }
 }
 

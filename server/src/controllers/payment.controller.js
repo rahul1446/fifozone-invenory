@@ -9,40 +9,6 @@ try {
   xlsx = require('xlsx');
 } catch(e) {}
 
-const seedMockTransactions = async () => {
-  const count = await Transaction.countDocuments();
-  if (count > 0) return;
-
-  const platforms = ['fifozone', 'amazon', 'flipkart'];
-  const transactions = [];
-
-  for (let i = 0; i < 30; i++) {
-    const platform = platforms[Math.floor(Math.random() * platforms.length)];
-    const isFee = Math.random() > 0.8;
-    const isSettlement = Math.random() > 0.9;
-    
-    let type = 'sale';
-    if (isFee) type = 'fee';
-    else if (isSettlement) type = 'settlement';
-
-    const amount = Math.floor(Math.random() * 5000) + 500;
-    
-    transactions.push({
-      platform,
-      type,
-      orderNumber: type === 'sale' ? `ORD-${Math.floor(Math.random() * 10000)}` : null,
-      productName: type === 'sale' ? 'Pet Food 3kg' : null,
-      grossAmount: type === 'sale' ? amount : 0,
-      platformFee: type === 'sale' ? amount * 0.15 : (type === 'fee' ? amount * 0.02 : 0),
-      netAmount: type === 'sale' ? amount * 0.85 : (type === 'fee' ? -amount * 0.02 : amount),
-      settlementStatus: type === 'settlement' ? 'settled' : (Math.random() > 0.5 ? 'settled' : 'pending'),
-      transactionDate: new Date(Date.now() - Math.floor(Math.random() * 2592000000))
-    });
-  }
-
-  await Transaction.insertMany(transactions);
-};
-
 exports.getPaymentOverview = asyncHandler(async (req, res) => {
   let totalRevenue = 0, settled = 0, pending = 0, platformFees = 0;
   try {
@@ -78,7 +44,6 @@ exports.getPaymentOverview = asyncHandler(async (req, res) => {
 });
 
 exports.getTransactions = asyncHandler(async (req, res) => {
-  await seedMockTransactions();
   const { platform, type, status, page = 1, limit = 10 } = req.query;
   
   const query = {};
@@ -144,15 +109,6 @@ const SettlementSchema = new mongoose.Schema({
   settlementDate: { type: Date, default: Date.now },
 }, { timestamps: true });
 const Settlement = mongoose.models.Settlement || mongoose.model('Settlement', SettlementSchema);
-
-const MOCK_SETTLEMENTS = [
-  { platform: 'amazon', settlementId: 'AMZS-10001', ordersCount: 45, grossAmount: 89500, deductions: 8950, netAmount: 80550, status: 'Settled', settlementDate: new Date('2026-06-01') },
-  { platform: 'flipkart', settlementId: 'FKST-20001', ordersCount: 32, grossAmount: 64000, deductions: 6400, netAmount: 57600, status: 'Settled', settlementDate: new Date('2026-06-01') },
-  { platform: 'meesho', settlementId: 'MSST-30001', ordersCount: 28, grossAmount: 42000, deductions: 4200, netAmount: 37800, status: 'Pending', settlementDate: null },
-  { platform: 'fifozone', settlementId: 'FZ-40001', ordersCount: 18, grossAmount: 36000, deductions: 0, netAmount: 36000, status: 'Settled', settlementDate: new Date('2026-05-31') },
-  { platform: 'amazon', settlementId: 'AMZS-10002', ordersCount: 38, grossAmount: 76000, deductions: 7600, netAmount: 68400, status: 'Pending', settlementDate: null },
-  { platform: 'flipkart', settlementId: 'FKST-20002', ordersCount: 22, grossAmount: 44000, deductions: 4400, netAmount: 39600, status: 'Settled', settlementDate: new Date('2026-05-28') },
-];
 
 exports.getSettlements = asyncHandler(async (req, res) => {
   const data = await Settlement.find().sort({ settlementDate: -1 });

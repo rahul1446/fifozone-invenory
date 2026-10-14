@@ -4,45 +4,8 @@ const ApiError     = require('../utils/ApiError');
 const logger       = require('../utils/logger');
 const Review       = require('../models/Review.model');
 
-// ── Seed mock data if DB is empty ────────────────────────────────────────────
-const seedMockReviews = async () => {
-  const count = await Review.countDocuments();
-  if (count > 0) return;
-
-  const products  = ['Royal Canin Urinary S/O Dog Food', 'Farmina Vet Life Hepatic', 'Drools VET PRO Adult', 'Himalaya Erina-EP Shampoo', 'Vivaldis Omega 3 Supplement', 'Pedigree Adult Chicken', 'Drontal Puppy Suspension', 'Fiprofort Plus Spot-On', 'Nutri-Vet Hip & Joint Chews', 'Royal Canin Diabetic Dog'];
-  const platforms = ['fifozone', 'amazon', 'flipkart'];
-  const names     = ['Rahul Sharma', 'Priya Patel', 'Arjun Singh', 'Meera Nair', 'Vikram Mehta', 'Sneha Reddy', 'Karthik S', 'Ananya K', 'Rohan Gupta', 'Deepa Joshi'];
-  const titles5   = ['Excellent product!', 'My dog loves it', 'Vet recommended — works!', 'Amazing results', 'Best purchase ever'];
-  const titles3   = ['Average for the price', 'Okay product', 'Could be better'];
-  const titles1   = ['Dog refused to eat', 'Packaging damaged', 'Not satisfied'];
-  const body5     = 'My pet has shown great improvement since switching to this product. Highly recommend!';
-  const body3     = 'Product is okay but I was expecting better results. Delivery was fast though.';
-  const body1     = 'Not happy with this purchase. The product did not meet my expectations.';
-
-  const reviews = [];
-  for (let i = 0; i < 35; i++) {
-    const rating = [5, 5, 5, 4, 4, 3, 2, 1][Math.floor(Math.random() * 8)];
-    reviews.push({
-      platform:          platforms[Math.floor(Math.random() * platforms.length)],
-      productName:       products[Math.floor(Math.random() * products.length)],
-      customerName:      names[Math.floor(Math.random() * names.length)],
-      rating,
-      title:   rating >= 4 ? titles5[Math.floor(Math.random() * titles5.length)] : rating === 3 ? titles3[Math.floor(Math.random() * titles3.length)] : titles1[Math.floor(Math.random() * titles1.length)],
-      body:    rating >= 4 ? body5 : rating === 3 ? body3 : body1,
-      isVerifiedPurchase: Math.random() > 0.25,
-      isRead:  false,
-      status:  'new',
-      postedAt: new Date(Date.now() - Math.floor(Math.random() * 30 * 86400000)),
-    });
-  }
-
-  await Review.insertMany(reviews);
-  logger.info(`[Review] Seeded ${reviews.length} mock reviews`);
-};
-
 // ── GET /reviews ─────────────────────────────────────────────────────────────
 exports.getReviews = asyncHandler(async (req, res) => {
-  await seedMockReviews();
 
   const { platform, rating, status, search, page = 1, limit = 15 } = req.query;
   const query = {};

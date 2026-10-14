@@ -11,7 +11,6 @@ const Notification = require('../models/Notification.model');
 const notificationService = require('./notification.service');
 const logger = require('../utils/logger');
 
-const USE_MOCK = () => process.env.USE_MOCK_API === 'true';
 
 class SyncService {
   async generateOrderNumber() {
@@ -48,9 +47,8 @@ class SyncService {
     for (const item of platforms) {
       try {
         const cred = await PlatformCredential.findOne({ platform: item.key, isActive: true });
-        const isMockPlatform = USE_MOCK() && (item.key === 'amazon' || item.key === 'flipkart' || item.key === 'meesho');
         const isOmsPlatform = item.key === 'fifozone' && !!(process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey);
-        if (!cred && !isMockPlatform && !isOmsPlatform) continue;
+        if (!cred && !isOmsPlatform) continue;
 
         await PlatformSync.findOneAndUpdate(
           { platform: item.key },
@@ -248,8 +246,8 @@ class SyncService {
     for (const item of platforms) {
       try {
         const cred = await PlatformCredential.findOne({ platform: item.key, isActive: true });
-        const isMockPlatform = USE_MOCK() && (item.key === 'amazon' || item.key === 'flipkart');
-        if (!cred && !isMockPlatform) continue;
+        const isFifozone = item.key === 'fifozone';
+        if (!cred && !isFifozone) continue;
 
         const rawOrders = await item.service.pullOrders();
 

@@ -6,9 +6,6 @@ const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const WooCommerceService = require('../services/woocommerce.service');
 
-const USE_MOCK = process.env.USE_MOCK_API === 'true';
-const MOCK_BASE = process.env.MOCK_BASE_URL || 'http://localhost:5001/mock';
-
 const getSyncStatus = asyncHandler(async (req, res) => {
   const syncStatus = await PlatformSync.find();
   res.status(200).json(new ApiResponse(200, syncStatus, 'Sync statuses retrieved successfully'));
@@ -65,81 +62,11 @@ const getCredentialsStatus = asyncHandler(async (req, res) => {
 });
 
 // ─── testConnection ─────────────────────────────────────────────────────────
-// When USE_MOCK_API=true  → hits the local mock server (always succeeds)
-// When USE_MOCK_API=false → hits real Amazon / Flipkart / WooCommerce APIs
 const testConnection = asyncHandler(async (req, res) => {
   const { platform } = req.body;
 
   if (!platform) {
     return res.status(400).json(new ApiResponse(400, null, 'Platform is required'));
-  }
-
-  // ── MOCK MODE ────────────────────────────────────────────────────────────
-  if (USE_MOCK) {
-    try {
-      if (platform === 'amazon') {
-        const r = await axios.get(`${MOCK_BASE}/amazon/seller/accountHealth`, { timeout: 5000 });
-        const health = r.data?.accountHealth || r.data || {};
-        const status = health.healthStatus || 'NORMAL';
-        return res.status(200).json(new ApiResponse(200,
-          { success: true, mockMode: true, healthStatus: status },
-          `✅ Amazon mock server connected! Account health: ${status}.`
-        ));
-      }
-
-      if (platform === 'flipkart') {
-        const r = await axios.get(`${MOCK_BASE}/flipkart/seller/health`, { timeout: 5000 });
-        const score = r.data?.sellerScore ?? r.data?.score ?? 82;
-        return res.status(200).json(new ApiResponse(200,
-          { success: true, mockMode: true, sellerScore: score },
-          `✅ Flipkart mock server connected! Seller score: ${score}/100.`
-        ));
-      }
-
-      if (platform === 'fifozone') {
-        const FifozoneOmsService = require('../services/fifozoneOms.service');
-        try {
-          const testRes = await FifozoneOmsService.testConnection();
-          const total = testRes.productCount || '?';
-          return res.status(200).json(new ApiResponse(200,
-            { success: true, productCount: total },
-            `✅ Connected to Fifozone High-Speed OMS API! Found ${total} products.`
-          ));
-        } catch (wooErr) {
-          // Fallback if offline
-          return res.status(200).json(new ApiResponse(200,
-            { success: true, mockMode: true },
-            '✅ Fifozone connection verified (mock mode).'
-          ));
-        }
-      }
-
-      if (platform === 'meesho') {
-        // Meesho doesn't have a public health endpoint — just verify credentials exist
-        const PlatformCredential = require('../models/PlatformCredential.model');
-        const cred = await PlatformCredential.findOne({ platform: 'meesho', isActive: true });
-        if (cred) {
-          return res.status(200).json(new ApiResponse(200,
-            { success: true, mockMode: true },
-            '✅ Meesho credentials found and saved. Sync will activate automatically.'
-          ));
-        }
-        return res.status(200).json(new ApiResponse(200,
-          { success: false },
-          'No Meesho credentials saved yet. Save your Supplier ID and API Key first.'
-        ));
-      }
-
-      return res.status(400).json(new ApiResponse(400, null, 'Unknown platform'));
-
-    } catch (err) {
-      logger.warn(`[testConnection] Mock ping failed for ${platform}: ${err.message}`);
-      // Even if mock server is down, don't show hard failure — tell user to start it
-      return res.status(200).json(new ApiResponse(200,
-        { success: false, mockMode: true },
-        `Mock server not reachable. Run "npm run dev:mock" in the server folder, then retry.`
-      ));
-    }
   }
 
   // ── LIVE MODE ────────────────────────────────────────────────────────────

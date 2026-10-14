@@ -8,57 +8,7 @@ const ReplyTemplate = require('../models/ReplyTemplate.model');
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-// Generate mock messages if none exist
-const seedMockMessages = async () => {
-  const count = await Message.countDocuments();
-  if (count > 0) return;
-
-  const mockMessages = [
-    {
-      platform: 'amazon',
-      customerName: 'Rahul Sharma',
-      customerEmail: 'rahul.s@example.com',
-      subject: 'Where is my order?',
-      type: 'order_query',
-      status: 'unread',
-      threadMessages: [{ sender: 'customer', senderName: 'Rahul Sharma', body: 'Hi, I ordered 3 days ago but haven\'t received tracking details. Order #AMZ-9923', timestamp: new Date(Date.now() - 3600000) }]
-    },
-    {
-      platform: 'flipkart',
-      customerName: 'Priya Patel',
-      subject: 'Damaged item received',
-      type: 'return_query',
-      status: 'unread',
-      threadMessages: [{ sender: 'customer', senderName: 'Priya Patel', body: 'The Drools dog food bag was torn.', timestamp: new Date(Date.now() - 7200000) }]
-    },
-    {
-      platform: 'fifozone',
-      customerName: 'Amit Kumar',
-      subject: 'Is this suitable for puppies?',
-      type: 'product_question',
-      productName: 'Royal Canin Maxi Puppy',
-      status: 'replied',
-      threadMessages: [
-        { sender: 'customer', senderName: 'Amit Kumar', body: 'Can I give this to my 2 month old golden retriever?', timestamp: new Date(Date.now() - 86400000) },
-        { sender: 'seller', senderName: 'Fifozone Support', body: 'Yes Amit, this is perfect for a 2-month-old Golden Retriever.', timestamp: new Date(Date.now() - 43200000) }
-      ],
-      repliedAt: new Date(Date.now() - 43200000)
-    }
-  ];
-
-  // duplicate to make ~15 messages
-  const toInsert = [];
-  for (let i = 0; i < 5; i++) {
-    mockMessages.forEach(m => {
-      toInsert.push({ ...m, customerName: m.customerName + ' ' + i, receivedAt: new Date(Date.now() - (i * 3600000)) });
-    });
-  }
-
-  await Message.insertMany(toInsert);
-};
-
 exports.getMessages = asyncHandler(async (req, res) => {
-  await seedMockMessages();
 
   const { platform, status, type, search, page = 1, limit = 10 } = req.query;
   const query = {};

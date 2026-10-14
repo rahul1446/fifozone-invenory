@@ -14,29 +14,6 @@ try {
 
 exports.getCustomers = asyncHandler(async (req, res) => {
   const { search, platform, orderCount, state, page = 1, limit = 10 } = req.query;
-  
-  // If customers empty, compile from orders (simulated here since we might not have real orders in this test)
-  const count = await Customer.countDocuments();
-  if (count === 0) {
-    try {
-      const orders = await Order.find();
-      if (orders && orders.length > 0) {
-         // mock compilation logic
-         logger.info('Compiling customers from orders');
-      } else {
-         // Insert mock
-         await Customer.create({
-            name: 'Pooja Sharma', email: 'pooja@example.com', phone: '9876543210',
-            city: 'Mumbai', state: 'Maharashtra', pincode: '400001',
-            platforms: ['fifozone', 'amazon'], totalOrders: 5, totalSpent: 7500,
-            averageOrderValue: 1500, firstOrderDate: new Date(Date.now() - 10000000000), lastOrderDate: new Date()
-         });
-      }
-    } catch (e) {
-       // Ignore if Order doesn't exist
-    }
-  }
-
   const query = {};
   if (platform) query.platforms = platform;
   if (state) query.state = state;

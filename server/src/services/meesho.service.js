@@ -2,9 +2,6 @@ const axios = require('axios');
 const PlatformCredential = require('../models/PlatformCredential.model');
 const logger = require('../utils/logger');
 
-const USE_MOCK = () => process.env.USE_MOCK_API === 'true';
-const MOCK_BASE = () => process.env.MEESHO_MOCK_BASE_URL || 'http://localhost:5001/mock/meesho';
-
 class MeeshoService {
   constructor() {
     this.name    = 'Meesho Seller API';
@@ -26,140 +23,105 @@ class MeeshoService {
   }
 
   async getAccessToken() {
-    if (USE_MOCK()) {
-      const res = await axios.post(`${MOCK_BASE()}/auth/token`, {}, { timeout: 5000 });
-      return res.data?.access_token || 'mock_meesho_token_' + Date.now();
-    }
     const { apiKey } = await this.getCredentials();
     return apiKey;
   }
 
   async pullProducts() {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK MODE — fetching listings from mock server`);
-      const res = await axios.get(`${MOCK_BASE()}/listings`, { timeout: 8000 });
-      const listings = res.data?.listings || [];
-      return listings.map(item => ({
-        productId:  item.product_id   || item.productId  || '',
-        sku:        item.supplier_sku || item.sku        || '',
-        masterName: item.name         || item.title      || 'Meesho Product',
+    try {
+      logger.info(`[${this.name}] Fetching listings via API...`);
+      const token = await this.getAccessToken();
+      const res = await axios.get(`${this.baseURL}/products`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { page: 1, page_size: 200 },
+        timeout: 15000,
+      });
+      const items = res.data?.products || res.data?.data || [];
+      return items.map(item => ({
+        productId:  item.product_id   || item.id    || '',
+        sku:        item.supplier_sku || item.sku   || '',
+        masterName: item.name         || item.title || 'Meesho Product',
         brand:      item.brand        || 'Generic',
-        category:   'Pet Supplies',
+        category:   item.category     || 'Pet Supplies',
         mrp:        item.mrp          || 0,
-        price:      item.selling_price || item.price     || 0,
-        stock:      item.inventory    || item.stock      || 10,
-        url:        `https://www.meesho.com/p/${item.product_id}`,
+        price:      item.price        || item.selling_price || 0,
+        stock:      item.inventory    || item.stock || 0,
+        url:        item.product_id ? `https://www.meesho.com/p/${item.product_id}` : '',
       }));
+    } catch (err) {
+      logger.warn(`[${this.name}] pullProducts skipped: ${err.message}`);
+      return [];
     }
-
-    logger.info(`[${this.name}] Fetching listings via API...`);
-    const token = await this.getAccessToken();
-    const res = await axios.get(`${this.baseURL}/products`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { page: 1, page_size: 200 },
-      timeout: 15000,
-    });
-    const products = res.data?.products || res.data?.data || [];
-    return products.map(item => ({
-      productId:  item.product_id   || '',
-      sku:        item.supplier_sku || item.sku || '',
-      masterName: item.name         || 'Meesho Product',
-      brand:      item.brand        || 'Generic',
-      category:   item.category     || 'Pet Supplies',
-      mrp:        item.mrp          || 0,
-      price:      item.selling_price || 0,
-      stock:      item.inventory    || 0,
-      url:        `https://www.meesho.com/p/${item.product_id}`,
-    }));
   }
 
   async pullOrders() {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK MODE — fetching orders from mock server`);
-      const res = await axios.get(`${MOCK_BASE()}/orders`, { timeout: 8000 });
+    try {
+      logger.info(`[${this.name}] Fetching orders via API...`);
+      const token = await this.getAccessToken();
+      const res = await axios.get(`${this.baseURL}/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { status: 'PENDING,CONFIRMED', page: 1, page_size: 100 },
+        timeout: 15000,
+      });
       const orders = res.data?.orders || [];
       return orders.map(o => ({
-        platformOrderId: o.order_id || o.orderId,
+        platformOrderId: o.order_id || o.id,
         customer: {
-          name:  o.customer_name || 'Meesho Customer',
-          email: 'meesho-customer@meesho.com',
-          phone: o.phone         || '',
+          name:  o.customer_name  || 'Meesho Customer',
+          email: o.customer_email || 'meesho-buyer@meesho.com',
+          phone: o.customer_phone || '',
         },
         shippingAddress: {
           line1:   o.address || '',
-          line2:   '',
           city:    o.city    || '',
           state:   o.state   || '',
           pincode: o.pincode || '',
         },
         items: [{
-          sku:       o.supplier_sku  || '',
-          quantity:  o.quantity      || 1,
-          unitPrice: o.selling_price || 0,
+          sku:       o.supplier_sku || o.sku,
+          quantity:  o.quantity || 1,
+          unitPrice: o.selling_price || o.price || 0,
         }],
         subtotal:       (o.selling_price || 0) * (o.quantity || 1),
         shippingCharge: 0,
         totalAmount:    (o.selling_price || 0) * (o.quantity || 1),
-        paymentMethod:  o.payment_mode || 'Meesho',
+        paymentMethod:  o.payment_mode || 'Online',
         paymentStatus:  o.payment_mode === 'COD' ? 'pending' : 'paid',
       }));
+    } catch (err) {
+      logger.warn(`[${this.name}] pullOrders skipped: ${err.message}`);
+      return [];
     }
-
-    logger.info(`[${this.name}] Fetching orders via API...`);
-    const token = await this.getAccessToken();
-    const res = await axios.get(`${this.baseURL}/orders`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { from_date: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] },
-      timeout: 15000,
-    });
-    const orders = res.data?.orders || [];
-    return orders.map(o => ({
-      platformOrderId: o.order_id,
-      customer: {
-        name:  o.customer_name || 'Meesho Customer',
-        email: 'meesho-customer@meesho.com',
-        phone: o.phone         || '',
-      },
-      shippingAddress: {
-        line1:   o.address || '',
-        line2:   '',
-        city:    o.city    || '',
-        state:   o.state   || '',
-        pincode: o.pincode || '',
-      },
-      items: [{
-        sku:       o.supplier_sku  || '',
-        quantity:  o.quantity      || 1,
-        unitPrice: o.selling_price || 0,
-      }],
-      subtotal:       (o.selling_price || 0) * (o.quantity || 1),
-      shippingCharge: 0,
-      totalAmount:    (o.selling_price || 0) * (o.quantity || 1),
-      paymentMethod:  o.payment_mode || 'Meesho',
-      paymentStatus:  o.payment_mode === 'COD' ? 'pending' : 'paid',
-    }));
   }
 
   async pushStock(sku, quantity) {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK — pushStock ${sku} → ${quantity}`);
+    try {
+      const token = await this.getAccessToken();
+      await axios.patch(
+        `${this.baseURL}/inventory`,
+        { supplier_sku: sku, inventory: quantity },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       return { success: true, sku, quantity, platform: 'meesho' };
+    } catch (err) {
+      logger.warn(`[${this.name}] pushStock skipped: ${err.message}`);
+      return { success: false, reason: err.message };
     }
-    const token = await this.getAccessToken();
-    await axios.patch(`${this.baseURL}/inventory`, { sku, quantity },
-      { headers: { Authorization: `Bearer ${token}` } });
-    return { success: true, sku, quantity, platform: 'meesho' };
   }
 
   async pushPrice(sku, price) {
-    if (USE_MOCK()) {
-      logger.info(`[${this.name}] MOCK — pushPrice ${sku} → ₹${price}`);
+    try {
+      const token = await this.getAccessToken();
+      await axios.patch(
+        `${this.baseURL}/listings`,
+        { supplier_sku: sku, price },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       return { success: true, sku, price, platform: 'meesho' };
+    } catch (err) {
+      logger.warn(`[${this.name}] pushPrice skipped: ${err.message}`);
+      return { success: false, reason: err.message };
     }
-    const token = await this.getAccessToken();
-    await axios.patch(`${this.baseURL}/listings`, { sku, selling_price: price },
-      { headers: { Authorization: `Bearer ${token}` } });
-    return { success: true, sku, price, platform: 'meesho' };
   }
 }
 
