@@ -339,14 +339,15 @@ const ProductsPage = () => {
       render: (_, record) => {
         const stock = record.totalStock ?? 0;
         const lowThreshold = record.lowStockThreshold || 5;
+        const isInstock = record.stockStatus === 'instock' || (stock > 0);
 
         let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        let label = `${stock} in stock`;
+        let label = stock > 0 ? `${stock} in stock` : 'In Stock';
 
-        if (stock === 0) {
+        if (!isInstock || (stock === 0 && record.stockStatus === 'outofstock')) {
           badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
           label = 'Out of Stock';
-        } else if (stock <= lowThreshold) {
+        } else if (stock > 0 && stock <= lowThreshold) {
           badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
           label = `${stock} low stock`;
         }

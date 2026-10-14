@@ -189,6 +189,12 @@ class FifozoneOmsService {
             ? (typeof prod.categories[0] === 'string' ? prod.categories[0] : prod.categories[0]?.name)
             : (prod.category || 'Uncategorized');
 
+          const manageStock = Boolean(prod.manage_stock);
+          const stockStatus = prod.stock_status || (prod.stock_quantity > 0 ? 'instock' : 'outofstock');
+          let stockQty = (prod.stock_quantity !== null && prod.stock_quantity !== undefined && prod.stock_quantity > 0)
+            ? prod.stock_quantity
+            : (stockStatus === 'instock' ? 50 : 0);
+
           return {
             platformProductId: String(prod.id),
             masterName: decodeHtml(prod.name),
@@ -198,7 +204,9 @@ class FifozoneOmsService {
             category: category || 'Uncategorized',
             price: parseFloat(prod.price || prod.regular_price || 0),
             mrp: parseFloat(prod.regular_price || prod.price || 0),
-            stock: prod.stock_quantity ?? 0,
+            stock: stockQty,
+            stockStatus: stockStatus,
+            manageStock: manageStock,
             slug: prod.slug || '',
             url: prod.url || '',
             images: imageList,

@@ -112,6 +112,15 @@ const ProductSchema = new mongoose.Schema({
     type: Number,
     default: 10
   },
+  stockStatus: {
+    type: String,
+    enum: ['instock', 'outofstock', 'onbackorder'],
+    default: 'instock'
+  },
+  manageStock: {
+    type: Boolean,
+    default: false
+  },
   reorderQuantity: {
     type: Number,
     default: 50

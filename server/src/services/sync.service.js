@@ -103,6 +103,8 @@ class SyncService {
               })),
               shortDescription: rawProd.shortDescription || '',
               description: rawProd.description || '',
+              stockStatus: rawProd.stockStatus || 'instock',
+              manageStock: rawProd.manageStock !== undefined ? rawProd.manageStock : false,
               isActive: true,
             });
           } else {
@@ -112,6 +114,12 @@ class SyncService {
             }
 
             product.isActive = true;
+            if (rawProd.stock !== undefined && rawProd.stock > 0) {
+              product.totalStock = rawProd.stock;
+              if (item.key === 'fifozone') product.stockByPlatform.fifozone = rawProd.stock;
+            }
+            if (rawProd.stockStatus) product.stockStatus = rawProd.stockStatus;
+            if (rawProd.manageStock !== undefined) product.manageStock = rawProd.manageStock;
 
             if (!product.manualOverride) {
               if (rawProd.mrp && rawProd.mrp > 0) product.mrp = rawProd.mrp;

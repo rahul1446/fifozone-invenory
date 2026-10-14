@@ -96,15 +96,14 @@ const getProducts = asyncHandler(async (req, res) => {
   }
 
   // Filter by Stock Health
-  if (stock) {
+  if (stock && stock !== 'All') {
     if (stock === 'Low Stock') {
       query.$expr = { $lte: ['$totalStock', '$lowStockThreshold'] };
       query.totalStock = { $gt: 0 };
     } else if (stock === 'Out of Stock') {
-      query.totalStock = 0;
+      query.stockStatus = 'outofstock';
     } else if (stock === 'In Stock') {
-      query.totalStock = { $gt: 0 };
-      query.$expr = { $gt: ['$totalStock', '$lowStockThreshold'] };
+      query.$or = [{ totalStock: { $gt: 0 } }, { stockStatus: 'instock' }];
     } else if (stock === 'Attention Required') {
       query.$expr = { $lte: ['$totalStock', '$lowStockThreshold'] };
     }
@@ -116,9 +115,19 @@ const getProducts = asyncHandler(async (req, res) => {
   const skip = (pageNum - 1) * limitNum;
 
   const total = await Product.countDocuments(query);
-  const inStockCount = await Product.countDocuments({ ...query, totalStock: { $gt: 0 } });
-  const outOfStockCount = await Product.countDocuments({ ...query, totalStock: 0 });
-  const lowStockCount = await Product.countDocuments({ ...query, totalStock: { $gt: 0, $lte: 5 } });
+  const inStockCount = await Product.countDocuments({
+    ...query,
+    $or: [{ totalStock: { $gt: 0 } }, { stockStatus: 'instock' }]
+  });
+  const outOfStockCount = await Product.countDocuments({
+    ...query,
+    totalStock: 0,
+    stockStatus: 'outofstock'
+  });
+  const lowStockCount = await Product.countDocuments({
+    ...query,
+    totalStock: { $gt: 0, $lte: 5 }
+  });
 
   const products = await Product.find(query)
     .sort({ createdAt: -1 })
