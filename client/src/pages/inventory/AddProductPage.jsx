@@ -272,6 +272,7 @@ const AddProductPage = () => {
                     <Option value="cat">Cat</Option>
                     <Option value="bird">Bird</Option>
                     <Option value="fish">Fish</Option>
+                    <Option value="rabbit">Rabbit</Option>
                     <Option value="other">Other</Option>
                   </Select>
                 </Form.Item>

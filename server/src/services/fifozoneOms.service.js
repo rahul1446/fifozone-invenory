@@ -334,6 +334,48 @@ class FifozoneOmsService {
       };
     }
 
+    // Map variants into WooCommerce variable product attributes and variations
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      payload.type = 'variable';
+
+      const attrMap = {};
+      product.variants.forEach(v => {
+        const aName = (v.name || 'Option').trim();
+        const aVal = (v.value || '').trim();
+        if (!attrMap[aName]) attrMap[aName] = new Set();
+        if (aVal) attrMap[aName].add(aVal);
+      });
+
+      payload.attributes = Object.entries(attrMap).map(([name, optionsSet]) => ({
+        name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        is_variation: true,
+        is_visible: true,
+        options: Array.from(optionsSet)
+      }));
+
+      payload.variations = product.variants.map((v, idx) => {
+        const vPrice = (v.price?.fifozone > 0)
+          ? v.price.fifozone
+          : (typeof v.price === 'number' && v.price > 0 ? v.price : price);
+        const vStock = (v.stock !== undefined && v.stock !== null) ? v.stock : stockQty;
+
+        const attrKey = (v.name || 'Option').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return {
+          sku: v.sku || `${product.sku || 'SKU'}-V${idx + 1}`,
+          title: `${product.masterName} - ${v.value}`,
+          regular_price: String(vPrice),
+          price: String(vPrice),
+          stock_quantity: vStock,
+          stock_status: vStock > 0 ? 'instock' : 'outofstock',
+          manage_stock: true,
+          attributes: {
+            [attrKey]: v.value
+          }
+        };
+      });
+    }
+
     return payload;
   }
 
