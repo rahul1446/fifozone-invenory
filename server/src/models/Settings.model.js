@@ -20,7 +20,14 @@ const SettingsSchema = new mongoose.Schema({
     isConfigured:   { type: Boolean, default: false },
   },
 
-  // ── WooCommerce ──
+  // ── Fifozone OMS ──
+  fifozoneOms: {
+    baseURL:      { type: String, default: 'https://fifozone.com/wp-json/oms/v1' },
+    apiKey:       { type: String, default: '' },
+    isConfigured: { type: Boolean, default: false },
+  },
+
+  // ── WooCommerce (Retained for backward compatibility) ──
   woocommerce: {
     siteUrl:        { type: String, default: '' },
     consumerKey:    { type: String, default: '' },

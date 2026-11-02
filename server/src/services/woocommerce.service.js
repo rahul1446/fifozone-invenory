@@ -1,11 +1,8 @@
-const WooCommerceRestApi = require('@woocommerce/woocommerce-rest-api').default;
-const PlatformCredential = require('../models/PlatformCredential.model');
 const logger = require('../utils/logger');
 const FifozoneOmsService = require('./fifozoneOms.service');
 
 const decodeHtml = (str) => {
   if (!str) return '';
-  // First replace common entities
   let decoded = str
     .replace(/&amp;/g, '&')
     .replace(/&#038;/g, '&')
@@ -16,59 +13,27 @@ const decodeHtml = (str) => {
     .replace(/&#8230;/g, '...')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
-  
-  // replace block elements with newlines before stripping tags
   decoded = decoded.replace(/<\/?(p|div|br|h1|h2|h3|h4|h5|h6|li|ul|ol)[^>]*>/gi, '\n');
-  
-  // Then strip all HTML tags
   return decoded.replace(/<[^>]*>?/gm, '').replace(/\n\s*\n/g, '\n\n').trim();
 };
 
+/**
+ * WooCommerceService (Fifozone OMS Facade)
+ * Fully migrated to Fifozone High-Speed OMS API endpoints.
+ * All legacy REST calls have been replaced with direct Fifozone OMS calls.
+ */
 class WooCommerceService {
   constructor() {
-    this.name = 'WooCommerce';
-    // Per-sync-run cache: categoryName (lowercase) → WooCommerce category ID
-    // Cleared at the start of each sync so stale IDs never persist.
-    this._categoryCache = new Map();
+    this.name = 'Fifozone OMS';
   }
 
   async getClient() {
-    // 1. Try to get credentials from DB
-    let creds = await PlatformCredential.findOne({ platform: 'fifozone', isActive: true });
-    
-    let url = process.env.WOOCOMMERCE_URL;
-    let consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
-    let consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
-
-    if (creds && creds.credentials) {
-      url = creds.credentials.storeUrl || url;
-      consumerKey = creds.credentials.consumerKey || consumerKey;
-      consumerSecret = creds.credentials.consumerSecret || consumerSecret;
-    }
-
-    if (!url || !consumerKey || !consumerSecret || consumerKey.includes('dummy')) {
-      throw new Error(`WooCommerce credentials are missing or invalid. Please configure them in settings.`);
-    }
-
-    // Ensure we append /index.php to the URL if the site doesn't have pretty permalinks enabled
-    // WordPress REST API always works via index.php fallback.
-    const baseUrl = url.replace(/\/$/, '');
-    const finalUrl = baseUrl.endsWith('index.php') ? baseUrl : `${baseUrl}/index.php`;
-
-    return new WooCommerceRestApi({
-      url: finalUrl,
-      consumerKey: consumerKey,
-      consumerSecret: consumerSecret,
-      version: 'wc/v3',
-      queryStringAuth: true
-    });
+    return FifozoneOmsService.getClient();
   }
 
-  // Helper to parse response data since some WP setups return a BOM or string
   parseResponseData(data) {
     if (typeof data === 'string') {
       try {
-        // Strip BOM if present
         const clean = data.charCodeAt(0) === 0xFEFF ? data.slice(1) : data;
         return JSON.parse(clean);
       } catch (e) {
@@ -78,465 +43,117 @@ class WooCommerceService {
     return data || [];
   }
 
-  // ─── 1. LOAD / PULL PRODUCTS (Routed to custom high-speed OMS API) ───────────
+  // ─── 1. LOAD / PULL PRODUCTS ────────────────────────────────────────────────
   async pullProducts(options = {}) {
     logger.info(`[${this.name}] Routing pullProducts to custom high-speed Fifozone OMS API...`);
     return await FifozoneOmsService.pullProducts(options);
   }
 
-
-
-  // ─── Category name → WooCommerce category ID (with auto-create) ─────────────
-  /**
-   * Given a plain-text category name (e.g. "Dog Medicine"), returns the
-   * corresponding WooCommerce numeric category ID.
-   *
-   * Strategy:
-   *  1. Return from in-memory cache if already resolved this session.
-   *  2. Fetch the full category list from WooCommerce and cache every entry.
-   *  3. If the category still isn't found, CREATE it in WooCommerce and cache
-   *     the new ID so subsequent products reuse it without extra API calls.
-   *
-   * @param {object} client    WooCommerce REST client
-   * @param {string} name      Raw category name from our product record
-   * @param {number} [parentId=0]  Optional parent category ID for subcategories
-   * @returns {Promise<number|null>} WooCommerce category ID, or null on failure
-   */
-  async resolveCategoryId(client, name, parentId = 0) {
-    if (!name || !name.trim()) return null;
-
-    // Cache key includes parent so "Urinary Care" under "Dog Medicine" ≠ "Urinary Care" under "Cat Medicine"
-    const key = parentId ? `${parentId}::${name.trim().toLowerCase()}` : name.trim().toLowerCase();
-
-    // 1. In-memory cache hit
-    if (this._categoryCache.has(key)) {
-      return this._categoryCache.get(key);
-    }
-
-    // 2. Fetch all categories from WooCommerce and warm the cache
-    try {
-      let page = 1;
-      while (true) {
-        const res = await client.get('products/categories', { per_page: 100, page });
-        const batch = this.parseResponseData(res.data);
-        if (batch.length === 0) break;
-        batch.forEach(cat => {
-          // Cache both with and without parent for flexible lookups
-          const nameKey = cat.name.trim().toLowerCase();
-          this._categoryCache.set(nameKey, cat.id);
-          if (cat.parent && cat.parent > 0) {
-            this._categoryCache.set(`${cat.parent}::${nameKey}`, cat.id);
-          }
-        });
-        // Check if this is the last page
-        const totalPages = parseInt(res.headers?.['x-wp-totalpages'] || '1');
-        if (page >= totalPages) break;
-        page++;
-      }
-    } catch (err) {
-      logger.warn(`[${this.name}] resolveCategoryId: failed to fetch categories — ${err.message}`);
-      return null;
-    }
-
-    // 3. Cache hit after warming
-    if (this._categoryCache.has(key)) {
-      return this._categoryCache.get(key);
-    }
-
-    // 4. Category not found — auto-create it in WooCommerce (with parent if provided)
-    try {
-      const createPayload = { name: name.trim() };
-      if (parentId && parentId > 0) {
-        createPayload.parent = parentId;
-        logger.info(`[${this.name}] Subcategory "${name}" not found — creating under parent ID ${parentId}.`);
-      } else {
-        logger.info(`[${this.name}] Category "${name}" not found in WooCommerce — creating it.`);
-      }
-      const res = await client.post('products/categories', createPayload);
-      const newId = res.data?.id;
-      if (newId) {
-        this._categoryCache.set(key, newId);
-        logger.info(`[${this.name}] Created WooCommerce category "${name}" with ID: ${newId}${parentId ? ` (parent: ${parentId})` : ''}`);
-        return newId;
-      }
-    } catch (err) {
-      logger.warn(`[${this.name}] resolveCategoryId: Failed to create category "${name}" — ${err.message}`);
-      return null;
-    }
-
-    return null;
+  // ─── Categories ─────────────────────────────────────────────────────────────
+  async resolveCategoryId(clientOrName, name, parentId = 0) {
+    const targetName = typeof clientOrName === 'string' ? clientOrName : name;
+    const targetParent = typeof clientOrName === 'string' ? (name || 0) : parentId;
+    return await FifozoneOmsService.resolveCategoryId(targetName, targetParent);
   }
 
-  /**
-   * Resolve a subcategory under a given parent category.
-   * If the parent doesn't exist yet, it is auto-created first.
-   *
-   * @param {object} client           WooCommerce REST client
-   * @param {string} categoryName     Parent category name (e.g. "Dog Medicine")
-   * @param {string} subCategoryName  Subcategory name (e.g. "Urinary Care")
-   * @returns {Promise<{categoryId: number|null, subCategoryId: number|null}>}
-   */
-  async resolveSubCategoryId(client, categoryName, subCategoryName) {
-    // 1. Resolve parent category first
-    const categoryId = await this.resolveCategoryId(client, categoryName, 0);
-
-    // 2. Resolve subcategory under the parent
-    let subCategoryId = null;
-    if (categoryId && subCategoryName && subCategoryName.trim()) {
-      subCategoryId = await this.resolveCategoryId(client, subCategoryName, categoryId);
-    }
-
-    return { categoryId, subCategoryId };
+  async resolveSubCategoryId(clientOrCategoryName, categoryName, subCategoryName) {
+    const catName = typeof clientOrCategoryName === 'string' ? clientOrCategoryName : categoryName;
+    const subCatName = typeof clientOrCategoryName === 'string' ? categoryName : subCategoryName;
+    return await FifozoneOmsService.resolveSubCategoryId(catName, subCatName);
   }
 
-
-  // ─── Fetch WooCommerce Category Tree ─────────────────────────────────────────
-  /**
-   * Fetches all categories from WooCommerce and structures them into a parent-child tree
-   * for the frontend TreeSelect component.
-   */
   async getCategoryTree() {
-    const client = await this.getClient();
-    let allCategories = [];
-    let page = 1;
-
-    try {
-      while (true) {
-        const res = await client.get('products/categories', { per_page: 100, page });
-        const batch = this.parseResponseData(res.data);
-        if (batch.length === 0) break;
-        allCategories.push(...batch);
-        
-        const totalPages = parseInt(res.headers?.['x-wp-totalpages'] || '1');
-        if (page >= totalPages) break;
-        page++;
-      }
-
-      const catMap = {};
-      allCategories.forEach(cat => {
-        catMap[cat.id] = {
-          title: cat.name,
-          value: `${cat.id}|${cat.name}`, // Composite value for uniqueness + name access
-          key: cat.id,
-          parent: cat.parent,
-          children: []
-        };
-      });
-
-      const tree = [];
-      Object.values(catMap).forEach(catNode => {
-        if (catNode.parent === 0) {
-          tree.push(catNode);
-        } else if (catMap[catNode.parent]) {
-          catMap[catNode.parent].children.push(catNode);
-        }
-      });
-
-      // Cleanup empty children arrays for a cleaner response
-      const cleanTree = (nodes) => {
-        nodes.forEach(node => {
-          if (node.children.length === 0) delete node.children;
-          else cleanTree(node.children);
-          delete node.parent;
-          delete node.key;
-        });
-        return nodes;
-      };
-
-      return cleanTree(tree);
-    } catch (error) {
-      logger.error(`[${this.name}] getCategoryTree failed: ${error.message}`);
-      throw error;
-    }
+    return await FifozoneOmsService.getCategoryTree();
   }
 
-  // Clear category cache — call this at the start of each sync run
   clearCategoryCache() {
-    this._categoryCache.clear();
+    FifozoneOmsService.clearCategoryCache();
   }
 
-  // ─── Find WooCommerce product ID by SKU ─────────────────────────────────────
-  // Find WooCommerce product ID by SKU
-  async findWooProductId(client, sku) {
-    if (!sku) return null;
+  // ─── Find Product ID by SKU / Name ──────────────────────────────────────────
+  async findWooProductId(clientOrSku, sku) {
+    const targetSku = typeof clientOrSku === 'string' ? clientOrSku : sku;
+    if (!targetSku) return null;
     try {
-      const res = await client.get('products', { sku, per_page: 1, status: 'any' });
-      const data = this.parseResponseData(res.data);
-      if (data && data.length > 0) return data[0].id;
-    } catch (_) {}
-    return null;
+      const prod = await FifozoneOmsService.getProductBySku(targetSku);
+      return prod?.id || prod?.product_id || null;
+    } catch (_) {
+      return null;
+    }
   }
 
-  // Find WooCommerce product ID by exact name match
-  async findWooProductIdByName(client, name) {
-    if (!name) return null;
+  async findWooProductIdByName(clientOrName, name) {
+    const targetName = typeof clientOrName === 'string' ? clientOrName : name;
+    if (!targetName) return null;
     try {
-      const res = await client.get('products', { search: name, per_page: 20, status: 'any' });
-      const data = this.parseResponseData(res.data);
-      if (data && data.length > 0) {
-        // Find exact match (case-insensitive)
-        const match = data.find(p => p.name.toLowerCase().trim() === name.toLowerCase().trim());
-        if (match) return match.id;
-        // Partial match fallback
-        return res.data[0].id;
+      const results = await FifozoneOmsService.pullProducts({ search: targetName, limit: 5 });
+      if (results && results.length > 0) {
+        const match = results.find(p => (p.masterName || p.name || '').toLowerCase().trim() === targetName.toLowerCase().trim());
+        if (match) return match.platformIds?.fifozone?.productId || match.id || null;
+        return results[0].platformIds?.fifozone?.productId || results[0].id || null;
       }
     } catch (_) {}
     return null;
   }
 
-  // Resolve a valid numeric WooCommerce ID for a product using all available lookup methods
-  async resolveWooId(client, product) {
-    // 1. Stored ID — must be a real positive integer
-    let wooId = product.platformIds?.fifozone?.productId;
+  async resolveWooId(clientOrProduct, product) {
+    const prod = product || clientOrProduct;
+    if (!prod) return null;
+    let wooId = prod.platformIds?.fifozone?.productId;
     if (wooId && !isNaN(Number(wooId)) && Number(wooId) > 0) {
-      // Verify it actually exists on WooCommerce
-      try {
-        const check = await client.get(`products/${wooId}`);
-        if (check.data?.id) return String(check.data.id);
-      } catch (_) {
-        // ID is stale/invalid — fall through to other methods
-        wooId = null;
-      }
+      return String(wooId);
     }
-    // 2. SKU lookup (strip -DELETED- suffix)
-    if (product.sku) {
-      const lookupSku = product.sku.replace(/-DELETED-\d+$/, '');
-      const bySkuId = await this.findWooProductId(client, lookupSku);
-      if (bySkuId) return String(bySkuId);
+    if (prod.sku) {
+      const found = await this.findWooProductId(prod.sku);
+      if (found) return String(found);
     }
-    // 3. Name lookup
-    const byNameId = await this.findWooProductIdByName(client, product.masterName);
-    if (byNameId) return String(byNameId);
-
+    if (prod.masterName) {
+      const foundByName = await this.findWooProductIdByName(prod.masterName);
+      if (foundByName) return String(foundByName);
+    }
     return null;
   }
 
-  // ─── Build WooCommerce parent product payload ─────────────────────────────────
-  /**
-   * @param {object} product      Our internal product document
-   * @param {number|null} categoryId  Pre-resolved WooCommerce category ID (from resolveCategoryId)
-   */
+  // ─── Payload builder ────────────────────────────────────────────────────────
   buildWooPayload(product, categoryIds = []) {
-    const hasVariants = product.variants && product.variants.length > 0;
-
-    // Stock: use fifozone platform stock, fall back to totalStock
-    const stockQty = (product.stockByPlatform?.fifozone > 0)
-      ? product.stockByPlatform.fifozone
-      : (product.totalStock ?? 0);
-
-    // Price: use fifozone selling price, fall back to MRP, never send 0
-    const price = (product.sellingPrice?.fifozone > 0)
-      ? product.sellingPrice.fifozone
-      : (product.mrp > 0 ? product.mrp : 0);
-
-    const payload = {
-      name: product.masterName,
-      sku: product.sku || '',
-      status: product.isActive ? 'publish' : 'draft',
-      short_description: product.shortDescription || '',
-      description: product.description || '',
-    };
-
-    if (hasVariants) {
-      // ── VARIABLE product: WooCommerce needs type='variable' + attributes ────
-      payload.type = 'variable';
-      // Don't set price/stock on parent for variable products
-      // Build unique attribute names and their possible values
-      const attrMap = {};
-      product.variants.forEach(v => {
-        const attrName = v.name || 'Option';
-        if (!attrMap[attrName]) attrMap[attrName] = new Set();
-        attrMap[attrName].add(v.value);
-      });
-      payload.attributes = Object.entries(attrMap).map(([name, values]) => ({
-        name,
-        visible: true,
-        variation: true,
-        options: Array.from(values),
-      }));
-    } else {
-      // ── SIMPLE product ─────────────────────────────────────────────────────
-      payload.type = 'simple';
-      payload.regular_price = String(price);
-      payload.manage_stock = true;
-      payload.stock_quantity = stockQty;
-    }
-
-    // Categories — always use numeric ID (required by WooCommerce REST API)
-    if (categoryIds && categoryIds.length > 0) {
-      payload.categories = categoryIds.map(id => ({ id }));
-    } else if (product.category && product.category.length > 0) {
-      // Fallback: send name only (WooCommerce may accept this for existing categories
-      // but it is unreliable — this branch only runs if resolveCategoryId failed)
-      // but it is unreliable — this branch only runs if resolveCategoryId failed)
-      logger.warn(`[WooCommerce] Could not resolve IDs for categories — sending name as fallback.`);
-      const cats = Array.isArray(product.category) ? product.category : [product.category];
-      payload.categories = cats.map(name => ({ name }));
-    }
-
-    // Images — only send real hosted URLs (no placeholders)
-    if (product.images && product.images.length > 0) {
-      const validImages = product.images.filter(img => {
-        if (!img.url) return false;
-        const url = img.url.toLowerCase();
-        if (url.includes('example.com')) return false;
-        if (url.includes('localhost')) return false;
-        if (url.includes('127.0.0.1')) return false;
-        if (url.includes('placeholder')) return false;
-        if (!url.startsWith('http')) return false;
-        return true;
-      });
-      if (validImages.length > 0) {
-        payload.images = validImages.map(img => ({ src: img.url }));
-      }
-    }
-
-    return payload;
+    return FifozoneOmsService.buildOmsPayload(product, categoryIds);
   }
 
-  // ─── Push individual variations to a variable WooCommerce product ─────────────
   async syncVariations(client, wooProductId, variants) {
-    if (!variants || variants.length === 0) return;
-
-    // Fetch existing variations on WooCommerce
-    let existing = [];
-    try {
-      const res = await client.get(`products/${wooProductId}/variations`, { per_page: 100 });
-      existing = this.parseResponseData(res.data);
-    } catch (_) {}
-
-    const existingBySku = {};
-    existing.forEach(v => { if (v.sku) existingBySku[v.sku] = v.id; });
-
-    for (const variant of variants) {
-      const attrName = variant.name || 'Option';
-      const attrValue = variant.value || '';
-      const variantSku = variant.sku || '';
-      const varPrice = (variant.price?.fifozone > 0) ? variant.price.fifozone : 0;
-      const varStock = variant.stock ?? 0;
-
-      const variationPayload = {
-        sku: variantSku,
-        regular_price: String(varPrice),
-        manage_stock: true,
-        stock_quantity: varStock,
-        status: variant.isActive !== false ? 'publish' : 'private',
-        attributes: [{ name: attrName, option: attrValue }],
-      };
-
-      if (existingBySku[variantSku]) {
-        // Update existing variation
-        await client.put(`products/${wooProductId}/variations/${existingBySku[variantSku]}`, variationPayload);
-      } else {
-        // Create new variation
-        await client.post(`products/${wooProductId}/variations`, variationPayload);
-      }
-    }
-    logger.info(`[${this.name}] Synced ${variants.length} variations for product ID ${wooProductId}`);
+    logger.info(`[${this.name}] syncVariations handled directly by Fifozone OMS batch updates`);
   }
 
-  // ─── 2. CREATE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
+  // ─── Product CRUD & Inventory ───────────────────────────────────────────────
   async createProduct(product) {
-    logger.info(`[${this.name}] Routing createProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    logger.info(`[${this.name}] Routing createProduct to Fifozone OMS API: ${product.masterName}`);
     return await FifozoneOmsService.createProduct(product);
   }
 
-  // ─── 3. UPDATE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
   async updateProduct(product, wooProductId) {
-    logger.info(`[${this.name}] Routing updateProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    logger.info(`[${this.name}] Routing updateProduct to Fifozone OMS API: ${product.masterName}`);
     return await FifozoneOmsService.updateProduct(product, wooProductId);
   }
 
-  // ─── 4. DELETE PRODUCT (Routed to custom high-speed OMS API) ─────────────────
   async deleteProduct(product) {
-    logger.info(`[${this.name}] Routing deleteProduct to custom high-speed Fifozone OMS API: ${product.masterName}`);
+    logger.info(`[${this.name}] Routing deleteProduct to Fifozone OMS API: ${product.masterName}`);
     return await FifozoneOmsService.deleteProduct(product);
   }
 
-  // ─── 5. PUSH STOCK (Routed to custom high-speed OMS API) ─────────────────────
   async pushStock(sku, quantity) {
-    logger.info(`[${this.name}] Routing pushStock to custom high-speed Fifozone OMS API for SKU: ${sku}`);
+    logger.info(`[${this.name}] Routing pushStock to Fifozone OMS API for SKU: ${sku}`);
     return await FifozoneOmsService.pushStock(sku, quantity);
   }
 
-  // ─── 6. PUSH PRICE (Routed to custom high-speed OMS API) ─────────────────────
   async pushPrice(sku, price) {
-    logger.info(`[${this.name}] Routing pushPrice to custom high-speed Fifozone OMS API for SKU: ${sku}`);
+    logger.info(`[${this.name}] Routing pushPrice to Fifozone OMS API for SKU: ${sku}`);
     return await FifozoneOmsService.pushPrice(sku, price);
   }
 
-  async pullOrders() {
-    logger.info(`[${this.name}] Pulling orders from REST API...`);
-    try {
-      const client = await this.getClient();
-      const allOrders = [];
-      let page = 1;
-      const perPage = 100;
-
-      while (true) {
-        logger.info(`[${this.name}] Fetching orders page ${page}...`);
-        const response = await client.get('orders', { 
-          status: ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed', 'checkout-draft'], 
-          per_page: perPage,
-          page,
-        });
-        
-        const parsedOrders = this.parseResponseData(response.data);
-        if (!parsedOrders || parsedOrders.length === 0) break;
-
-        const mapped = parsedOrders.map(order => ({
-          platformOrderId: String(order.id),
-          number: order.number,
-          platformStatus: order.status,
-          orderDate: order.date_created,
-          customer: {
-            name: `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim() || 'Unknown Customer',
-            email: order.billing.email || '',
-            phone: order.billing.phone || ''
-          },
-          shippingAddress: {
-            line1: order.shipping.address_1 || order.billing.address_1 || 'N/A',
-            line2: order.shipping.address_2 || order.billing.address_2 || '',
-            city: order.shipping.city || order.billing.city || 'Unknown',
-            state: order.shipping.state || order.billing.state || 'XX',
-            pincode: order.shipping.postcode || order.billing.postcode || '000000'
-          },
-          items: order.line_items.map(item => ({
-            sku: item.sku || '',
-            name: decodeHtml(item.name) || 'Unknown Product',
-            platformProductId: String(item.product_id || ''),
-            quantity: item.quantity,
-            unitPrice: parseFloat(item.price)
-          })),
-          subtotal: parseFloat(order.total) - parseFloat(order.shipping_total),
-          shippingCharge: parseFloat(order.shipping_total),
-          totalAmount: parseFloat(order.total),
-          paymentMethod: order.payment_method === 'cod' ? 'cod' : (order.payment_method_title || order.payment_method || 'Prepaid'),
-          paymentStatus: (order.payment_method === 'cod' && !['completed', 'delivered'].includes(order.status)) ? 'pending' : 'paid'
-        }));
-
-        allOrders.push(...mapped);
-        logger.info(`[${this.name}] Page ${page}: got ${parsedOrders.length} orders (total so far: ${allOrders.length})`);
-
-        // Pagination: check headers or batch size
-        const hdrs = response.headers || {};
-        const totalPagesHeader = hdrs['x-wp-totalpages'] || hdrs['X-WP-TotalPages'] || hdrs['X-Wp-Totalpages'];
-        if (totalPagesHeader) {
-          if (page >= parseInt(totalPagesHeader, 10)) break;
-        } else {
-          if (parsedOrders.length < perPage) break;
-        }
-        page++;
-      }
-      
-      logger.info(`[${this.name}] ✅ Successfully pulled ${allOrders.length} total orders.`);
-      return allOrders;
-    } catch (error) {
-      logger.error(`[${this.name}] pullOrders error: ${error.message}`);
-      throw error;
-    }
+  // ─── Orders ─────────────────────────────────────────────────────────────────
+  async pullOrders(options = {}) {
+    logger.info(`[${this.name}] Routing pullOrders to Fifozone OMS API...`);
+    return await FifozoneOmsService.pullOrders(options);
   }
-
 }
 
 module.exports = new WooCommerceService();

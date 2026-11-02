@@ -4,7 +4,7 @@ const PlatformSync = require('../models/PlatformSync.model');
 const ApiResponse = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
-const WooCommerceService = require('../services/woocommerce.service');
+const FifozoneOmsService = require('../services/fifozoneOms.service');
 
 const getSyncStatus = asyncHandler(async (req, res) => {
   const syncStatus = await PlatformSync.find();
@@ -17,8 +17,8 @@ const triggerManualSync = asyncHandler(async (req, res) => {
 });
 
 const getWooCommerceCategories = asyncHandler(async (req, res) => {
-  const tree = await WooCommerceService.getCategoryTree();
-  res.status(200).json(new ApiResponse(200, tree, 'WooCommerce categories retrieved successfully'));
+  const tree = await FifozoneOmsService.getCategoryTree();
+  res.status(200).json(new ApiResponse(200, tree, 'Categories retrieved successfully'));
 });
 
 const updateCredentials = asyncHandler(async (req, res) => {
@@ -72,7 +72,6 @@ const testConnection = asyncHandler(async (req, res) => {
   // ── LIVE MODE ────────────────────────────────────────────────────────────
   try {
     if (platform === 'fifozone') {
-      const FifozoneOmsService = require('../services/fifozoneOms.service');
       const testRes = await FifozoneOmsService.testConnection();
       const total = testRes.productCount || '?';
       return res.status(200).json(new ApiResponse(200,
@@ -110,5 +109,7 @@ module.exports = {
   updateCredentials,
   getCredentialsStatus,
   testConnection,
-  getWooCommerceCategories
+  getWooCommerceCategories,
+  getOmsCategories: getWooCommerceCategories,
+  getFifozoneCategories: getWooCommerceCategories
 };

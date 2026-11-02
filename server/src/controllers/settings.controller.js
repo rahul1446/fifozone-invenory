@@ -19,6 +19,14 @@ const getSettings = asyncHandler(async (req, res) => {
     if (safe.shiprocket) safe.shiprocket.hasPassword = false;
   }
 
+  if (!safe.fifozoneOms || (!safe.fifozoneOms.baseURL && !safe.fifozoneOms.apiKey)) {
+    safe.fifozoneOms = {
+      baseURL: safe.fifozoneOms?.baseURL || process.env.FIFOZONE_OMS_BASE_URL || 'https://fifozone.com/wp-json/oms/v1',
+      apiKey: safe.fifozoneOms?.apiKey || process.env.FIFOZONE_OMS_API_KEY || '',
+      isConfigured: safe.fifozoneOms?.isConfigured || Boolean(process.env.FIFOZONE_OMS_BASE_URL && process.env.FIFOZONE_OMS_API_KEY)
+    };
+  }
+
   res.status(200).json({ success: true, data: safe });
 });
 
@@ -26,7 +34,7 @@ const getSettings = asyncHandler(async (req, res) => {
 const updateSettings = asyncHandler(async (req, res) => {
   const {
     companyName, email, phone, address, gstin, currency, timezone, logoUrl, primaryColor,
-    shiprocket, woocommerce
+    shiprocket, woocommerce, fifozoneOms
   } = req.body;
 
   let settings = await Settings.findOne();
@@ -59,6 +67,20 @@ const updateSettings = asyncHandler(async (req, res) => {
     settings.shiprocket.isConfigured = !!(settings.shiprocket.email && settings.shiprocket.password);
   }
 
+  // Fifozone OMS credentials
+  if (fifozoneOms) {
+    if (!settings.fifozoneOms) {
+      settings.fifozoneOms = {
+        baseURL: 'https://fifozone.com/wp-json/oms/v1',
+        apiKey: '',
+        isConfigured: false
+      };
+    }
+    if (fifozoneOms.baseURL !== undefined) settings.fifozoneOms.baseURL = fifozoneOms.baseURL?.trim();
+    if (fifozoneOms.apiKey !== undefined) settings.fifozoneOms.apiKey = fifozoneOms.apiKey?.trim();
+    settings.fifozoneOms.isConfigured = !!(settings.fifozoneOms.baseURL && settings.fifozoneOms.apiKey);
+  }
+
   // WooCommerce credentials
   if (woocommerce) {
     if (woocommerce.siteUrl        !== undefined) settings.woocommerce.siteUrl        = woocommerce.siteUrl;
@@ -67,7 +89,7 @@ const updateSettings = asyncHandler(async (req, res) => {
     settings.woocommerce.isConfigured = !!(settings.woocommerce.siteUrl && settings.woocommerce.consumerKey);
   }
 
-  settings.updatedBy = req.user._id;
+  if (req.user?._id) settings.updatedBy = req.user._id;
   await settings.save();
 
   const safe = settings.toObject();
@@ -81,7 +103,37 @@ const updateSettings = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: safe, message: 'Settings saved successfully' });
 });
 
-module.exports = { getSettings, updateSettings, testShiprocketConnection, debugShiprocketRaw };
+// POST /api/settings/test-fifozone-oms
+const testFifozoneOmsConnection = asyncHandler(async (req, res) => {
+  try {
+    const FifozoneOmsService = require('../services/fifozoneOms.service');
+    const settings = await Settings.findOne().lean();
+    const config = {
+      baseURL: req.body?.baseURL || settings?.fifozoneOms?.baseURL || process.env.FIFOZONE_OMS_BASE_URL,
+      apiKey: req.body?.apiKey || settings?.fifozoneOms?.apiKey || process.env.FIFOZONE_OMS_API_KEY,
+    };
+
+    const result = await FifozoneOmsService.testConnection(config);
+    res.status(200).json({
+      success: true,
+      message: `✅ Fifozone OMS connected successfully! Found ${result.productCount || 0} products.`,
+      data: result
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: `Fifozone OMS connection test failed: ${err.message}`
+    });
+  }
+});
+
+module.exports = {
+  getSettings,
+  updateSettings,
+  testShiprocketConnection,
+  debugShiprocketRaw,
+  testFifozoneOmsConnection
+};
 
 // POST /api/settings/test-shiprocket
 async function testShiprocketConnection(req, res) {

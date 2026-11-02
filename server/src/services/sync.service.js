@@ -1,4 +1,3 @@
-const WooCommerceService = require('./woocommerce.service');
 const FifozoneOmsService  = require('./fifozoneOms.service');
 const AmazonService      = require('./amazon.service');
 const FlipkartService    = require('./flipkart.service');
@@ -33,9 +32,9 @@ class SyncService {
   async syncProducts() {
     const PlatformCredential = require('../models/PlatformCredential.model');
 
-    // Clear the WooCommerce category cache at the start of every sync run
-    // so we always resolve category IDs fresh from WooCommerce.
-    WooCommerceService.clearCategoryCache();
+    // Clear the Fifozone OMS category cache at the start of every sync run
+    // so we always resolve category IDs fresh from the OMS API.
+    FifozoneOmsService.clearCategoryCache();
 
     const platforms = [
       { service: FifozoneOmsService, key: 'fifozone' },
@@ -246,7 +245,7 @@ class SyncService {
   async syncOrders() {
     const PlatformCredential = require('../models/PlatformCredential.model');
     const platforms = [
-      { service: WooCommerceService, key: 'fifozone' },
+      { service: FifozoneOmsService, key: 'fifozone' },
       { service: AmazonService,      key: 'amazon'   },
       { service: FlipkartService,    key: 'flipkart' },
     ];
@@ -254,8 +253,8 @@ class SyncService {
     for (const item of platforms) {
       try {
         const cred = await PlatformCredential.findOne({ platform: item.key, isActive: true });
-        const isFifozone = item.key === 'fifozone';
-        if (!cred && !isFifozone) continue;
+        const isOmsPlatform = item.key === 'fifozone' && !!(process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey);
+        if (!cred && !isOmsPlatform) continue;
 
         const rawOrders = await item.service.pullOrders();
 
@@ -264,7 +263,8 @@ class SyncService {
           if (item.key === 'fifozone' && rawOrd.platformStatus) {
              const stat = rawOrd.platformStatus.toLowerCase();
              if (stat === 'processing') internalStatus = 'processing';
-             else if (stat === 'completed') internalStatus = 'delivered';
+             else if (stat === 'completed' || stat === 'delivered') internalStatus = 'delivered';
+             else if (stat === 'shipped') internalStatus = 'shipped';
              else if (stat === 'cancelled') internalStatus = 'cancelled';
              else if (stat === 'failed') internalStatus = 'failed';
              else if (stat === 'refunded') internalStatus = 'refunded';
@@ -311,7 +311,7 @@ class SyncService {
                 brand: product ? product.brand : 'Generic',
                 sellingPrice: itemRow.unitPrice,
                 mrp: product ? product.mrp : itemRow.unitPrice,
-                images: product ? product.images.map(img => img.url) : []
+                images: product?.images?.length ? product.images.map(img => (typeof img === 'string' ? img : img?.url || '')) : []
               },
               platformProductId: itemRow.platformProductId || itemRow.asin || itemRow.listingId || '',
               quantity: itemRow.quantity,
@@ -388,6 +388,7 @@ class SyncService {
               platform: item.key,
               customer: rawOrd.customer,
               shippingAddress: rawOrd.shippingAddress,
+              billingAddress: rawOrd.billingAddress || {},
               items: resolvedItems,
               subtotal: rawOrd.subtotal,
               shippingCharge: rawOrd.shippingCharge || 0,
@@ -506,6 +507,18 @@ class SyncService {
       return result;
     } catch (err) {
       logger.error(`[SyncService] pushProductDelete failed for "${product.masterName}": ${err.message}`);
+      throw err;
+    }
+  }
+
+  // 8. Push Order status & tracking updates to Fifozone OMS
+  async pushOrderUpdate(orderId, updateData) {
+    try {
+      const result = await FifozoneOmsService.updateOrder(orderId, updateData);
+      logger.info(`[SyncService] Order #${orderId} updated on Fifozone OMS`);
+      return result;
+    } catch (err) {
+      logger.error(`[SyncService] pushOrderUpdate failed for #${orderId}: ${err.message}`);
       throw err;
     }
   }

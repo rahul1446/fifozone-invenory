@@ -12,6 +12,8 @@ const { requireAuth } = require('../middleware/auth.middleware');
 const { requireRole } = require('../middleware/role.middleware');
 
 router.get('/woocommerce/categories', requireAuth, getWooCommerceCategories);
+router.get('/categories', requireAuth, getWooCommerceCategories);
+router.get('/fifozone/categories', requireAuth, getWooCommerceCategories);
 router.get('/sync-status', requireAuth, getSyncStatus);
 router.post('/sync-now', requireAuth, triggerManualSync);
 router.get('/credentials/status', requireAuth, requireRole(['admin']), getCredentialsStatus);

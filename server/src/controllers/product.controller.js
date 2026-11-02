@@ -5,7 +5,7 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
-const WooCommerceService = require('../services/woocommerce.service');
+const FifozoneOmsService = require('../services/fifozoneOms.service');
 
 // Retrieve all products with filters
 const getProducts = asyncHandler(async (req, res) => {
@@ -385,6 +385,12 @@ const bulkDelete = asyncHandler(async (req, res) => {
   const products = await Product.find({ _id: { $in: productIds } });
 
   for (const product of products) {
+    // Delete from Fifozone OMS first while product identifier exists
+    try {
+      await SyncService.pushProductDelete(product);
+    } catch (err) {
+      logger.error(`Failed to push delete to Fifozone OMS for ${product.masterName}: ${err.message}`);
+    }
     // Soft-delete: keep original SKU intact so the sync guard works correctly.
     // Renaming the SKU causes sync to re-create the product from scratch.
     product.isActive = false;
@@ -440,12 +446,11 @@ const importCSV = asyncHandler(async (req, res) => {
     if (row.category) {
       const catNames = typeof row.category === 'string' ? row.category.split(',').map(c => c.trim()).filter(Boolean) : (Array.isArray(row.category) ? row.category : [row.category]);
       try {
-        const client = await WooCommerceService.getClient();
         for (const catName of catNames) {
           if (catName.includes('|')) {
             categoryData.push(catName);
           } else {
-            const id = await WooCommerceService.resolveCategoryId(client, catName);
+            const id = await FifozoneOmsService.resolveCategoryId(catName);
             if (id) {
               categoryData.push(`${id}|${catName}`);
             } else {
@@ -454,7 +459,7 @@ const importCSV = asyncHandler(async (req, res) => {
           }
         }
       } catch (err) {
-        logger.warn(`Failed to resolve WooCommerce categories during CSV import: ${err.message}`);
+        logger.warn(`Failed to resolve Fifozone categories during CSV import: ${err.message}`);
         categoryData = catNames;
       }
     }
@@ -483,7 +488,7 @@ const importCSV = asyncHandler(async (req, res) => {
           previousStock: prevStock,
           changeQuantity: csvStock - prevStock,
           newStock: csvStock,
-          performedBy: req.user._id,
+          performedBy: req.user?._id,
           note: 'CSV Import inventory correction'
         });
       }
@@ -508,7 +513,7 @@ const importCSV = asyncHandler(async (req, res) => {
           flipkart: 0,
           warehouse: stockVal
         },
-        createdBy: req.user._id
+        createdBy: req.user?._id
       });
       
       await product.save();
@@ -522,7 +527,7 @@ const importCSV = asyncHandler(async (req, res) => {
         previousStock: 0,
         changeQuantity: stockVal,
         newStock: stockVal,
-        performedBy: req.user._id,
+        performedBy: req.user?._id,
         note: 'CSV Import initial ingestion'
       });
       

@@ -5,8 +5,8 @@ import {
 import {
   SaveOutlined, CheckCircleOutlined, WarningOutlined, EyeInvisibleOutlined, EyeTwoTone
 } from '@ant-design/icons';
-import { Settings, Truck, ShoppingCart, Building2, Palette } from 'lucide-react';
-import { getSettingsApi, updateSettingsApi, testShiprocketApi } from '../../api/settingsApi';
+import { Settings, Truck, ShoppingCart, Building2, Palette, Wifi } from 'lucide-react';
+import { getSettingsApi, updateSettingsApi, testShiprocketApi, testFifozoneOmsApi } from '../../api/settingsApi';
 
 const SectionCard = ({ icon, title, subtitle, children, badge }) => (
   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -39,6 +39,7 @@ const SettingsPage = () => {
   const [savingSR,  setSavingSR]  = useState(false);
   const [savingWC,  setSavingWC]  = useState(false);
   const [testingSR, setTestingSR] = useState(false);
+  const [testingWC, setTestingWC] = useState(false);
   const [settings,  setSettings]  = useState(null);
 
   // ── Fetch ──
@@ -66,9 +67,8 @@ const SettingsPage = () => {
       });
 
       wcForm.setFieldsValue({
-        wcSiteUrl:        data.woocommerce?.siteUrl || '',
-        wcConsumerKey:    data.woocommerce?.consumerKey || '',
-        wcConsumerSecret: data.woocommerce?.consumerSecret || '',
+        omsBaseURL: data.fifozoneOms?.baseURL || 'https://fifozone.com/wp-json/oms/v1',
+        omsApiKey:  data.fifozoneOms?.apiKey  || '',
       });
     } catch {
       message.error('Failed to load settings');
@@ -123,21 +123,36 @@ const SettingsPage = () => {
     }
   };
 
-  const saveWC = async () => {
+  const saveOMS = async () => {
     const vals = await wcForm.validateFields();
     setSavingWC(true);
     try {
       await updateSettingsApi({
-        woocommerce: {
-          siteUrl:        vals.wcSiteUrl,
-          consumerKey:    vals.wcConsumerKey,
-          consumerSecret: vals.wcConsumerSecret,
+        fifozoneOms: {
+          baseURL: vals.omsBaseURL?.trim(),
+          apiKey:  vals.omsApiKey?.trim(),
         }
       });
-      message.success('✅ WooCommerce credentials saved!');
+      message.success('✅ Fifozone OMS API credentials saved!');
       fetchSettings();
-    } catch { message.error('Failed to save'); }
+    } catch { message.error('Failed to save credentials'); }
     finally { setSavingWC(false); }
+  };
+
+  const testOMSConnection = async () => {
+    setTestingWC(true);
+    try {
+      const vals = wcForm.getFieldsValue();
+      const res = await testFifozoneOmsApi({
+        baseURL: vals.omsBaseURL?.trim(),
+        apiKey:  vals.omsApiKey?.trim(),
+      });
+      message.success(res?.data?.message || '✅ Connected to Fifozone OMS successfully!');
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'OMS connection failed.');
+    } finally {
+      setTestingWC(false);
+    }
   };
 
   return (
@@ -297,51 +312,49 @@ const SettingsPage = () => {
             )
           },
 
-          // ── WooCommerce ──────────────────────────────────────
+          // ── Fifozone OMS ────────────────────────────────────
           {
-            key: 'woocommerce',
+            key: 'fifozoneOms',
             label: (
               <span className="flex items-center gap-2 font-medium">
-                <ShoppingCart size={16} /> WooCommerce
+                <ShoppingCart size={16} /> Fifozone OMS
               </span>
             ),
             children: (
               <SectionCard
                 icon={<ShoppingCart size={18} className="text-purple-600" />}
-                title="WooCommerce Integration"
-                subtitle="Sync products, pricing and orders with your WordPress store"
-                badge={<StatusBadge configured={settings?.woocommerce?.isConfigured} />}
+                title="Fifozone Universal OMS API"
+                subtitle="High-speed custom endpoints for catalog, pricing, orders and stock"
+                badge={<StatusBadge configured={settings?.fifozoneOms?.isConfigured} />}
               >
                 <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-6">
-                  <p className="text-sm text-purple-700 font-semibold mb-1">🔌 How to get your keys</p>
-                  <ol className="text-xs text-purple-600 space-y-1 list-decimal list-inside">
-                    <li>Login to your WordPress admin panel</li>
-                    <li>Go to WooCommerce → Settings → Advanced → REST API</li>
-                    <li>Create a new key with Read/Write permissions</li>
-                    <li>Copy the Consumer Key and Consumer Secret here</li>
-                  </ol>
+                  <p className="text-sm text-purple-700 font-semibold mb-1">⚡ Fifozone High-Speed OMS Endpoints</p>
+                  <p className="text-xs text-purple-600">
+                    Connects directly to the custom WordPress OMS API via <code>X-OMS-Key</code> authentication. All catalog, inventory, and order operations flow through these endpoints.
+                  </p>
                 </div>
 
                 <Form form={wcForm} layout="vertical" className="max-w-[560px]">
-                  <Form.Item name="wcSiteUrl" label="WordPress Site URL"
-                    rules={[{ required: true }]}>
-                    <Input placeholder="https://fifozone.in" size="large" className="rounded-xl" />
+                  <Form.Item name="omsBaseURL" label="OMS API Base URL"
+                    rules={[{ required: true, message: 'Base URL is required' }]}>
+                    <Input placeholder="https://fifozone.com/wp-json/oms/v1" size="large" className="rounded-xl" />
                   </Form.Item>
-                  <Form.Item name="wcConsumerKey" label="Consumer Key"
-                    rules={[{ required: true }]}>
-                    <Input.Password placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  <Form.Item name="omsApiKey" label="OMS Secret Key (X-OMS-Key)"
+                    rules={[{ required: true, message: 'OMS Secret Key is required' }]}>
+                    <Input.Password placeholder="oms_live_..."
                       size="large" className="rounded-xl" />
                   </Form.Item>
-                  <Form.Item name="wcConsumerSecret" label="Consumer Secret"
-                    rules={[{ required: true }]}>
-                    <Input.Password placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                      size="large" className="rounded-xl" />
-                  </Form.Item>
-                  <Button type="primary" size="large" icon={<SaveOutlined />}
-                    loading={savingWC} onClick={saveWC}
-                    className="!bg-purple-600 !border-purple-600 hover:!bg-purple-700 rounded-xl font-semibold">
-                    Save WooCommerce Credentials
-                  </Button>
+                  <div className="flex gap-3 flex-wrap">
+                    <Button type="primary" size="large" icon={<SaveOutlined />}
+                      loading={savingWC} onClick={saveOMS}
+                      className="!bg-purple-600 !border-purple-600 hover:!bg-purple-700 rounded-xl font-semibold">
+                      Save OMS Credentials
+                    </Button>
+                    <Button size="large" loading={testingWC} onClick={testOMSConnection}
+                      className="!border-purple-400 !text-purple-600 hover:!bg-purple-50 rounded-xl font-semibold">
+                      🔌 Test OMS Connection
+                    </Button>
+                  </div>
                 </Form>
               </SectionCard>
             )

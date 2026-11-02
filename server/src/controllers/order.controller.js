@@ -189,6 +189,16 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   await order.save();
 
+  // Push status update and tracking back to Fifozone OMS in real-time
+  if (order.platform === 'fifozone' && order.platformOrderId) {
+    SyncService.pushOrderUpdate(order.platformOrderId, {
+      status: order.status,
+      trackingNumber: order.trackingNumber,
+      courierPartner: order.courierPartner,
+      trackingUrl: order.trackingUrl
+    }).catch(err => logger.error(`[OrderController] Failed to push status update to Fifozone OMS for #${order.orderNumber}: ${err.message}`));
+  }
+
   // Create real-time notification
   await notificationService.createNotification({
     type: 'manual',
@@ -262,6 +272,17 @@ const bulkUpdateStatus = asyncHandler(async (req, res) => {
       }
 
       await order.save();
+
+      // Push status update back to Fifozone OMS in real-time
+      if (order.platform === 'fifozone' && order.platformOrderId) {
+        SyncService.pushOrderUpdate(order.platformOrderId, {
+          status: order.status,
+          trackingNumber: order.trackingNumber,
+          courierPartner: order.courierPartner,
+          trackingUrl: order.trackingUrl
+        }).catch(err => logger.error(`[OrderController] Failed to push bulk status update to Fifozone OMS for #${order.orderNumber}: ${err.message}`));
+      }
+
       successCount++;
     } catch (err) {
       logger.error(`Bulk update error for order ${id}: ${err.message}`);

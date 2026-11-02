@@ -20,7 +20,6 @@
   "author": "Fifozone Team",
   "license": "ISC",
   "dependencies": {
-    "@woocommerce/woocommerce-rest-api": "^1.0.2",
     "amazon-sp-api": "^1.2.1",
     "axios": "^1.16.1",
     "bcryptjs": "^2.4.3",

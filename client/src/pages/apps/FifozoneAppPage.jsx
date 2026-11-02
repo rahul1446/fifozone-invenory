@@ -34,7 +34,7 @@ const FifozoneAppPage = () => {
       const p = s?.fifozone || {};
       setConnected(!!p.connected);
       if (p.storeUrl) form.setFieldsValue({ storeUrl: p.storeUrl });
-      if (p.consumerKey) form.setFieldsValue({ consumerKey: p.consumerKey });
+      if (p.apiKey || p.consumerKey) form.setFieldsValue({ apiKey: p.apiKey || p.consumerKey });
     } catch { setConnected(false); }
   }, [form]);
 
@@ -45,7 +45,7 @@ const FifozoneAppPage = () => {
       const vals = await form.validateFields();
       setSaving(true);
       await updateCredentialsApi(PLATFORM, vals);
-      message.success('✅ WooCommerce credentials saved!');
+      message.success('✅ Fifozone OMS credentials saved!');
       setConnected(true);
       setTestResult(null);
     } catch (err) {
@@ -88,7 +88,7 @@ const FifozoneAppPage = () => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700"><Globe size={24} /></div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Fifozone Website (WooCommerce)</h1>
+            <h1 className="text-2xl font-bold text-slate-800">Fifozone Website (Universal OMS API)</h1>
             <div className="mt-0.5">
               {connected === true  && <Badge status="success"    text={<span className="text-xs text-emerald-600 font-semibold">Connected</span>} />}
               {connected === false && <Badge status="error"      text={<span className="text-xs text-rose-500 font-semibold">Not Connected — go to API Settings tab</span>} />}
@@ -117,27 +117,24 @@ const FifozoneAppPage = () => {
         <Tabs defaultActiveKey="orders" className="px-6 pt-2">
           <TabPane tab="📦 Orders" key="orders">
             {loading ? <div className="py-16 flex justify-center"><Spin size="large" /></div>
-              : <Table columns={columns} dataSource={orders} rowKey={r => r._id || r.orderNumber || Math.random()} pagination={{ pageSize: 15, showTotal: t => `${t} website orders` }} locale={{ emptyText: '📭 No website orders yet. Connect WooCommerce to start syncing.' }} scroll={{ x: 700 }} />
+              : <Table columns={columns} dataSource={orders} rowKey={r => r._id || r.orderNumber || Math.random()} pagination={{ pageSize: 15, showTotal: t => `${t} website orders` }} locale={{ emptyText: '📭 No website orders yet. Connect Fifozone OMS to start syncing.' }} scroll={{ x: 700 }} />
             }
           </TabPane>
 
           <TabPane tab="🔑 API Settings" key="api">
             <div className="max-w-xl py-4">
               <Alert
-                message="WooCommerce REST API Credentials"
-                description={<>Go to <b>WooCommerce → Settings → Advanced → REST API</b> → Add Key (Read/Write permissions) to generate Consumer Key and Secret.</>}
+                message="Fifozone Universal OMS API Endpoints"
+                description={<>All website operations connect to <b>Fifozone OMS API</b> with header authentication <code>X-OMS-Key</code>. Zero dependency on legacy WooCommerce REST keys.</>}
                 type="info" showIcon className="mb-5"
               />
               {testResult && <Alert type={testResult.ok ? 'success' : 'error'} message={testResult.msg} showIcon className="mb-5" />}
               <Form form={form} layout="vertical" requiredMark={false}>
-                <Form.Item label={<span className="font-semibold text-slate-700">Store URL</span>} name="storeUrl" rules={[{ required: true, message: 'Required' }]}>
-                  <Input prefix={<Globe size={13} className="text-slate-400" />} placeholder="https://fifozone.in" />
+                <Form.Item label={<span className="font-semibold text-slate-700">OMS API Base URL</span>} name="storeUrl" rules={[{ required: true, message: 'Required' }]}>
+                  <Input prefix={<Globe size={13} className="text-slate-400" />} placeholder="https://fifozone.com/wp-json/oms/v1" />
                 </Form.Item>
-                <Form.Item label={<span className="font-semibold text-slate-700">Consumer Key</span>} name="consumerKey" rules={[{ required: true, message: 'Required' }]}>
-                  <Input prefix={<Key size={13} className="text-slate-400" />} placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
-                </Form.Item>
-                <Form.Item label={<span className="font-semibold text-slate-700">Consumer Secret</span>} name="consumerSecret" rules={[{ required: true, message: 'Required' }]}>
-                  <Input.Password placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+                <Form.Item label={<span className="font-semibold text-slate-700">OMS Secret Key (X-OMS-Key)</span>} name="apiKey" rules={[{ required: true, message: 'Required' }]}>
+                  <Input.Password prefix={<Key size={13} className="text-slate-400" />} placeholder="oms_live_9f8d2b7e61a4c035824e87901bcdf562" />
                 </Form.Item>
                 <Divider />
                 <div className="flex flex-wrap items-center gap-3">

@@ -5,7 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const XLSX = require('xlsx');
 const SyncService = require('../services/sync.service');
-const WooCommerceService = require('../services/woocommerce.service');
+const FifozoneOmsService = require('../services/fifozoneOms.service');
 
 // ─── Helper: parse numbers safely ─────────────────────────────────────────────
 const parseNumber = (val, fallback = 0) => {
@@ -227,19 +227,18 @@ const uploadImport = asyncHandler(async (req, res) => {
         const subCatName = rawProduct.subCategory ? String(rawProduct.subCategory).trim() : null;
 
         try {
-          const client = await WooCommerceService.getClient();
           for (const catName of catNames) {
             if (catName.includes('|')) {
               // Already in id|name format
               categoryData.push(catName);
             } else if (subCatName) {
               // Has subcategory — resolve parent + child linked together
-              const { categoryId, subCategoryId } = await WooCommerceService.resolveSubCategoryId(client, catName, subCatName);
+              const { categoryId, subCategoryId } = await FifozoneOmsService.resolveSubCategoryId(catName, subCatName);
               if (categoryId) categoryData.push(`${categoryId}|${catName}`);
               if (subCategoryId) categoryData.push(`${subCategoryId}|${subCatName}`);
             } else {
               // Just a category, no subcategory
-              const id = await WooCommerceService.resolveCategoryId(client, catName);
+              const id = await FifozoneOmsService.resolveCategoryId(catName);
               if (id) {
                 categoryData.push(`${id}|${catName}`);
               } else {
@@ -250,7 +249,7 @@ const uploadImport = asyncHandler(async (req, res) => {
 
           // If subcategory was specified but no parent category, still resolve it as top-level
           if (subCatName && catNames.length === 0) {
-            const id = await WooCommerceService.resolveCategoryId(client, subCatName);
+            const id = await FifozoneOmsService.resolveCategoryId(subCatName);
             if (id) categoryData.push(`${id}|${subCatName}`);
           }
         } catch (err) {
@@ -260,9 +259,8 @@ const uploadImport = asyncHandler(async (req, res) => {
       } else if (rawProduct.subCategory) {
         // No category but has subcategory — resolve it as top-level
         try {
-          const client = await WooCommerceService.getClient();
           const subCatName = String(rawProduct.subCategory).trim();
-          const id = await WooCommerceService.resolveCategoryId(client, subCatName);
+          const id = await FifozoneOmsService.resolveCategoryId(subCatName);
           if (id) {
             categoryData.push(`${id}|${subCatName}`);
           } else {
@@ -390,9 +388,9 @@ const uploadImport = asyncHandler(async (req, res) => {
 
       if (!product) throw dbError;
 
-      // Push to WooCommerce asynchronously (don't await — keep import fast)
+      // Push to Fifozone OMS asynchronously (don't await — keep import fast)
       SyncService.pushProductCreate(product).catch(e =>
-        logger.error(`[Import] WooCommerce push failed for "${productName}": ${e.message}`)
+        logger.error(`[Import] Fifozone OMS push failed for "${productName}": ${e.message}`)
       );
 
       // ── Create initial inventory log ──

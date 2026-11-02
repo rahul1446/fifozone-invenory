@@ -42,7 +42,12 @@ const PlatformSettingsPage = () => {
         shiprocket: settingsData?.shiprocket?.isConfigured || false,
       });
 
-      if (rawData?.fifozone)  wooForm.setFieldsValue(rawData.fifozone);
+      if (rawData?.fifozone) {
+        wooForm.setFieldsValue({
+          storeUrl: rawData.fifozone.storeUrl || 'https://fifozone.com/wp-json/oms/v1',
+          apiKey: rawData.fifozone.apiKey || rawData.fifozone.consumerKey || ''
+        });
+      }
       if (rawData?.amazon)    amazonForm.setFieldsValue(rawData.amazon);
       if (rawData?.flipkart)  flipkartForm.setFieldsValue(rawData.flipkart);
       if (rawData?.meesho)    meeshoForm.setFieldsValue(rawData.meesho);
@@ -310,11 +315,11 @@ const PlatformSettingsPage = () => {
         </div>
       </div>
 
-      {/* ─── Fifozone / WooCommerce ─── */}
+      {/* ─── Fifozone Universal OMS API ─── */}
       <PlatformCard
         icon={<Globe size={20} className="text-purple-600" />}
-        title="Fifozone Website (WooCommerce)"
-        subtitle="Your main website — fifozone.com"
+        title="Fifozone Website (Universal OMS API)"
+        subtitle="High-speed custom endpoints — fifozone.com/wp-json/oms/v1"
         color="purple"
         iconBg="bg-purple-100"
         platformKey="fifozone"
@@ -322,33 +327,22 @@ const PlatformSettingsPage = () => {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Form.Item
-            label="Store URL"
+            label="OMS Base URL"
             name="storeUrl"
             className="md:col-span-2"
-            rules={[{ required: true, message: 'Store URL is required' }]}
-            extra="e.g. https://fifozone.com"
+            rules={[{ required: true, message: 'Base URL is required' }]}
+            extra="e.g. https://fifozone.com/wp-json/oms/v1"
           >
-            <Input placeholder="https://fifozone.com" autoComplete="off" size="large" />
+            <Input placeholder="https://fifozone.com/wp-json/oms/v1" autoComplete="off" size="large" />
           </Form.Item>
           <Form.Item
-            label="Consumer Key"
-            name="consumerKey"
-            rules={[{ required: true, message: 'Consumer Key is required' }]}
+            label="OMS Secret Key (X-OMS-Key)"
+            name="apiKey"
+            className="md:col-span-2"
+            rules={[{ required: true, message: 'OMS Key is required' }]}
           >
             <Input.Password
-              placeholder="ck_..."
-              autoComplete="new-password"
-              size="large"
-              visibilityToggle
-            />
-          </Form.Item>
-          <Form.Item
-            label="Consumer Secret"
-            name="consumerSecret"
-            rules={[{ required: true, message: 'Consumer Secret is required' }]}
-          >
-            <Input.Password
-              placeholder="cs_..."
+              placeholder="oms_live_9f8d2b7e61a4c035824e87901bcdf562"
               autoComplete="new-password"
               size="large"
               visibilityToggle
