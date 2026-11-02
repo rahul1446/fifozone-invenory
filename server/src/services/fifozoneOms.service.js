@@ -396,6 +396,61 @@ class FifozoneOmsService {
             ? prod.stock_quantity
             : (stockStatus === 'instock' ? 50 : 0);
 
+          // Normalize variants from OMS variations array
+          const rawVariations = Array.isArray(prod.variations) ? prod.variations : [];
+          const variants = rawVariations.map((v, vIdx) => {
+            let attrName = 'Option';
+            let attrValue = v.title || `Variant ${vIdx + 1}`;
+            if (v.attributes && typeof v.attributes === 'object') {
+              const entries = Object.entries(v.attributes);
+              if (entries.length > 0) {
+                attrName = entries[0][0].charAt(0).toUpperCase() + entries[0][0].slice(1);
+                attrValue = entries[0][1];
+              }
+            } else if (Array.isArray(prod.attributes) && prod.attributes.length > 0) {
+              const mainAttr = prod.attributes[0];
+              attrName = mainAttr.name || 'Option';
+            }
+
+            const varPrice = parseFloat(v.price || v.regular_price || prod.price || 0);
+            const varStock = (v.stock_quantity !== null && v.stock_quantity !== undefined && v.stock_quantity > 0)
+              ? v.stock_quantity
+              : (v.stock_status === 'instock' ? (stockQty || 50) : 0);
+
+            return {
+              name: attrName,
+              value: String(attrValue || '').trim(),
+              sku: v.sku || `${prod.sku || `WC-${prod.id}`}-V${vIdx + 1}`,
+              price: {
+                fifozone: varPrice,
+                amazon: varPrice,
+                flipkart: varPrice,
+                meesho: varPrice
+              },
+              stock: varStock,
+              isActive: v.stock_status !== 'outofstock',
+              platformVariationId: String(v.id || '')
+            };
+          });
+
+          // Infer animalType
+          const textToScan = `${prod.name || ''} ${category || ''} ${brand || ''}`.toLowerCase();
+          const animalType = [];
+          if (textToScan.includes('cat') || textToScan.includes('kitten')) animalType.push('cat');
+          if (textToScan.includes('dog') || textToScan.includes('puppy')) animalType.push('dog');
+          if (textToScan.includes('bird')) animalType.push('bird');
+          if (textToScan.includes('fish') || textToScan.includes('aquarium')) animalType.push('fish');
+          if (textToScan.includes('rabbit')) animalType.push('rabbit');
+          if (animalType.length === 0) animalType.push('other');
+
+          // Fallback short description if blank
+          let shortDesc = decodeHtml(prod.short_description || '');
+          const fullDesc = decodeHtml(prod.description || '');
+          if (!shortDesc && fullDesc) {
+            const firstPara = fullDesc.split('\n')[0].trim();
+            shortDesc = firstPara.length > 200 ? firstPara.slice(0, 197) + '...' : firstPara;
+          }
+
           return {
             platformProductId: String(prod.id),
             masterName: decodeHtml(prod.name),
@@ -403,6 +458,7 @@ class FifozoneOmsService {
             barcode: prod.meta_data?.barcode_ean || '',
             brand: brand || 'Generic',
             category: category || 'Uncategorized',
+            animalType,
             price: parseFloat(prod.price || prod.regular_price || 0),
             mrp: parseFloat(prod.regular_price || prod.price || 0),
             stock: stockQty,
@@ -411,8 +467,12 @@ class FifozoneOmsService {
             slug: prod.slug || '',
             url: prod.url || '',
             images: imageList,
-            shortDescription: decodeHtml(prod.short_description || ''),
-            description: decodeHtml(prod.description || ''),
+            shortDescription: shortDesc,
+            description: fullDesc,
+            variants,
+            hasVariants: variants.length > 0,
+            type: prod.type || (variants.length > 0 ? 'variable' : 'simple'),
+            attributes: Array.isArray(prod.attributes) ? prod.attributes : [],
             weight: prod.weight ? parseFloat(prod.weight) : undefined,
             hsn_code: prod.hsn_code || '',
             gst_rate: prod.gst_rate || ''

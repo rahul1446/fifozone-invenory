@@ -42,8 +42,8 @@ External communication with Fifozone store is being completely transitioned from
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Core Fifozone OMS Service Expansion | Implement missing order, category, and taxonomy methods in `server/src/services/fifozoneOms.service.js` | none | DONE |
-| M2 | Service & Controller Consumer Migration | Migrate `sync.service.js`, `platform.controller.js`, `product.controller.js`, `import.controller.js`, `settings.controller.js`, `Settings.model.js` to `FifozoneOmsService` | M1 | IN_PROGRESS |
-| M3 | Elimination of Legacy Package & Scripts | Refactor `woocommerce.service.js`, migrate test scripts, uninstall `@woocommerce/woocommerce-rest-api`, clean `server/.env` | M2 | PLANNED |
+| M2 | Service & Controller Consumer Migration | Migrate `sync.service.js`, `platform.controller.js`, `product.controller.js`, `import.controller.js`, `settings.controller.js`, `Settings.model.js` to `FifozoneOmsService` | M1 | DONE |
+| M3 | Elimination of Legacy Package & Scripts | Refactor `woocommerce.service.js`, migrate test scripts, uninstall `@woocommerce/woocommerce-rest-api`, clean `server/.env` | M2 | IN_PROGRESS |
 | M4 | Final Milestone: E2E Verification & Hardening | Run automated scanner script and Jest test suite (mocking writes, read-only live checks) achieving 100% pass | M3 | PLANNED |
 
 ---

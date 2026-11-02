@@ -86,16 +86,16 @@ const EditProductPage = () => {
         flipkartFsin: data.platformIds?.flipkart?.fsin,
         meeshoId:     data.platformIds?.meesho?.productId,
         meeshoSku:    data.platformIds?.meesho?.sku,
-        variants: data.variants ? data.variants.map(v => ({
+        variants: (data.variants && data.variants.length > 0) ? data.variants.map(v => ({
           name: v.name,
           value: v.value,
           sku: v.sku,
-          stock: v.stock,
-          price: v.price?.fifozone, 
-          fifozonePrice: v.price?.fifozone,
-          amazonPrice: v.price?.amazon,
-          flipkartPrice: v.price?.flipkart,
-          meeshoPrice: v.price?.meesho
+          stock: v.stock || 0,
+          price: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0), 
+          fifozonePrice: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0),
+          amazonPrice: typeof v.price === 'object' ? (v.price?.amazon || 0) : 0,
+          flipkartPrice: typeof v.price === 'object' ? (v.price?.flipkart || 0) : 0,
+          meeshoPrice: typeof v.price === 'object' ? (v.price?.meesho || 0) : 0
         })) : [],
       });
       // Pre-load existing images
@@ -360,7 +360,20 @@ const EditProductPage = () => {
           </Card>
 
           {/* ── Variants ── */}
-          <Card title="Variants (Optional)" className="shadow-sm rounded-xl" bordered={false}>
+          <Card
+            title={
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800">Variants</span>
+                {product?.variants?.length > 0 && (
+                  <span className="text-xs bg-purple-100 text-purple-700 font-semibold px-2.5 py-0.5 rounded-full">
+                    {product.variants.length} Variants
+                  </span>
+                )}
+              </div>
+            }
+            className="shadow-sm rounded-xl"
+            bordered={false}
+          >
             <p className="text-xs text-slate-400 mb-4">Add variants if this product comes in different sizes, colors, or flavors.</p>
             <Form.List name="variants">
               {(fields, { add, remove }) => (

@@ -147,7 +147,8 @@ describe('Milestone 2 Empirical Adversarial Challenge Suite', () => {
       await SyncService.syncOrders();
 
       const productSaveCalls = mockProduct.save.mock.calls.length;
-      expect(productSaveCalls).toBe(1);
+      expect(productSaveCalls).toBe(0);
+      expect(mockProduct.save).not.toHaveBeenCalled();
     });
 
     test('1.4 Probes duplicate platformOrderIds within the same batch', async () => {
@@ -394,6 +395,45 @@ describe('Milestone 2 Empirical Adversarial Challenge Suite', () => {
 
       expect(result.statusCode).toBe(200);
       expect(result.data.data.uploaded).toBe(1);
+    });
+
+    test('2.5 import.controller.uploadImport: Deduplicates categories and subcategories when multiple categories share a subcategory', async () => {
+      let createdProductData = null;
+      jest.spyOn(FifozoneOmsService, 'resolveSubCategoryId').mockImplementation(async (cat, sub) => {
+        if (cat === 'Dogs') return { categoryId: 10, subCategoryId: 55 };
+        if (cat === 'Food') return { categoryId: 12, subCategoryId: 55 };
+        return { categoryId: 99, subCategoryId: 55 };
+      });
+      jest.spyOn(Product, 'findOne').mockResolvedValue(null);
+      jest.spyOn(Product, 'create').mockImplementation(data => {
+        createdProductData = data;
+        return Promise.resolve({ ...data, _id: 'created_dedup_id' });
+      });
+      jest.spyOn(SyncService, 'pushProductCreate').mockResolvedValue({});
+
+      const req = {
+        body: {
+          products: [
+            {
+              masterName: 'Multi Category Product',
+              category: 'Dogs, Food',
+              subCategory: 'Dry Food',
+              mrp: 500,
+              totalStock: 10
+            }
+          ]
+        },
+        user: { _id: 'user_admin_1' }
+      };
+
+      const result = await executeHandler(importController.uploadImport, req);
+
+      expect(result.statusCode).toBe(200);
+      expect(result.data.data.uploaded).toBe(1);
+      expect(createdProductData).toBeDefined();
+      expect(createdProductData.category).toEqual(['10|Dogs', '55|Dry Food', '12|Food']);
+      const occurrences = createdProductData.category.filter(c => c.includes('55|Dry Food')).length;
+      expect(occurrences).toBe(1);
     });
   });
 

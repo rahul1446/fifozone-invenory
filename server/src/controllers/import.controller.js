@@ -217,8 +217,32 @@ const uploadImport = asyncHandler(async (req, res) => {
         totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
       }
 
-      // ── Resolve Categories & Subcategories ──
+      // ── Resolve Categories & Subcategories with Deduplication ──
       let categoryData = [];
+      const seenCatIds = new Set();
+      const seenCatNames = new Set();
+
+      const addCategoryEntry = (entry) => {
+        if (!entry) return;
+        const str = String(entry).trim();
+        if (!str) return;
+        if (str.includes('|')) {
+          const parts = str.split('|').map(s => s.trim());
+          const id = parts[0];
+          const name = parts[1] || '';
+          if (id && seenCatIds.has(id)) return;
+          if (name && seenCatNames.has(name.toLowerCase())) return;
+          if (id) seenCatIds.add(id);
+          if (name) seenCatNames.add(name.toLowerCase());
+          categoryData.push(str);
+        } else {
+          const nameLower = str.toLowerCase();
+          if (seenCatNames.has(nameLower)) return;
+          seenCatNames.add(nameLower);
+          categoryData.push(str);
+        }
+      };
+
       if (rawProduct.category) {
         const catNames = typeof rawProduct.category === 'string' 
           ? rawProduct.category.split(',').map(c => c.trim()).filter(Boolean) 
@@ -230,19 +254,19 @@ const uploadImport = asyncHandler(async (req, res) => {
           for (const catName of catNames) {
             if (catName.includes('|')) {
               // Already in id|name format
-              categoryData.push(catName);
+              addCategoryEntry(catName);
             } else if (subCatName) {
               // Has subcategory — resolve parent + child linked together
               const { categoryId, subCategoryId } = await FifozoneOmsService.resolveSubCategoryId(catName, subCatName);
-              if (categoryId) categoryData.push(`${categoryId}|${catName}`);
-              if (subCategoryId) categoryData.push(`${subCategoryId}|${subCatName}`);
+              if (categoryId) addCategoryEntry(`${categoryId}|${catName}`);
+              if (subCategoryId) addCategoryEntry(`${subCategoryId}|${subCatName}`);
             } else {
               // Just a category, no subcategory
               const id = await FifozoneOmsService.resolveCategoryId(catName);
               if (id) {
-                categoryData.push(`${id}|${catName}`);
+                addCategoryEntry(`${id}|${catName}`);
               } else {
-                categoryData.push(catName);
+                addCategoryEntry(catName);
               }
             }
           }
@@ -250,11 +274,16 @@ const uploadImport = asyncHandler(async (req, res) => {
           // If subcategory was specified but no parent category, still resolve it as top-level
           if (subCatName && catNames.length === 0) {
             const id = await FifozoneOmsService.resolveCategoryId(subCatName);
-            if (id) categoryData.push(`${id}|${subCatName}`);
+            if (id) addCategoryEntry(`${id}|${subCatName}`);
           }
         } catch (err) {
           logger.warn(`[Import] Failed to resolve categories: ${err.message}`);
-          categoryData = catNames;
+          categoryData = [];
+          seenCatIds.clear();
+          seenCatNames.clear();
+          for (const c of catNames) {
+            addCategoryEntry(c);
+          }
         }
       } else if (rawProduct.subCategory) {
         // No category but has subcategory — resolve it as top-level
@@ -262,13 +291,13 @@ const uploadImport = asyncHandler(async (req, res) => {
           const subCatName = String(rawProduct.subCategory).trim();
           const id = await FifozoneOmsService.resolveCategoryId(subCatName);
           if (id) {
-            categoryData.push(`${id}|${subCatName}`);
+            addCategoryEntry(`${id}|${subCatName}`);
           } else {
-            categoryData.push(subCatName);
+            addCategoryEntry(subCatName);
           }
         } catch (err) {
           logger.warn(`[Import] Failed to resolve subcategory: ${err.message}`);
-          categoryData.push(String(rawProduct.subCategory).trim());
+          addCategoryEntry(String(rawProduct.subCategory).trim());
         }
       }
 

@@ -1,10 +1,10 @@
-# Soft Handoff: Orchestrator Generation 1 -> Generation 2
+# Handoff Report: Project Orchestrator (Milestone 2 Signed Off)
 
-**Predecessor**: `teamwork_orchestrator` (Gen 1)  
+**Role**: `teamwork_orchestrator` (Project Orchestrator)  
 **Parent Conversation ID**: `5e3dd039-41ce-44d8-a852-54902dfd5fcd`  
 **Working Directory**: `c:\Users\uttim\Downloads\fi\.agents\teamwork\orchestrator\`  
 **Date**: 2026-11-02  
-**Handoff Type**: Soft (Succession threshold 16/16 reached; all 16 subagents completed)
+**Handoff Type**: Hard Handoff (Milestone 2 Signed Off, Ready for Milestone 3)  
 
 ---
 
@@ -14,46 +14,31 @@
 |---|-----------|-------|--------|-------|
 | - | Survey Phase | Codebase audit & OMS specification mining | **DONE** | 3 explorers completed; Feature Inventory documented in `PROJECT.md`. |
 | - | E2E Testing Track | Scanner script & Jest test suite | **DONE** | `test_writer_1` published `TEST_READY.md`. Test harness operational. |
-| M1 | Core Fifozone OMS Service Expansion | `server/src/services/fifozoneOms.service.js` | **IN-PROGRESS (Iteration 2)** | Iteration 1 implemented by `m1_worker_1`. Gate 1 evaluated: Auditor CLEAN, Reviewers REQUEST_CHANGES, Challengers REJECT (due to 2 test failures in `fifozoneOms.test.js` and boundary defects). Iteration 2 Explorers 1–3 have delivered complete drop-in fixes. Ready for `m1_worker_2`! |
-| M2 | Service & Controller Consumer Migration | `sync.service.js`, `platform.controller.js`, `product.controller.js`, `import.controller.js`, `settings.controller.js`, `Settings.model.js` | **PLANNED** | Awaits M1 Gate PASS. |
-| M3 | Elimination of Legacy Package & Scripts | `woocommerce.service.js`, `test_wc_*.js`, uninstall `@woocommerce/woocommerce-rest-api`, clean `server/.env` | **PLANNED** | Awaits M2. |
+| M1 | Core Fifozone OMS Service Expansion | `server/src/services/fifozoneOms.service.js` | **DONE** | Gate 2 evaluated: Auditor CLEAN, Reviewers APPROVE, Challengers APPROVE. Signed off. |
+| M2 | Service & Controller Consumer Migration | `sync.service.js`, `platform.controller.js`, `product.controller.js`, `import.controller.js`, `settings.controller.js`, `Settings.model.js` | **DONE** | Gate 2 evaluated: Auditor CLEAN, Reviewers 1 & 2 APPROVE, Challengers 1 & 2 APPROVE. All 4 challenger findings resolved. Signed off. |
+| M3 | Elimination of Legacy Package & Scripts | `woocommerce.service.js`, `test_wc_*.js`, uninstall `@woocommerce/woocommerce-rest-api`, clean `server/.env` | **READY** | Ready for dispatch. |
 | M4 | Final Milestone: E2E Verification & Hardening | Zero-wc scanner exit 0, full test suite passes 100% | **PLANNED** | Acceptance sign-off. |
 
 ---
 
 ## 2. Active Subagents
-- **None**. All 16 subagents spawned in Generation 1 have fully completed and delivered their handoffs.
+- **None**. All 9 subagents spawned in this iteration have delivered their completion reports.
 
 ---
 
-## 3. Pending Decisions & Immediate Next Steps for Successor
+## 3. Pending Decisions & Immediate Next Steps
 
-### Immediate Next Step: Dispatch `m1_worker_2`
-Spawn a worker (`teamwork_worker`) to apply the drop-in code remediations formulated by Iteration 2 Explorers to `server/src/services/fifozoneOms.service.js`:
-
-1. **Test Alignment & Error Extraction** (from `m1_iter2_explorer_1/analysis.md`):
-   - Add `_extractErrorMessage(error)` helper to `FifozoneOmsService`.
-   - Update `testConnection()` to probe `GET /products?limit=1` and return `{ success: true, productCount: total }` by default (with optional `options?.includeStats`).
-   - Replace `const errMsg = error.message;` with `const errMsg = this._extractErrorMessage(error);` across all catch blocks.
-   - Decouple `getHubStats()` to use `getHubData({ include: 'stats' })`.
-
-2. **Write Error Envelopes & Single Prefix** (from `m1_iter2_explorer_2/analysis.md`):
-   - In `updateProduct` and `deleteProduct`, check `if (!data || data.status === 'error' || data.total_failed > 0 || firstResult?.status === 'error')` and throw an error instead of falsely returning `{ success: true }`.
-   - In `updateOrder`, throw `new Error(errMsg)` inside the try block and format with a single prefix in the catch block (`rawMsg.startsWith(prefix) ? rawMsg.slice(prefix.length) : rawMsg`).
-
-3. **Boundary Safety & Normalization** (from `m1_iter2_explorer_3/analysis.md`):
-   - In `pullProducts` and `pullOrders`, normalize options: `const opts = options || {};`.
-   - In `normalizeOmsOrder`, filter `rawItems.filter(item => item && typeof item === 'object')`, preserve `quantity: 0`, and wrap `customerName` in `decodeHtml()`.
-   - In `decodeHtml`, strip HTML tags *first* (`replace(/<[^>]*>?/gm, '')`), and *then* decode HTML entities (`&lt;`, `&gt;`, `&amp;`), preventing destruction of `<Special Edition>` or `<10kg>`.
-   - In `createClientInstance`, add runtime test guard blocking non-GET requests in `NODE_ENV === 'test'` when unmocked.
-
-4. **Update Adversarial Test Assertions**:
-   - In `server/tests/adversarial_stress.test.js` and `server/tests/challenge_m1_normalization_cache.test.js`, update the tests that asserted the bugs so they assert the fixed behavior (documented in `m1_iter2_explorer_3/analysis.md § 6`).
-   - Verify `cd server && npm test` passes 100% (all test suites, 0 failures).
-
-5. **Re-evaluate Milestone 1 Gate**:
-   - Dispatch 2 Reviewers, 2 Challengers, and 1 Forensic Auditor (`teamwork_auditor`).
-   - When all vote APPROVE / CLEAN, mark Milestone 1 **DONE** in `PROJECT.md` and proceed to Milestone 2!
+### Next Milestone: Milestone 3 (Elimination of Legacy Package & Scripts)
+Milestone 3 eliminates remaining references to the legacy WooCommerce package and test scripts:
+1. **Refactor / Eliminate `server/src/services/woocommerce.service.js`**:
+   - Redirect any legacy calls or export a lightweight compatibility shim delegating to `FifozoneOmsService` without importing `@woocommerce/woocommerce-rest-api`.
+2. **Migrate Standalone Root Test Scripts**:
+   - `test_wc_api.js`, `test_wc_farmina.js`, `test_wc_hypo.js`, `test_woo_connection.js` in project root.
+3. **Uninstall Package Dependency & Clean Env**:
+   - Remove `@woocommerce/woocommerce-rest-api` from `server/package.json`.
+   - Remove legacy WooCommerce keys (`WOOCOMMERCE_URL`, `WOOCOMMERCE_CONSUMER_KEY`, `WOOCOMMERCE_CONSUMER_SECRET`) from `server/.env` and `server/.env.example`.
+4. **Dispatch Pattern for M3**:
+   - Spawn Explorers -> Worker -> Reviewers -> Challengers -> Auditor -> Gate.
 
 ---
 
@@ -63,7 +48,9 @@ Spawn a worker (`teamwork_worker`) to apply the drop-in code remediations formul
 - Test Infrastructure: `c:\Users\uttim\Downloads\fi\TEST_INFRA.md`
 - Test Ready Signal: `c:\Users\uttim\Downloads\fi\TEST_READY.md`
 - Gate Status: `c:\Users\uttim\Downloads\fi\.agents\teamwork\orchestrator\GATE_STATUS.md`
-- M1 Iteration 2 Explorer Reports:
-  - `c:\Users\uttim\Downloads\fi\.agents\teamwork\m1_iter2_explorer_1\analysis.md` & `handoff.md`
-  - `c:\Users\uttim\Downloads\fi\.agents\teamwork\m1_iter2_explorer_2\analysis.md` & `handoff.md`
-  - `c:\Users\uttim\Downloads\fi\.agents\teamwork\m1_iter2_explorer_3\analysis.md` & `handoff.md`
+- M2 Iteration 2 Worker Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_worker_2\handoff.md`
+- M2 Iteration 2 Reviewer 1 Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_iter2_reviewer_1\handoff.md`
+- M2 Iteration 2 Reviewer 2 Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_iter2_reviewer_2\handoff.md`
+- M2 Iteration 2 Challenger 1 Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_iter2_challenger_1\handoff.md`
+- M2 Iteration 2 Challenger 2 Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_iter2_challenger_2\handoff.md`
+- M2 Iteration 2 Auditor Handoff: `c:\Users\uttim\Downloads\fi\.agents\teamwork\m2_iter2_auditor_1\handoff.md`

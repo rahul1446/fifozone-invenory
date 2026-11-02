@@ -63,10 +63,13 @@ class SyncService {
         const foundProductIds = new Set();
 
         for (const rawProd of items) {
-          // Look up product by SKU or Barcode
+          // Look up product by SKU, Barcode, or platformProductId
           const queryOr = [];
           if (rawProd.sku) queryOr.push({ sku: rawProd.sku });
           if (rawProd.barcode) queryOr.push({ barcode: rawProd.barcode });
+          if (rawProd.platformProductId) {
+            queryOr.push({ 'platformIds.fifozone.productId': String(rawProd.platformProductId) });
+          }
           
           let product = null;
           if (queryOr.length > 0) {
@@ -87,6 +90,7 @@ class SyncService {
               barcode: rawProd.barcode || '',
               brand: rawProd.brand || 'Generic',
               category: rawProd.category || 'Uncategorized',
+              animalType: rawProd.animalType || ['other'],
               mrp: rawProd.mrp || rawProd.price || 0,
               costPrice: Math.round((rawProd.price || 0) * 0.6),
               totalStock: rawProd.stock || 0,
@@ -102,6 +106,7 @@ class SyncService {
               })),
               shortDescription: rawProd.shortDescription || '',
               description: rawProd.description || '',
+              variants: rawProd.variants || [],
               stockStatus: rawProd.stockStatus || 'instock',
               manageStock: rawProd.manageStock !== undefined ? rawProd.manageStock : false,
               isActive: true,
@@ -125,6 +130,12 @@ class SyncService {
               if (rawProd.masterName) product.masterName = rawProd.masterName;
               if (rawProd.description) product.description = rawProd.description;
               if (rawProd.shortDescription) product.shortDescription = rawProd.shortDescription;
+              if (rawProd.animalType?.length > 0 && (!product.animalType || product.animalType.length === 0)) {
+                product.animalType = rawProd.animalType;
+              }
+              if (rawProd.variants?.length > 0) {
+                product.variants = rawProd.variants;
+              }
             } else {
               logger.info(`[Sync] Skipping name/price overwrite for "${product.masterName}" — manualOverride is set`);
             }
@@ -257,146 +268,247 @@ class SyncService {
         if (!cred && !isOmsPlatform) continue;
 
         const rawOrders = await item.service.pullOrders();
+        const ordersList = Array.isArray(rawOrders) ? rawOrders : [];
 
-        for (const rawOrd of rawOrders) {
-          let internalStatus = 'pending';
-          if (item.key === 'fifozone' && rawOrd.platformStatus) {
-             const stat = rawOrd.platformStatus.toLowerCase();
-             if (stat === 'processing') internalStatus = 'processing';
-             else if (stat === 'completed' || stat === 'delivered') internalStatus = 'delivered';
-             else if (stat === 'shipped') internalStatus = 'shipped';
-             else if (stat === 'cancelled') internalStatus = 'cancelled';
-             else if (stat === 'failed') internalStatus = 'failed';
-             else if (stat === 'refunded') internalStatus = 'refunded';
-             else if (stat === 'checkout-draft') internalStatus = 'draft';
-             else if (stat === 'packed') internalStatus = 'packed';
-          } else if (rawOrd.platformStatus) {
-             // Fallback mapping for other platforms if they send platformStatus
-             const stat = rawOrd.platformStatus.toLowerCase();
-             if (['processing', 'unshipped'].includes(stat)) internalStatus = 'processing';
-             else if (['shipped', 'dispatched'].includes(stat)) internalStatus = 'shipped';
-             else if (['delivered', 'completed'].includes(stat)) internalStatus = 'delivered';
-             else if (['cancelled', 'failed', 'canceled'].includes(stat)) internalStatus = 'cancelled';
-          }
+        for (const rawOrd of ordersList) {
+          try {
+            if (!rawOrd || typeof rawOrd !== 'object') {
+              logger.warn(`[Sync] Skipping malformed order in ${item.key}: payload is not an object`);
+              continue;
+            }
 
-          // Check if order already exists in DB
-          let existingOrder = await Order.findOne({ platformOrderId: rawOrd.platformOrderId });
-          let needsSave = false;
+            if (!rawOrd.platformOrderId) {
+              logger.warn(`[Sync] Skipping order in ${item.key}: missing platformOrderId`);
+              continue;
+            }
 
-          if (existingOrder) {
-             if (existingOrder.status !== internalStatus) {
+            let internalStatus = 'pending';
+            if (item.key === 'fifozone' && rawOrd.platformStatus) {
+              const stat = String(rawOrd.platformStatus).toLowerCase();
+              if (stat === 'processing') internalStatus = 'processing';
+              else if (stat === 'completed' || stat === 'delivered') internalStatus = 'delivered';
+              else if (stat === 'shipped') internalStatus = 'shipped';
+              else if (stat === 'cancelled') internalStatus = 'cancelled';
+              else if (stat === 'failed') internalStatus = 'failed';
+              else if (stat === 'refunded') internalStatus = 'refunded';
+              else if (stat === 'checkout-draft') internalStatus = 'draft';
+              else if (stat === 'packed') internalStatus = 'packed';
+            } else if (rawOrd.platformStatus) {
+              // Fallback mapping for other platforms if they send platformStatus
+              const stat = String(rawOrd.platformStatus).toLowerCase();
+              if (['processing', 'unshipped'].includes(stat)) internalStatus = 'processing';
+              else if (['shipped', 'dispatched'].includes(stat)) internalStatus = 'shipped';
+              else if (['delivered', 'completed'].includes(stat)) internalStatus = 'delivered';
+              else if (['cancelled', 'failed', 'canceled'].includes(stat)) internalStatus = 'cancelled';
+            }
+
+            // Extract tracking & shipping details
+            const trackingNum = rawOrd.shippingTracking?.trackingNumber || rawOrd.trackingNumber || '';
+            const courier = rawOrd.shippingTracking?.courierPartner || rawOrd.courierPartner || '';
+            const trackUrl = rawOrd.shippingTracking?.trackingUrl || rawOrd.trackingUrl || '';
+
+            // Check if order already exists in DB
+            let existingOrder = await Order.findOne({ platformOrderId: rawOrd.platformOrderId });
+
+            // ── EXISTING ORDER BRANCH (Never deduct inventory) ───────────────
+            if (existingOrder) {
+              let needsSave = false;
+
+              // 1. Status Update & Audit Trail
+              if (existingOrder.status !== internalStatus) {
+                const prevStatus = existingOrder.status;
                 existingOrder.status = internalStatus;
-                existingOrder.statusHistory.push({ status: internalStatus, note: `Status updated to ${rawOrd.platformStatus} via sync` });
+                if (!Array.isArray(existingOrder.statusHistory)) {
+                  existingOrder.statusHistory = [];
+                }
+                existingOrder.statusHistory.push({
+                  status: internalStatus,
+                  timestamp: new Date(),
+                  note: `Status updated to ${rawOrd.platformStatus || internalStatus} via sync (was: ${prevStatus})`
+                });
+                if (internalStatus === 'delivered' && !existingOrder.deliveredAt) {
+                  existingOrder.deliveredAt = new Date();
+                }
                 needsSave = true;
-             }
-             if (!existingOrder.orderDate && rawOrd.orderDate) {
+              }
+
+              // 2. Order Date Backfill
+              if (!existingOrder.orderDate && rawOrd.orderDate) {
                 existingOrder.orderDate = new Date(rawOrd.orderDate);
                 needsSave = true;
-             }
-          }
-
-          // Resolve products
-          const resolvedItems = [];
-          for (const itemRow of rawOrd.items) {
-            let product = null;
-            if (itemRow.sku) {
-              product = await Product.findOne({ sku: itemRow.sku });
-            }
-
-            resolvedItems.push({
-              product: product ? product._id : undefined,
-              productSnapshot: {
-                masterName: product ? product.masterName : (itemRow.name || 'Unknown Product'),
-                sku: itemRow.sku || '',
-                brand: product ? product.brand : 'Generic',
-                sellingPrice: itemRow.unitPrice,
-                mrp: product ? product.mrp : itemRow.unitPrice,
-                images: product?.images?.length ? product.images.map(img => (typeof img === 'string' ? img : img?.url || '')) : []
-              },
-              platformProductId: itemRow.platformProductId || itemRow.asin || itemRow.listingId || '',
-              quantity: itemRow.quantity,
-              unitPrice: itemRow.unitPrice,
-              totalPrice: itemRow.unitPrice * itemRow.quantity,
-              gstAmount: Math.round(itemRow.unitPrice * itemRow.quantity * 0.18) // standard
-            });
-
-            if (product) {
-              // Process inventory deduction
-              const previousStock = product.totalStock;
-              const deductQty = itemRow.quantity;
-              product.totalStock = Math.max(0, product.totalStock - deductQty);
-
-              if (item.key === 'fifozone') {
-                product.stockByPlatform.fifozone = Math.max(0, product.stockByPlatform.fifozone - deductQty);
-              } else if (item.key === 'amazon') {
-                product.stockByPlatform.amazon = Math.max(0, product.stockByPlatform.amazon - deductQty);
-              } else if (item.key === 'flipkart') {
-                product.stockByPlatform.flipkart = Math.max(0, product.stockByPlatform.flipkart - deductQty);
               }
 
-              product.totalSold += deductQty;
-              product.soldThisMonth += deductQty;
-              product.lastSoldAt = new Date();
+              // 3. Tracking & Carrier Updates from OMS
+              if (trackingNum && existingOrder.trackingNumber !== trackingNum) {
+                existingOrder.trackingNumber = trackingNum;
+                needsSave = true;
+              }
+              if (courier && existingOrder.courierPartner !== courier) {
+                existingOrder.courierPartner = courier;
+                needsSave = true;
+              }
+              if (trackUrl && existingOrder.trackingUrl !== trackUrl) {
+                existingOrder.trackingUrl = trackUrl;
+                needsSave = true;
+              }
 
-              await product.save();
+              // 4. Payment Status Update
+              if (rawOrd.paymentStatus && existingOrder.paymentStatus !== rawOrd.paymentStatus) {
+                existingOrder.paymentStatus = rawOrd.paymentStatus;
+                needsSave = true;
+              }
 
-              // Write Audit Log
-              await InventoryLog.create({
-                product: product._id,
-                productName: product.masterName,
-                sku: product.sku,
-                changeType: 'sale',
-                platform: item.key,
-                previousStock,
-                changeQuantity: -deductQty,
-                newStock: product.totalStock,
-                note: `Order sale deduction for ${rawOrd.platformOrderId}`
+              // 5. Backfill items if previously empty (WITHOUT stock deduction)
+              const rawItems = Array.isArray(rawOrd.items)
+                ? rawOrd.items.filter(itemRow => itemRow && typeof itemRow === 'object')
+                : [];
+              if (Array.isArray(existingOrder.items) && existingOrder.items.length === 0 && rawItems.length > 0) {
+                const backfilledItems = [];
+                for (const itemRow of rawItems) {
+                  let product = null;
+                  if (itemRow.sku) {
+                    product = await Product.findOne({ sku: itemRow.sku });
+                  }
+                  const parsedQty = parseInt(itemRow.quantity, 10);
+                  const qty = isNaN(parsedQty) || parsedQty <= 0 ? 1 : parsedQty;
+                  const unitPrice = parseFloat(itemRow.unitPrice) || 0;
+                  const totalPrice = parseFloat(itemRow.totalPrice) || parseFloat(itemRow.total) || (unitPrice * qty);
+
+                  backfilledItems.push({
+                    product: product ? product._id : undefined,
+                    productSnapshot: {
+                      masterName: product ? product.masterName : (itemRow.name || 'Unknown Product'),
+                      sku: itemRow.sku || '',
+                      brand: product ? product.brand : 'Generic',
+                      sellingPrice: unitPrice,
+                      mrp: product ? product.mrp : unitPrice,
+                      images: product?.images?.length ? product.images.map(img => (typeof img === 'string' ? img : img?.url || '')) : []
+                    },
+                    platformProductId: itemRow.platformProductId || itemRow.asin || itemRow.listingId || '',
+                    quantity: qty,
+                    unitPrice,
+                    totalPrice,
+                    gstAmount: Math.round(unitPrice * qty * 0.18)
+                  });
+                }
+                existingOrder.items = backfilledItems;
+                needsSave = true;
+              }
+
+              if (needsSave && typeof existingOrder.save === 'function') {
+                await existingOrder.save();
+              }
+
+              // Existing order handled safely — skip inventory deduction & creation
+              continue;
+            }
+
+            // ── NEW ORDER BRANCH (Deduct inventory exactly once) ──────────────
+            const rawItems = Array.isArray(rawOrd.items)
+              ? rawOrd.items.filter(itemRow => itemRow && typeof itemRow === 'object')
+              : [];
+
+            const resolvedItems = [];
+            for (const itemRow of rawItems) {
+              let product = null;
+              if (itemRow.sku) {
+                product = await Product.findOne({ sku: itemRow.sku });
+              }
+
+              const parsedQty = parseInt(itemRow.quantity, 10);
+              const quantity = (!isNaN(parsedQty) && parsedQty > 0) ? parsedQty : 0;
+              const unitPrice = parseFloat(itemRow.unitPrice) || 0;
+              const parsedTotal = parseFloat(itemRow.totalPrice);
+              const totalPrice = (!isNaN(parsedTotal) && parsedTotal >= 0) ? parsedTotal : (parseFloat(itemRow.total) || (unitPrice * quantity));
+              const gstAmount = Math.round(unitPrice * quantity * 0.18);
+
+              resolvedItems.push({
+                product: product ? product._id : undefined,
+                productSnapshot: {
+                  masterName: product ? product.masterName : (itemRow.name || 'Unknown Product'),
+                  sku: itemRow.sku || '',
+                  brand: product ? product.brand : 'Generic',
+                  sellingPrice: unitPrice,
+                  mrp: product ? product.mrp : unitPrice,
+                  images: product?.images?.length ? product.images.map(img => (typeof img === 'string' ? img : img?.url || '')) : []
+                },
+                platformProductId: itemRow.platformProductId || itemRow.asin || itemRow.listingId || '',
+                quantity,
+                unitPrice,
+                totalPrice,
+                gstAmount
               });
 
-              // Check Low Stock Thresholds
-              if (product.totalStock <= product.lowStockThreshold) {
-                await notificationService.createNotification({
-                  type: product.totalStock === 0 ? 'out_of_stock' : 'low_stock',
-                  title: product.totalStock === 0 ? 'Product Out of Stock!' : 'Low Stock Alert!',
-                  message: `Product [${product.masterName}] stock level is at ${product.totalStock} units (Threshold: ${product.lowStockThreshold})`,
-                  severity: product.totalStock === 0 ? 'error' : 'warning',
+              if (product && !existingOrder && quantity > 0) {
+                const previousStock = Number(product.totalStock) || 0;
+                const deductQty = quantity;
+                product.totalStock = Math.max(0, previousStock - deductQty);
+
+                if (!product.stockByPlatform) {
+                  product.stockByPlatform = {};
+                }
+                if (item.key === 'fifozone' && typeof product.stockByPlatform.fifozone === 'number') {
+                  product.stockByPlatform.fifozone = Math.max(0, product.stockByPlatform.fifozone - deductQty);
+                } else if (item.key === 'amazon' && typeof product.stockByPlatform.amazon === 'number') {
+                  product.stockByPlatform.amazon = Math.max(0, product.stockByPlatform.amazon - deductQty);
+                } else if (item.key === 'flipkart' && typeof product.stockByPlatform.flipkart === 'number') {
+                  product.stockByPlatform.flipkart = Math.max(0, product.stockByPlatform.flipkart - deductQty);
+                }
+
+                product.totalSold = (Number(product.totalSold) || 0) + deductQty;
+                product.soldThisMonth = (Number(product.soldThisMonth) || 0) + deductQty;
+                product.lastSoldAt = new Date();
+
+                await product.save();
+
+                // Write Audit Log
+                await InventoryLog.create({
                   product: product._id,
-                  platform: 'internal'
+                  productName: product.masterName,
+                  sku: product.sku,
+                  changeType: 'sale',
+                  platform: item.key,
+                  previousStock,
+                  changeQuantity: -deductQty,
+                  newStock: product.totalStock,
+                  note: `Order sale deduction for ${rawOrd.platformOrderId}`
                 });
+
+                // Check Low Stock Thresholds
+                if (typeof product.lowStockThreshold === 'number' && product.totalStock <= product.lowStockThreshold) {
+                  await notificationService.createNotification({
+                    type: product.totalStock === 0 ? 'out_of_stock' : 'low_stock',
+                    title: product.totalStock === 0 ? 'Product Out of Stock!' : 'Low Stock Alert!',
+                    message: `Product [${product.masterName}] stock level is at ${product.totalStock} units (Threshold: ${product.lowStockThreshold})`,
+                    severity: product.totalStock === 0 ? 'error' : 'warning',
+                    product: product._id,
+                    platform: 'internal'
+                  });
+                }
               }
             }
-          }
 
-          if (existingOrder) {
-             if (existingOrder.items.length === 0 && resolvedItems.length > 0) {
-                 existingOrder.items = resolvedItems;
-                 needsSave = true;
-             }
-             if (needsSave) {
-                 await existingOrder.save();
-             }
-             continue;
-          }
-
-          try {
-            // Create the unified Order record
+            // Create unified Order record
             const orderNumber = await this.generateOrderNumber();
             const order = new Order({
               orderNumber,
               platformOrderId: rawOrd.platformOrderId,
               orderDate: rawOrd.orderDate ? new Date(rawOrd.orderDate) : new Date(),
               platform: item.key,
-              customer: rawOrd.customer,
-              shippingAddress: rawOrd.shippingAddress,
+              customer: rawOrd.customer || { name: 'Unknown Customer' },
+              shippingAddress: rawOrd.shippingAddress || { line1: 'N/A', city: 'Unknown', state: 'XX', pincode: '000000', country: 'India' },
               billingAddress: rawOrd.billingAddress || {},
               items: resolvedItems,
-              subtotal: rawOrd.subtotal,
-              shippingCharge: rawOrd.shippingCharge || 0,
-              totalAmount: rawOrd.totalAmount,
-              paymentMethod: rawOrd.paymentMethod,
-              paymentStatus: rawOrd.paymentStatus,
+              subtotal: parseFloat(rawOrd.subtotal) || 0,
+              shippingCharge: parseFloat(rawOrd.shippingCharge) || 0,
+              totalAmount: parseFloat(rawOrd.totalAmount) || 0,
+              paymentMethod: rawOrd.paymentMethod || 'Prepaid',
+              paymentStatus: rawOrd.paymentStatus || 'pending',
               status: internalStatus,
-              statusHistory: [{ status: internalStatus, note: `Order imported via platform sync (${rawOrd.platformStatus || 'pending'})` }],
+              statusHistory: [{ status: internalStatus, timestamp: new Date(), note: `Order imported via platform sync (${rawOrd.platformStatus || 'pending'})` }],
+              trackingNumber: trackingNum,
+              courierPartner: courier,
+              trackingUrl: trackUrl,
               rawPlatformData: rawOrd
             });
 
@@ -406,13 +518,13 @@ class SyncService {
             await notificationService.createNotification({
               type: 'new_order',
               title: `New Order Imported (${item.key.toUpperCase()})`,
-              message: `Order #${order.orderNumber} placed by ${order.customer.name} (Amount: INR ${order.totalAmount})`,
+              message: `Order #${order.orderNumber} placed by ${order.customer?.name || 'Customer'} (Amount: INR ${order.totalAmount})`,
               severity: 'info',
               order: order._id,
               platform: item.key
             });
-          } catch (err) {
-            logger.error(`[Sync] Failed to save order ${rawOrd.platformOrderId}: ${err.message}`);
+          } catch (orderError) {
+            logger.warn(`[Sync] Failed processing order ${rawOrd?.platformOrderId || 'unknown'} for ${item.key}: ${orderError.message}`);
           }
         }
 

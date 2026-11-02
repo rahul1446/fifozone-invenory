@@ -159,12 +159,121 @@ const getProducts = asyncHandler(async (req, res) => {
   );
 });
 
-// Single Product detail
+const decodeHtml = (str) => {
+  if (!str) return '';
+  let clean = String(str).replace(/<\/?(p|div|br|h1|h2|h3|h4|h5|h6|li|ul|ol)[^>]*>/gi, '\n');
+  clean = clean.replace(/<[^>]*>?/gm, '');
+  return clean
+    .replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-')
+    .replace(/&#8212;/g, '--')
+    .replace(/&#8216;/g, "'")
+    .replace(/&#8217;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#8230;/g, '...')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#038;/g, '&')
+    .replace(/&amp;/g, '&')
+    .replace(/\n\s*\n/g, '\n\n').trim();
+};
+
+// Single Product detail with automatic live OMS enrichment for variants & descriptions
 const getProductById = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product) {
     throw new ApiError(404, 'Product not found');
   }
+
+  const fzId = product.platformIds?.fifozone?.productId;
+  const missingVariants = (!product.variants || product.variants.length === 0);
+  const missingDesc = (!product.description || product.description.trim() === '');
+  const missingAnimal = (!product.animalType || product.animalType.length === 0);
+
+  if (fzId && (missingVariants || missingDesc || missingAnimal)) {
+    try {
+      const liveData = await FifozoneOmsService.getProductById(fzId);
+      if (liveData) {
+        let changed = false;
+
+        // 1. Description
+        if (missingDesc && liveData.description) {
+          product.description = decodeHtml(liveData.description);
+          changed = true;
+        }
+
+        // 2. Short Description
+        if ((!product.shortDescription || product.shortDescription.trim() === '') && (liveData.short_description || liveData.description)) {
+          let sDesc = decodeHtml(liveData.short_description || '');
+          if (!sDesc && liveData.description) {
+            const firstPara = decodeHtml(liveData.description).split('\n')[0].trim();
+            sDesc = firstPara.length > 200 ? firstPara.slice(0, 197) + '...' : firstPara;
+          }
+          product.shortDescription = sDesc;
+          changed = true;
+        }
+
+        // 3. Animal Type
+        if (missingAnimal) {
+          const textToScan = `${liveData.name || product.masterName} ${product.category?.join(' ') || ''} ${product.brand || ''}`.toLowerCase();
+          const types = [];
+          if (textToScan.includes('cat') || textToScan.includes('kitten')) types.push('cat');
+          if (textToScan.includes('dog') || textToScan.includes('puppy')) types.push('dog');
+          if (textToScan.includes('bird')) types.push('bird');
+          if (textToScan.includes('fish') || textToScan.includes('aquarium')) types.push('fish');
+          if (textToScan.includes('rabbit')) types.push('rabbit');
+          if (types.length === 0) types.push('other');
+          product.animalType = types;
+          changed = true;
+        }
+
+        // 4. Variants
+        if (missingVariants && Array.isArray(liveData.variations) && liveData.variations.length > 0) {
+          product.variants = liveData.variations.map((v, vIdx) => {
+            let attrName = 'Option';
+            let attrValue = v.title || `Variant ${vIdx + 1}`;
+            if (v.attributes && typeof v.attributes === 'object') {
+              const entries = Object.entries(v.attributes);
+              if (entries.length > 0) {
+                attrName = entries[0][0].charAt(0).toUpperCase() + entries[0][0].slice(1);
+                attrValue = entries[0][1];
+              }
+            } else if (Array.isArray(liveData.attributes) && liveData.attributes.length > 0) {
+              attrName = liveData.attributes[0].name || 'Option';
+            }
+            const varPrice = parseFloat(v.price || v.regular_price || product.mrp || 0);
+            const varStock = (v.stock_quantity !== null && v.stock_quantity !== undefined && v.stock_quantity > 0)
+              ? v.stock_quantity
+              : (v.stock_status === 'instock' ? (product.totalStock || 50) : 0);
+
+            return {
+              name: attrName,
+              value: String(attrValue || '').trim(),
+              sku: v.sku || `${product.sku}-V${vIdx + 1}`,
+              price: {
+                fifozone: varPrice,
+                amazon: varPrice,
+                flipkart: varPrice,
+                meesho: varPrice
+              },
+              stock: varStock,
+              isActive: v.stock_status !== 'outofstock'
+            };
+          });
+          changed = true;
+        }
+
+        if (changed) {
+          await product.save();
+        }
+      }
+    } catch (err) {
+      logger.warn(`[ProductController] Auto-enrichment failed for #${fzId}: ${err.message}`);
+    }
+  }
+
   res.status(200).json(new ApiResponse(200, product, 'Product details retrieved'));
 });
 
