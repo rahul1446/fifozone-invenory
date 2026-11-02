@@ -187,7 +187,7 @@ const getProductById = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Product not found');
   }
 
-  const fzId = product.platformIds?.fifozone?.productId;
+  const fzId = product.platformIds?.fifozone?.productId || (product.sku && product.sku.startsWith('WC-') ? product.sku.replace('WC-', '') : '');
   const missingVariants = (!product.variants || product.variants.length === 0);
   const missingDesc = (!product.description || product.description.trim() === '');
   const missingAnimal = (!product.animalType || product.animalType.length === 0);

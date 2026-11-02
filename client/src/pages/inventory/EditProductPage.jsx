@@ -18,6 +18,7 @@ const EditProductPage = () => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [categoryTree, setCategoryTree] = useState([]);
+  const [product, setProduct] = useState(null);
   const [productName, setProductName] = useState('');
   const [productUrl, setProductUrl] = useState('');
   const [images, setImages] = useState([]); // [{url, isPrimary, filename}]
@@ -26,10 +27,71 @@ const EditProductPage = () => {
   const [inventoryLogs, setInventoryLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  const formatFormData = (data) => {
+    if (!data) return {};
+    return {
+      masterName: data.masterName,
+      sku: data.sku,
+      barcode: data.barcode,
+      brand: data.brand,
+      // Parse the composite "ID|Name" string to provide both label and value to TreeSelect
+      category: data.category ? data.category.map(c => {
+        if (typeof c === 'string' && c.includes('|')) {
+          const [, name] = c.split('|');
+          return { label: name, value: c };
+        }
+        return { label: c, value: c };
+      }) : [],
+      animalType: data.animalType || [],
+      description: data.description || '',
+      shortDescription: data.shortDescription || '',
+      mrp: data.mrp,
+      costPrice: data.costPrice,
+      gstPercent: data.gstPercent,
+      fifozonePrice:   data.sellingPrice?.fifozone,
+      amazonPrice:     data.sellingPrice?.amazon,
+      flipkartPrice:   data.sellingPrice?.flipkart,
+      meeshoPrice:     data.sellingPrice?.meesho,
+      fifozoneStock:   data.stockByPlatform?.fifozone,
+      amazonStock:     data.stockByPlatform?.amazon,
+      flipkartStock:   data.stockByPlatform?.flipkart,
+      meeshoStock:     data.stockByPlatform?.meesho,
+      warehouseStock:  data.stockByPlatform?.warehouse,
+      lowStockThreshold: data.lowStockThreshold,
+      isActive: data.isActive,
+      fifozoneListing: data.platformStatus?.fifozone === 'active',
+      amazonListing:   data.platformStatus?.amazon   === 'active',
+      flipkartListing: data.platformStatus?.flipkart === 'active',
+      meeshoListing:   data.platformStatus?.meesho   === 'active',
+      fifozoneId:   data.platformIds?.fifozone?.productId,
+      amazonAsin:   data.platformIds?.amazon?.asin,
+      flipkartFsin: data.platformIds?.flipkart?.fsin,
+      meeshoId:     data.platformIds?.meesho?.productId,
+      meeshoSku:    data.platformIds?.meesho?.sku,
+      variants: (data.variants && data.variants.length > 0) ? data.variants.map(v => ({
+        name: v.name,
+        value: v.value,
+        sku: v.sku,
+        stock: v.stock || 0,
+        price: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0), 
+        fifozonePrice: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0),
+        amazonPrice: typeof v.price === 'object' ? (v.price?.amazon || 0) : 0,
+        flipkartPrice: typeof v.price === 'object' ? (v.price?.flipkart || 0) : 0,
+        meeshoPrice: typeof v.price === 'object' ? (v.price?.meesho || 0) : 0
+      })) : [],
+    };
+  };
+
   useEffect(() => {
     fetchProduct();
     fetchCategories();
   }, [id]);
+
+  useEffect(() => {
+    if (product) {
+      form.setFieldsValue(formatFormData(product));
+    }
+  }, [product]);
 
   const fetchCategories = async () => {
     try {
@@ -44,60 +106,10 @@ const EditProductPage = () => {
     try {
       const response = await getProductByIdApi(id);
       const data = response.data;
+      setProduct(data);
       setProductName(data.masterName);
       setProductUrl(data.platformIds?.fifozone?.url || '');
-      
-      form.setFieldsValue({
-        masterName: data.masterName,
-        sku: data.sku,
-        barcode: data.barcode,
-        brand: data.brand,
-        // Parse the composite "ID|Name" string to provide both label and value to TreeSelect
-        category: data.category ? data.category.map(c => {
-          if (typeof c === 'string' && c.includes('|')) {
-            const [, name] = c.split('|');
-            return { label: name, value: c };
-          }
-          return { label: c, value: c };
-        }) : [],
-        animalType: data.animalType || [],
-        description: data.description,
-        shortDescription: data.shortDescription,
-        mrp: data.mrp,
-        costPrice: data.costPrice,
-        gstPercent: data.gstPercent,
-        fifozonePrice:   data.sellingPrice?.fifozone,
-        amazonPrice:     data.sellingPrice?.amazon,
-        flipkartPrice:   data.sellingPrice?.flipkart,
-        meeshoPrice:     data.sellingPrice?.meesho,
-        fifozoneStock:   data.stockByPlatform?.fifozone,
-        amazonStock:     data.stockByPlatform?.amazon,
-        flipkartStock:   data.stockByPlatform?.flipkart,
-        meeshoStock:     data.stockByPlatform?.meesho,
-        warehouseStock:  data.stockByPlatform?.warehouse,
-        lowStockThreshold: data.lowStockThreshold,
-        isActive: data.isActive,
-        fifozoneListing: data.platformStatus?.fifozone === 'active',
-        amazonListing:   data.platformStatus?.amazon   === 'active',
-        flipkartListing: data.platformStatus?.flipkart === 'active',
-        meeshoListing:   data.platformStatus?.meesho   === 'active',
-        fifozoneId:   data.platformIds?.fifozone?.productId,
-        amazonAsin:   data.platformIds?.amazon?.asin,
-        flipkartFsin: data.platformIds?.flipkart?.fsin,
-        meeshoId:     data.platformIds?.meesho?.productId,
-        meeshoSku:    data.platformIds?.meesho?.sku,
-        variants: (data.variants && data.variants.length > 0) ? data.variants.map(v => ({
-          name: v.name,
-          value: v.value,
-          sku: v.sku,
-          stock: v.stock || 0,
-          price: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0), 
-          fifozonePrice: typeof v.price === 'object' ? (v.price?.fifozone || 0) : (v.price || 0),
-          amazonPrice: typeof v.price === 'object' ? (v.price?.amazon || 0) : 0,
-          flipkartPrice: typeof v.price === 'object' ? (v.price?.flipkart || 0) : 0,
-          meeshoPrice: typeof v.price === 'object' ? (v.price?.meesho || 0) : 0
-        })) : [],
-      });
+      form.setFieldsValue(formatFormData(data));
       // Pre-load existing images
       if (data.images?.length > 0) {
         setImages(data.images.map(img => ({
@@ -282,7 +294,12 @@ const EditProductPage = () => {
   if (fetching) return <div className="p-8 text-center"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>;
 
   const DetailForm = (
-    <Form form={form} layout="vertical" onFinish={onFinish}>
+    <Form
+      form={form}
+      layout="vertical"
+      onFinish={onFinish}
+      initialValues={product ? formatFormData(product) : undefined}
+    >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (Main Info) */}
         <div className="lg:col-span-2 space-y-6">
@@ -309,11 +326,12 @@ const EditProductPage = () => {
                 />
               </Form.Item>
               <Form.Item label="Animal Type" name="animalType">
-                <Select mode="multiple">
+                <Select mode="multiple" placeholder="Select animal type">
                   <Option value="dog">Dog</Option>
                   <Option value="cat">Cat</Option>
                   <Option value="bird">Bird</Option>
                   <Option value="fish">Fish</Option>
+                  <Option value="rabbit">Rabbit</Option>
                   <Option value="other">Other</Option>
                 </Select>
               </Form.Item>
@@ -364,9 +382,9 @@ const EditProductPage = () => {
             title={
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-800">Variants</span>
-                {product?.variants?.length > 0 && (
+                {((product?.variants && product.variants.length > 0) || (form.getFieldValue('variants') && form.getFieldValue('variants').length > 0)) && (
                   <span className="text-xs bg-purple-100 text-purple-700 font-semibold px-2.5 py-0.5 rounded-full">
-                    {product.variants.length} Variants
+                    {product?.variants?.length || form.getFieldValue('variants')?.length} Variants
                   </span>
                 )}
               </div>

@@ -339,21 +339,22 @@ class FifozoneOmsService {
 
   // ─── 1. LOAD / PULL PRODUCTS (High-speed bulk catalog pull) ─────────────────
   async pullProducts(options = {}) {
-    const opts = options || {};
+    const opts = { ...options };
+    const singlePageMode = opts.page !== undefined;
     logger.info(`[${this.name}] Pulling products from custom high-speed OMS API...`);
     const client = this.getClient();
     const allProducts = [];
-    let page = 1;
+    let currentPage = singlePageMode ? parseInt(opts.page, 10) : 1;
     const limit = opts.limit || 500; // 500 items per batch (high speed, safe payload)
 
     try {
       while (true) {
-        logger.info(`[${this.name}] Fetching OMS products page ${page} (limit=${limit})...`);
+        logger.info(`[${this.name}] Fetching OMS products page ${currentPage} (limit=${limit})...`);
         const params = {
-          page,
-          limit,
           status: 'publish',
-          ...opts
+          ...opts,
+          page: currentPage,
+          limit
         };
 
         const res = await client.get('/products', { params });
@@ -361,7 +362,7 @@ class FifozoneOmsService {
         const batch = resData?.data || [];
 
         if (!batch || batch.length === 0) {
-          logger.info(`[${this.name}] Page ${page} returned 0 products — stopping pagination.`);
+          logger.info(`[${this.name}] Page ${currentPage} returned 0 products — stopping pagination.`);
           break;
         }
 
@@ -480,18 +481,22 @@ class FifozoneOmsService {
         });
 
         allProducts.push(...mapped);
-        logger.info(`[${this.name}] Page ${page}: received ${batch.length} products (total so far: ${allProducts.length}/${resData.total || '?'})`);
+        logger.info(`[${this.name}] Page ${currentPage}: received ${batch.length} products (total so far: ${allProducts.length}/${resData.total || '?'})`);
+
+        if (singlePageMode) {
+          break;
+        }
 
         const totalPages = resData.total_pages ? parseInt(resData.total_pages, 10) : 1;
-        if (opts.maxPages && page >= opts.maxPages) {
+        if (opts.maxPages && currentPage >= opts.maxPages) {
           logger.info(`[${this.name}] Reached maxPages limit (${opts.maxPages}) — stopping.`);
           break;
         }
-        if (page >= totalPages || batch.length < limit) {
+        if (currentPage >= totalPages || batch.length < limit) {
           break;
         }
 
-        page++;
+        currentPage++;
       }
 
       logger.info(`[${this.name}] ✅ Successfully pulled ${allProducts.length} total products via OMS API.`);
