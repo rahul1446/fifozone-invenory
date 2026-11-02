@@ -21,12 +21,15 @@ const generateRefreshToken = (userId) => {
   );
 };
 
-const setCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax', // standard for MERN local cross-origin
-  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
-});
+const setCookieOptions = (req) => {
+  const isHttps = req ? (req.secure || req.headers['x-forwarded-proto'] === 'https') : false;
+  return {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: 'lax', // standard for MERN local cross-origin
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+  };
+};
 
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -60,10 +63,10 @@ const login = asyncHandler(async (req, res) => {
   delete loggedInUser.refreshToken;
 
   // Set httpOnly cookie
-  res.cookie('refreshToken', refreshToken, setCookieOptions());
+  res.cookie('refreshToken', refreshToken, setCookieOptions(req));
 
   res.status(200).json(
-    new ApiResponse(200, { user: loggedInUser, accessToken }, 'Login successful')
+    new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, 'Login successful')
   );
 });
 
@@ -72,9 +75,10 @@ const logout = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, { $set: { refreshToken: null } });
   }
 
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'lax'
   });
 
@@ -82,8 +86,8 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const refresh = asyncHandler(async (req, res) => {
-  // Grab refresh token from cookies or fallback header
-  const refreshToken = req.cookies?.refreshToken || req.headers['x-refresh-token'];
+  // Grab refresh token from cookies, headers, or request body
+  const refreshToken = req.cookies?.refreshToken || req.headers['x-refresh-token'] || req.body?.refreshToken;
 
   if (!refreshToken) {
     throw new ApiError(401, 'Refresh token missing');
@@ -104,10 +108,10 @@ const refresh = asyncHandler(async (req, res) => {
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    res.cookie('refreshToken', newRefreshToken, setCookieOptions());
+    res.cookie('refreshToken', newRefreshToken, setCookieOptions(req));
 
     res.status(200).json(
-      new ApiResponse(200, { accessToken }, 'Access token refreshed successfully')
+      new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, 'Access token refreshed successfully')
     );
   } catch (error) {
     throw new ApiError(401, 'Invalid refresh token credentials');

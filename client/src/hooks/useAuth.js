@@ -1,6 +1,6 @@
 import { store } from '../store';
 import { useSelector, useDispatch } from 'react-redux';
-import { setCredentials, clearCredentials } from '../store/authSlice';
+import { setCredentials, clearCredentials, setLoading } from '../store/authSlice';
 import { loginApi, logoutApi, fetchMeApi } from '../api/authApi';
 import toast from 'react-hot-toast';
 
@@ -11,8 +11,11 @@ export const useAuth = () => {
   const login = async (email, password) => {
     try {
       const response = await loginApi(email, password);
-      const { user: loggedInUser, accessToken: token } = response.data;
-      dispatch(setCredentials({ user: loggedInUser, accessToken: token }));
+      const data = response?.data || response;
+      const loggedInUser = data.user;
+      const token = data.accessToken;
+      const refreshToken = data.refreshToken;
+      dispatch(setCredentials({ user: loggedInUser, accessToken: token, refreshToken }));
       toast.success('Welcome back to Fifozone Dashboard!');
       return { success: true };
     } catch (error) {
@@ -34,22 +37,22 @@ export const useAuth = () => {
   };
 
   const fetchUserProfile = async () => {
-    // Set a safety timeout — if backend doesn't respond in 5s, clear loading
-    const timeout = setTimeout(() => {
-      const state = store.getState().auth;
-      if (state.loading) {
-        store.dispatch(clearCredentials());
-      }
-    }, 5000);
+    const currentToken = store.getState().auth.accessToken || localStorage.getItem('fifozone_access_token');
+    if (!currentToken) {
+      dispatch(clearCredentials());
+      return;
+    }
 
     try {
       const response = await fetchMeApi();
-      clearTimeout(timeout);
-      const currentToken = store.getState().auth.accessToken;
-      dispatch(setCredentials({ user: response.data, accessToken: currentToken }));
+      const userData = response?.data || response;
+      dispatch(setCredentials({ user: userData, accessToken: currentToken }));
     } catch (err) {
-      clearTimeout(timeout);
-      dispatch(clearCredentials());
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        dispatch(clearCredentials());
+      } else {
+        dispatch(setLoading(false));
+      }
     }
   };
 

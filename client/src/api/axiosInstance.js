@@ -4,17 +4,17 @@ import { setCredentials, clearCredentials } from '../store/authSlice';
 
 const axiosInstance = axios.create({
   baseURL: '/api',
-  withCredentials: true, // Crucial for sending httpOnly refresh token cookie
-  timeout: 30000, // 30-second timeout — accommodates slower database wakes
+  withCredentials: true,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Request Interceptor: Attach access token from Redux store memory
+// Request Interceptor: Attach access token from Redux store memory or localStorage
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = store.getState().auth.accessToken;
+    const token = store.getState().auth.accessToken || localStorage.getItem('fifozone_access_token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -41,21 +41,36 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Silently request a rotated access token using the httpOnly cookie
-        const response = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        const { accessToken } = response.data.data;
+        const storedRefreshToken = localStorage.getItem('fifozone_refresh_token');
+        const refreshHeaders = {};
+        if (storedRefreshToken) {
+          refreshHeaders['x-refresh-token'] = storedRefreshToken;
+        }
 
-        // Dispatch updated credentials to Redux
+        const response = await axios.post(
+          '/api/auth/refresh',
+          { refreshToken: storedRefreshToken },
+          {
+            withCredentials: true,
+            headers: refreshHeaders
+          }
+        );
+
+        const resData = response.data?.data || response.data;
+        const accessToken = resData.accessToken;
+        const newRefreshToken = resData.refreshToken;
+
         const currentUser = store.getState().auth.user;
-        store.dispatch(setCredentials({ user: currentUser, accessToken }));
+        store.dispatch(setCredentials({
+          user: currentUser,
+          accessToken,
+          refreshToken: newRefreshToken || storedRefreshToken
+        }));
 
-        // Retry the original failed request with the new authorization header
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        // If refresh fails (e.g., refresh cookie is invalid/expired), log the user out
         store.dispatch(clearCredentials());
-        // Rely on React Router (PrivateRoute) to redirect instead of reloading the page
         return Promise.reject(refreshError);
       }
     }
