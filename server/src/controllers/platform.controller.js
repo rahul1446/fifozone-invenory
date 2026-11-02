@@ -45,6 +45,13 @@ const getCredentialsStatus = asyncHandler(async (req, res) => {
 
   const getForPlatform = (name) => {
     const found = creds.find(c => c.platform === name);
+    if (name === 'fifozone' && !found && (process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey)) {
+      return {
+        connected: true,
+        storeUrl: process.env.FIFOZONE_OMS_BASE_URL || FifozoneOmsService.baseURL,
+        apiKey: process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey
+      };
+    }
     return {
       connected: !!found,
       ...(found?.credentials || {})
