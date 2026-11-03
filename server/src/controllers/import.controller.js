@@ -373,6 +373,7 @@ const uploadImport = asyncHandler(async (req, res) => {
           fifozone: parseNumber(rawProduct.sellingPrice_fifozone, 0),
           amazon: parseNumber(rawProduct.sellingPrice_amazon, 0),
           flipkart: parseNumber(rawProduct.sellingPrice_flipkart, 0),
+          meesho: parseNumber(rawProduct.sellingPrice_meesho, 0),
         },
         totalStock,
         stockByPlatform: {
@@ -394,6 +395,7 @@ const uploadImport = asyncHandler(async (req, res) => {
           fifozone: { productId: rawProduct.platformId_fifozone || '' },
           amazon: { asin: rawProduct.platformId_amazon || '' },
           flipkart: { fsin: rawProduct.platformId_flipkart || '' },
+          meesho: { productId: rawProduct.platformId_meesho || '' },
         },
         isActive: true,
         importBatchId,
@@ -462,10 +464,10 @@ const downloadTemplate = asyncHandler(async (req, res) => {
   const headers = [
     'Product Name', 'SKU', 'Barcode', 'Brand', 'Manufacturer', 'Category',
     'Sub Category', 'Animal Type', 'Weight Value', 'Weight Unit', 'Pack Size',
-    'MRP', 'Cost Price', 'GST%', 'Fifozone Price', 'Amazon Price', 'Flipkart Price',
+    'MRP', 'Cost Price', 'GST%', 'Fifozone Price', 'Amazon Price', 'Flipkart Price', 'Meesho Price',
     'Total Stock', 'Low Stock Threshold', 'Description', 'Short Description',
     'Composition', 'Usage Instructions', 'Tags', 'Features',
-    'Fifozone Product ID', 'Amazon ASIN', 'Flipkart FSIN',
+    'Fifozone Product ID', 'Amazon ASIN', 'Flipkart FSIN', 'Meesho Product ID',
     'Variant 1 Name', 'Variant 1 Value', 'Variant 1 Price', 'Variant 1 Stock',
     'Variant 2 Name', 'Variant 2 Value', 'Variant 2 Price', 'Variant 2 Stock',
     'Variant 3 Name', 'Variant 3 Value', 'Variant 3 Price', 'Variant 3 Stock',

@@ -35,6 +35,7 @@ const PRODUCT_FIELDS = [
   { key: 'sellingPrice_fifozone', label: 'Fifozone Selling Price' },
   { key: 'sellingPrice_amazon', label: 'Amazon Selling Price' },
   { key: 'sellingPrice_flipkart', label: 'Flipkart Selling Price' },
+  { key: 'sellingPrice_meesho', label: 'Meesho Selling Price' },
   { key: 'totalStock', label: 'Total Stock' },
   { key: 'lowStockThreshold', label: 'Low Stock Threshold' },
   { key: 'description', label: 'Description' },
@@ -46,6 +47,7 @@ const PRODUCT_FIELDS = [
   { key: 'platformId_fifozone', label: 'Fifozone Product ID' },
   { key: 'platformId_amazon', label: 'Amazon ASIN' },
   { key: 'platformId_flipkart', label: 'Flipkart FSIN' },
+  { key: 'platformId_meesho', label: 'Meesho Product ID' },
   { key: 'variant_name_1', label: 'Variant 1 Name' },
   { key: 'variant_value_1', label: 'Variant 1 Value' },
   { key: 'variant_price_1', label: 'Variant 1 Price' },
@@ -84,7 +86,7 @@ const AUTO_MAP = {
   'costprice': 'costPrice', 'cost': 'costPrice', 'purchaseprice': 'costPrice',
   'gst': 'gstPercent', 'gstpercent': 'gstPercent', 'taxrate': 'gstPercent',
   'fifozonePrice': 'sellingPrice_fifozone', 'fifozoneprice': 'sellingPrice_fifozone',
-  'amazonprice': 'sellingPrice_amazon', 'flipkartprice': 'sellingPrice_flipkart',
+  'amazonprice': 'sellingPrice_amazon', 'flipkartprice': 'sellingPrice_flipkart', 'meeshoprice': 'sellingPrice_meesho',
   'totalstock': 'totalStock', 'stock': 'totalStock', 'quantity': 'totalStock', 'qty': 'totalStock',
   'lowstockthreshold': 'lowStockThreshold', 'reorderpoint': 'lowStockThreshold',
   'description': 'description', 'fulldescription': 'description',
@@ -96,6 +98,7 @@ const AUTO_MAP = {
   'fifozoneproductid': 'platformId_fifozone', 'woocommerceid': 'platformId_fifozone',
   'amazonautosin': 'platformId_amazon', 'asin': 'platformId_amazon',
   'flipkartfsin': 'platformId_flipkart', 'fsin': 'platformId_flipkart',
+  'meeshoid': 'platformId_meesho', 'meeshoproductid': 'platformId_meesho',
   'imageurl1': 'image_url_1', 'image1': 'image_url_1', 'imageurl': 'image_url_1',
   'imageurl2': 'image_url_2', 'image2': 'image_url_2',
   'imageurl3': 'image_url_3', 'image3': 'image_url_3',
@@ -127,6 +130,7 @@ const PLATFORM_OPTIONS = [
   { key: 'fifozone', label: 'Fifozone', icon: '🛒', color: 'emerald' },
   { key: 'amazon',   label: 'Amazon',   icon: '📦', color: 'orange'  },
   { key: 'flipkart', label: 'Flipkart', icon: '🏪', color: 'blue'    },
+  { key: 'meesho',   label: 'Meesho',   icon: '🛍️', color: 'pink'    },
 ];
 
 // ─── Main ImportWizard Component ─────────────────────────────────────────────────
@@ -142,8 +146,8 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
   const [validating, setValidating] = useState(false);
 
   // ── Platform selection state ──
-  const [selectedPlatforms, setSelectedPlatforms] = useState(['fifozone', 'amazon', 'flipkart']);
-  const allPlatformsSelected = selectedPlatforms.length === 3;
+  const [selectedPlatforms, setSelectedPlatforms] = useState(['fifozone', 'amazon', 'flipkart', 'meesho']);
+  const allPlatformsSelected = selectedPlatforms.length === 4;
 
   // Review flow state
   const [reviewQueue, setReviewQueue] = useState([]);
@@ -169,7 +173,7 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
     setReviewQueue([]); setReviewIndex(0); setReviewDecisions({});
     setEditingProduct(null); setShowEditModal(false);
     setUploading(false); setUploadProgress(0); setUploadResults(null); setUploadLog([]);
-    setSelectedPlatforms(['fifozone', 'amazon', 'flipkart']);
+    setSelectedPlatforms(['fifozone', 'amazon', 'flipkart', 'meesho']);
   };
 
   const handleClose = () => {
@@ -539,7 +543,7 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setSelectedPlatforms(allPlatformsSelected ? [] : ['fifozone', 'amazon', 'flipkart'])}
+                    onClick={() => setSelectedPlatforms(allPlatformsSelected ? [] : ['fifozone', 'amazon', 'flipkart', 'meesho'])}
                     className={`text-xs font-semibold px-3 py-1 rounded-full border transition-all ${
                       allPlatformsSelected ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
                     }`}
@@ -547,14 +551,14 @@ const ImportWizard = ({ open, onClose, onImportComplete }) => {
                     {allPlatformsSelected ? '✓ All Selected' : 'Select All'}
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {PLATFORM_OPTIONS.map(p => {
                     const active = selectedPlatforms.includes(p.key);
                     const borderCls = active
-                      ? p.color === 'emerald' ? 'border-emerald-400 bg-emerald-50' : p.color === 'orange' ? 'border-orange-400 bg-orange-50' : 'border-blue-400 bg-blue-50'
+                      ? p.color === 'emerald' ? 'border-emerald-400 bg-emerald-50' : p.color === 'orange' ? 'border-orange-400 bg-orange-50' : p.color === 'blue' ? 'border-blue-400 bg-blue-50' : 'border-pink-400 bg-pink-50'
                       : 'border-slate-200 bg-white hover:border-slate-300';
                     const textCls = active
-                      ? p.color === 'emerald' ? 'text-emerald-700' : p.color === 'orange' ? 'text-orange-700' : 'text-blue-700'
+                      ? p.color === 'emerald' ? 'text-emerald-700' : p.color === 'orange' ? 'text-orange-700' : p.color === 'blue' ? 'text-blue-700' : 'text-pink-700'
                       : 'text-slate-600';
                     return (
                       <button

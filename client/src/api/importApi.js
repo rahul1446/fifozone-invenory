@@ -11,6 +11,6 @@ export const uploadImportApi = async (products, batchId) => {
 };
 
 export const downloadImportTemplateApi = () => {
-  // Direct link to backend — no auth needed, no proxy issues
-  window.open('http://localhost:5000/api/import/template', '_blank');
+  // Direct link to backend via relative URL so it works on VPS host or any environment
+  window.open('/api/import/template', '_blank');
 };
