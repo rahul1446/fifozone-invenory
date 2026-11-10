@@ -9,8 +9,21 @@ class AmazonService {
   }
 
   // ── Returns a real SP-API client (live mode only) ────────────────────────
-  async getClient() {
-    let creds = await PlatformCredential.findOne({ platform: 'amazon', isActive: true });
+  async getClient(overrideCreds = null) {
+    let creds = overrideCreds;
+    if (!creds || !Object.keys(creds).length) {
+      const mongoose = require('mongoose');
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        try {
+          const dbCreds = await PlatformCredential.findOne({ platform: 'amazon', isActive: true });
+          creds = dbCreds?.credentials || {};
+        } catch (_) {
+          creds = {};
+        }
+      } else {
+        creds = {};
+      }
+    }
 
     let sellerId     = process.env.AMAZON_SELLER_ID;
     let clientId     = process.env.AMAZON_CLIENT_ID;
@@ -20,18 +33,18 @@ class AmazonService {
     let secretAccessKey = process.env.AMAZON_AWS_SECRET_ACCESS_KEY;
     let roleArn      = process.env.AMAZON_ROLE_ARN;
 
-    if (creds?.credentials) {
-      sellerId        = creds.credentials.sellerId     || sellerId;
-      clientId        = creds.credentials.clientId     || clientId;
-      clientSecret    = creds.credentials.clientSecret || clientSecret;
-      refreshToken    = creds.credentials.refreshToken || refreshToken;
-      accessKeyId     = creds.credentials.awsAccessKey || accessKeyId;
-      secretAccessKey = creds.credentials.awsSecretKey || secretAccessKey;
-      roleArn         = creds.credentials.roleArn      || roleArn;
+    if (creds) {
+      sellerId        = creds.sellerId     || sellerId;
+      clientId        = creds.clientId     || clientId;
+      clientSecret    = creds.clientSecret || clientSecret;
+      refreshToken    = creds.refreshToken || refreshToken;
+      accessKeyId     = creds.awsAccessKey || accessKeyId;
+      secretAccessKey = creds.awsSecretKey || secretAccessKey;
+      roleArn         = creds.roleArn      || roleArn;
     }
 
     if (!clientId || !clientSecret || !refreshToken) {
-      throw new Error('Amazon SP-API credentials are missing. Please configure them in settings.');
+      throw new Error('Amazon SP-API credentials are missing. Please configure Client ID, Client Secret, and Refresh Token.');
     }
 
     return new SellingPartnerAPI({

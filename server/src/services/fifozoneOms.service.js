@@ -545,6 +545,15 @@ class FifozoneOmsService {
       return allProducts;
     } catch (error) {
       const errMsg = this._extractErrorMessage(error);
+      if (allProducts.length > 0 && (
+        error.response?.status === 404 ||
+        error.response?.status === 400 ||
+        errMsg.includes('No route') ||
+        errMsg.includes('larger than the number of pages')
+      )) {
+        logger.info(`[${this.name}] Reached end of catalog at page ${currentPage}. Total products: ${allProducts.length}`);
+        return allProducts;
+      }
       logger.error(`[${this.name}] pullProducts error: ${errMsg}`);
       throw new Error(`Fifozone OMS pullProducts failed: ${errMsg}`);
     }

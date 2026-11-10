@@ -62,7 +62,11 @@ const AmazonAppPage = () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await axiosInstance.post('/platforms/test-connection', { platform: PLATFORM });
+      const vals = form.getFieldsValue();
+      const res = await axiosInstance.post('/platforms/test-connection', {
+        platform: PLATFORM,
+        credentials: vals
+      });
       const d = res?.data?.data || res?.data || {};
       if (d?.success) {
         setTestResult({ ok: true, msg: res?.data?.message || 'Connection successful!' });

@@ -76,9 +76,33 @@ const FlipkartAppPage = () => {
   const delivered = orders.filter(o => o.status === 'delivered').length;
   const pending = orders.filter(o => ['pending', 'processing'].includes(o.status)).length;
   const columns = [
-    { title: 'Order ID', dataIndex: 'orderNumber', key: 'id', render: v => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{v || '—'}</span> },
-    { title: 'Customer', key: 'customer', render: (_, r) => r.customer?.name || '—' },
-    { title: 'Amount', dataIndex: 'totalAmount', key: 'amount', render: v => <span className="font-bold">₹{(v || 0).toLocaleString('en-IN')}</span> },
+    {
+      title: 'Order ID',
+      key: 'orderId',
+      render: (_, r) => (
+        <div>
+          <span className="font-mono font-semibold text-slate-800">{r.orderNumber || '—'}</span>
+          {r.platformOrderId && (
+            <div className="text-xs text-slate-400 font-mono">{r.platformOrderId}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Products / Items',
+      key: 'items',
+      render: (_, r) => {
+        const itemNames = (r.items || []).map(i => i.productSnapshot?.masterName || i.name || i.sku).filter(Boolean);
+        return (
+          <div className="max-w-xs text-xs text-slate-700 font-medium truncate" title={itemNames.join(', ')}>
+            {itemNames.join(', ') || 'Flipkart Product'}
+            {(r.items || []).length > 1 && <span className="text-slate-400 ml-1">+{r.items.length - 1} more</span>}
+          </div>
+        );
+      },
+    },
+    { title: 'Payment', dataIndex: 'paymentMethod', key: 'payment', render: v => <Tag>{v || 'Flipkart'}</Tag> },
+    { title: 'Amount', dataIndex: 'totalAmount', key: 'amount', render: v => <span className="font-bold text-slate-900">₹{(v || 0).toLocaleString('en-IN')}</span> },
     { title: 'Status', dataIndex: 'status', key: 'status', render: v => <Tag color={statusColor[v] || 'default'}>{(v || '').toUpperCase()}</Tag> },
     { title: 'Date', dataIndex: 'createdAt', key: 'date', render: v => v ? new Date(v).toLocaleDateString('en-IN') : '—' },
   ];

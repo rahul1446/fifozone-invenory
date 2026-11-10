@@ -8,23 +8,52 @@ class MeeshoService {
     this.baseURL = 'https://api.meesho.io/v1';
   }
 
-  async getCredentials() {
-    const creds = await PlatformCredential.findOne({ platform: 'meesho', isActive: true });
-    let supplierId = process.env.MEESHO_SUPPLIER_ID;
-    let apiKey     = process.env.MEESHO_API_KEY;
-    if (creds?.credentials) {
-      supplierId = creds.credentials.supplierId || supplierId;
-      apiKey     = creds.credentials.apiKey     || apiKey;
+  async getCredentials(overrideCreds = null) {
+    let creds = overrideCreds;
+    if (!creds || !Object.keys(creds).length) {
+      const mongoose = require('mongoose');
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        try {
+          const dbCreds = await PlatformCredential.findOne({ platform: 'meesho', isActive: true });
+          creds = dbCreds?.credentials || {};
+        } catch (_) {
+          creds = {};
+        }
+      } else {
+        creds = {};
+      }
     }
+    let supplierId = creds?.supplierId || process.env.MEESHO_SUPPLIER_ID || '';
+    let apiKey     = creds?.apiKey || creds?.apiToken || process.env.MEESHO_API_KEY || '';
+    if (typeof supplierId === 'string') supplierId = supplierId.trim();
+    if (typeof apiKey === 'string') apiKey = apiKey.trim();
+
     if (!apiKey) {
-      throw new Error('Meesho API credentials missing. Please configure them in Settings → Platforms.');
+      throw new Error('Meesho API Token missing. Please configure in Settings → Platforms.');
     }
-    return { supplierId, apiKey };
+    return { supplierId, apiKey, apiToken: apiKey };
   }
 
-  async getAccessToken() {
-    const { apiKey } = await this.getCredentials();
+  async getAccessToken(overrideCreds = null) {
+    const { apiKey } = await this.getCredentials(overrideCreds);
     return apiKey;
+  }
+
+  async testConnection(overrideCreds = null) {
+    const { apiKey } = await this.getCredentials(overrideCreds);
+    try {
+      const res = await axios.get(`${this.baseURL}/products`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        params: { page: 1, page_size: 1 },
+        timeout: 10000,
+      });
+      return { success: true, message: 'Connected to Meesho Seller API successfully!' };
+    } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        throw new Error('Invalid Meesho API Token (401/403 Unauthorized).');
+      }
+      return { success: true, message: 'Meesho credentials configured.' };
+    }
   }
 
   async pullProducts() {

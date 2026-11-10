@@ -117,7 +117,7 @@ const testConnection = asyncHandler(async (req, res) => {
 
     if (platform === 'amazon') {
       const AmazonService = require('../services/amazon.service');
-      await AmazonService.getClient();
+      await AmazonService.getClient(credentials);
       return res.status(200).json(new ApiResponse(200, { success: true }, 'Amazon SP-API connection verified.'));
     }
 

@@ -56,10 +56,15 @@ const MeeshoAppPage = () => {
   const handleTest = async () => {
     setTesting(true); setTestResult(null);
     try {
-      const res = await axiosInstance.post('/platforms/test-connection', { platform: PLATFORM });
+      const vals = form.getFieldsValue();
+      const res = await axiosInstance.post('/platforms/test-connection', {
+        platform: PLATFORM,
+        credentials: vals
+      });
       const d = res?.data?.data || {};
-      setTestResult({ ok: !!d?.success, msg: res?.data?.message || (d?.success ? 'Connected!' : 'Connection failed.') });
-      if (d?.success) setConnected(true);
+      const ok = d?.success === true || (res?.data?.success && d?.success !== false);
+      setTestResult({ ok, msg: res?.data?.message || (ok ? 'Connected!' : 'Connection failed.') });
+      if (ok) setConnected(true);
     } catch (err) {
       setTestResult({ ok: false, msg: err?.response?.data?.message || 'Connection test failed.' });
     } finally { setTesting(false); }
