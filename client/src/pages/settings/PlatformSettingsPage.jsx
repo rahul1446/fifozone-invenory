@@ -191,7 +191,11 @@ const PlatformSettingsPage = () => {
     setTesting(prev => ({ ...prev, shiprocket: true }));
     setTestResult(prev => ({ ...prev, shiprocket: null }));
     try {
-      const res = await testShiprocketApi();
+      const vals = shiprocketForm.getFieldsValue();
+      const res = await testShiprocketApi({
+        email: vals.srEmail,
+        password: vals.srPassword
+      });
       setTestResult(prev => ({ ...prev, shiprocket: { ok: true, message: res?.data?.message || '✅ Connected!' } }));
     } catch (err) {
       // Show the REAL error from the backend (now includes actual Shiprocket response)
@@ -494,10 +498,13 @@ const PlatformSettingsPage = () => {
 
         <div className="p-6">
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-5">
-            <p className="text-xs text-blue-700">
-              Enter your <strong>Shiprocket login email and password</strong>. The Pickup Location must match exactly
-              what's configured in <a href="https://app.shiprocket.in/settings/warehouse" target="_blank"
-              rel="noreferrer" className="underline font-semibold">Shiprocket → Manage Pickup Addresses</a>.
+            <p className="text-xs text-blue-800 font-semibold">
+              ⚠️ Important: Shiprocket requires a dedicated API User (not your main web panel login).
+            </p>
+            <p className="text-xs text-blue-700 mt-1">
+              To generate one in Shiprocket: go to <a href="https://app.shiprocket.in/seller/settings/api" target="_blank"
+              rel="noreferrer" className="underline font-semibold text-blue-900">Settings → API → Configure → Create API User</a>.
+              Enter a dedicated email (e.g. <code>api@fifozone.com</code>) and set a password, then paste them below.
             </p>
           </div>
           <Form form={shiprocketForm} layout="vertical">

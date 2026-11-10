@@ -139,20 +139,20 @@ module.exports = {
 async function testShiprocketConnection(req, res) {
   try {
     const settings = await Settings.findOne().lean();
-    const email    = settings?.shiprocket?.email;
-    const password = settings?.shiprocket?.password;
+    const email    = req.body?.email    || req.body?.srEmail    || settings?.shiprocket?.email;
+    const password = req.body?.password || req.body?.srPassword || settings?.shiprocket?.password;
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'No credentials found in database. Please enter your email and password and click Save first.'
+        message: 'No credentials found. Please enter your Shiprocket API User email and password.'
       });
     }
 
     // Force fresh login by clearing cached token
     ShiprocketService.token       = null;
     ShiprocketService.tokenExpiry = null;
-    await ShiprocketService.authenticate();
+    await ShiprocketService.authenticate({ email: email.trim(), password: password.trim() });
 
     res.status(200).json({ success: true, message: '✅ Shiprocket connected successfully! All shipping features are now active.' });
   } catch (err) {

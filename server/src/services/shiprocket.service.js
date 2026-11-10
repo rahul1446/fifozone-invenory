@@ -25,15 +25,18 @@ class ShiprocketService {
   }
 
   // ─── Auth ────────────────────────────────────────────────────
-  async authenticate() {
-    if (this.token && this.tokenExpiry && new Date() < new Date(this.tokenExpiry.getTime() - 5 * 60000)) {
-      return this.token;
-    }
+  async authenticate(overrideCreds = null) {
+    let email = overrideCreds?.email;
+    let password = overrideCreds?.password;
 
-    // Try DB credentials first, fall back to .env
-    const db       = await getDbCredentials();
-    const email    = db?.email    || process.env.SHIPROCKET_EMAIL;
-    const password = db?.password || process.env.SHIPROCKET_PASSWORD;
+    if (!email || !password) {
+      if (this.token && this.tokenExpiry && new Date() < new Date(this.tokenExpiry.getTime() - 5 * 60000)) {
+        return this.token;
+      }
+      const db = await getDbCredentials();
+      email = db?.email || process.env.SHIPROCKET_EMAIL;
+      password = db?.password || process.env.SHIPROCKET_PASSWORD;
+    }
 
     if (!email || !password) {
       throw new Error('Shiprocket credentials not configured. Go to Settings → Platform Sync → Shiprocket.');
@@ -47,7 +50,9 @@ class ShiprocketService {
         { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
       );
     } catch (networkErr) {
-      // Axios threw — either network error or HTTP 4xx/5xx
+      if (networkErr.response?.status === 403) {
+        throw new Error('Shiprocket 403 Forbidden: Shiprocket requires dedicated API User credentials (not your primary web dashboard login). In Shiprocket, go to Settings → API → Create API User to generate them.');
+      }
       const srMsg = networkErr.response?.data?.message
                  || networkErr.response?.data?.error
                  || networkErr.response?.data
