@@ -106,38 +106,81 @@ class FlipkartService {
       const batchSize = 10;
       const skusToEnrich = rawListings.map(l => l.sku_id).filter(Boolean);
 
-      for (let i = 0; i < Math.min(skusToEnrich.length, 100); i += batchSize) {
-        const batch = skusToEnrich.slice(i, i + batchSize);
-        try {
-          const detailRes = await axios.get(
-            `${this.baseURL}/listings/v3/${batch.map(encodeURIComponent).join(',')}`,
-            { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
-          );
-          const available = detailRes.data?.available || {};
-          for (const [sku, detail] of Object.entries(available)) {
-            const matchedRaw = rawListings.find(l => l.sku_id === sku) || {};
-            let totalStock = 0;
-            if (Array.isArray(detail.locations)) {
-              totalStock = detail.locations
-                .filter(loc => loc.status === 'ENABLED')
-                .reduce((sum, loc) => sum + (loc.inventory || 0), 0);
-            }
+      // Helper to process a single SKU's detail object into enriched product
+      const processDetail = (sku, detail) => {
+        const matchedRaw = rawListings.find(l => l.sku_id === sku) || {};
+        let totalStock = 0;
+        if (Array.isArray(detail.locations)) {
+          totalStock = detail.locations
+            .filter(loc => loc.status === 'ENABLED')
+            .reduce((sum, loc) => sum + (loc.inventory || 0), 0);
+        }
 
-            enrichedProducts.push({
-              fsin:       detail.product_id || matchedRaw.product_id || '',
-              listingId:  detail.listing_id || matchedRaw.listing_id || '',
-              masterName: detail.product_title || `Flipkart Product (${sku})`,
-              sku:        sku,
-              brand:      detail.address_label?.manufacturer_details?.[0] || 'Generic',
-              category:   'Pet Supplies',
-              mrp:        detail.price?.mrp || 0,
-              price:      detail.price?.selling_price || 0,
-              stock:      totalStock,
-              url:        detail.product_url || (matchedRaw.product_id ? `https://www.flipkart.com/item/p/itm?pid=${matchedRaw.product_id}` : ''),
-            });
+        const sellingPrice = detail.price?.selling_price || detail.price?.mrp || 0;
+        const mrp = detail.price?.mrp || sellingPrice || 0;
+        const prodId = detail.product_id || matchedRaw.product_id || '';
+        const prodUrl = detail.product_url || (prodId ? `https://www.flipkart.com/item/p/itm?pid=${prodId}` : '');
+
+        return {
+          fsin:       prodId,
+          listingId:  detail.listing_id || matchedRaw.listing_id || '',
+          masterName: detail.product_title || matchedRaw.product_title || `Flipkart Product (${sku})`,
+          sku:        sku,
+          brand:      detail.address_label?.manufacturer_details?.[0] || 'Generic',
+          category:   'Pet Supplies',
+          mrp:        mrp,
+          price:      sellingPrice,
+          stock:      totalStock,
+          url:        prodUrl,
+        };
+      };
+
+      for (let i = 0; i < skusToEnrich.length; i += batchSize) {
+        const batch = skusToEnrich.slice(i, i + batchSize);
+        // Identify SKUs that have characters that break batch path routing
+        const safeBatch = batch.filter(s => !/[;\\\'\[\]\/\?#]/.test(s));
+        const specialSkus = batch.filter(s => /[;\\\'\[\]\/\?#]/.test(s));
+
+        if (safeBatch.length > 0) {
+          try {
+            const detailRes = await axios.get(
+              `${this.baseURL}/listings/v3/${safeBatch.map(encodeURIComponent).join(',')}`,
+              { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+            );
+            const available = detailRes.data?.available || {};
+            for (const [sku, detail] of Object.entries(available)) {
+              enrichedProducts.push(processDetail(sku, detail));
+            }
+          } catch (batchErr) {
+            logger.warn(`[${this.name}] Batch enrichment failed for chunk ${i} (${safeBatch.length} SKUs), falling back to individual lookup: ${batchErr.message}`);
+            // Fall back to querying each SKU individually
+            for (const singleSku of safeBatch) {
+              try {
+                const singleRes = await axios.get(
+                  `${this.baseURL}/listings/v3/${encodeURIComponent(singleSku)}`,
+                  { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 }
+                );
+                const avail = singleRes.data?.available || {};
+                if (avail[singleSku]) {
+                  enrichedProducts.push(processDetail(singleSku, avail[singleSku]));
+                }
+              } catch (_) {}
+            }
           }
-        } catch (batchErr) {
-          logger.warn(`[${this.name}] Batch enrichment failed for chunk ${i}: ${batchErr.message}`);
+        }
+
+        // Process special SKUs individually
+        for (const singleSku of specialSkus) {
+          try {
+            const singleRes = await axios.get(
+              `${this.baseURL}/listings/v3/${encodeURIComponent(singleSku)}`,
+              { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 }
+            );
+            const avail = singleRes.data?.available || {};
+            if (avail[singleSku]) {
+              enrichedProducts.push(processDetail(singleSku, avail[singleSku]));
+            }
+          } catch (_) {}
         }
       }
 

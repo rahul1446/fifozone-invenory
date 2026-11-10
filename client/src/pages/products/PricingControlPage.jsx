@@ -80,6 +80,26 @@ const PricingControlPage = () => {
       render: (_, r) => <span className="font-medium text-slate-700">₹{(r.sellingPrice?.fifozone || r.mrp || 0).toLocaleString('en-IN')}</span>,
     },
     {
+      title: 'Flipkart (₹)',
+      key: 'flipkart',
+      align: 'right',
+      render: (_, r) => (
+        <span className="font-medium text-slate-700">
+          {r.sellingPrice?.flipkart ? `₹${r.sellingPrice.flipkart.toLocaleString('en-IN')}` : '—'}
+        </span>
+      ),
+    },
+    {
+      title: 'Amazon (₹)',
+      key: 'amazon',
+      align: 'right',
+      render: (_, r) => (
+        <span className="font-medium text-slate-700">
+          {r.sellingPrice?.amazon ? `₹${r.sellingPrice.amazon.toLocaleString('en-IN')}` : '—'}
+        </span>
+      ),
+    },
+    {
       title: 'Stock',
       dataIndex: 'totalStock',
       key: 'stock',

@@ -342,19 +342,22 @@ const ProductsPage = () => {
       key: 'stock',
       width: 140,
       render: (_, record) => {
-        const stock = record.totalStock ?? 0;
+        const currentPlatform = filters.platform && filters.platform !== 'All' ? filters.platform.toLowerCase() : null;
+        const platformStock = currentPlatform && record.stockByPlatform?.[currentPlatform] !== undefined
+          ? record.stockByPlatform[currentPlatform]
+          : (record.totalStock ?? 0);
         const lowThreshold = record.lowStockThreshold || 5;
-        const isInstock = record.stockStatus === 'instock' || (stock > 0);
+        const isInstock = platformStock > 0 || (record.stockStatus === 'instock' && (record.totalStock ?? 0) > 0);
 
         let badgeStyle = 'bg-emerald-50 text-emerald-700';
-        let label = stock > 0 ? `${stock} in stock` : 'In stock';
+        let label = platformStock > 0 ? `${platformStock} in stock` : (isInstock ? 'In stock' : 'Out of stock');
 
-        if (!isInstock || (stock === 0 && record.stockStatus === 'outofstock')) {
+        if (!isInstock || platformStock === 0) {
           badgeStyle = 'bg-rose-50 text-rose-700';
           label = 'Out of stock';
-        } else if (stock > 0 && stock <= lowThreshold) {
+        } else if (platformStock > 0 && platformStock <= lowThreshold) {
           badgeStyle = 'bg-amber-50 text-amber-700';
-          label = `${stock} low stock`;
+          label = `${platformStock} low stock`;
         }
 
         return (
@@ -376,8 +379,15 @@ const ProductsPage = () => {
       key: 'pricing',
       width: 130,
       render: (_, record) => {
-        const mrp = record.mrp || 0;
-        const selling = record.sellingPrice?.fifozone || mrp;
+        const currentPlatform = filters.platform && filters.platform !== 'All' ? filters.platform.toLowerCase() : null;
+        let selling = 0;
+        if (currentPlatform && record.sellingPrice?.[currentPlatform] > 0) {
+          selling = record.sellingPrice[currentPlatform];
+        } else {
+          selling = record.sellingPrice?.fifozone || record.sellingPrice?.flipkart || record.sellingPrice?.amazon || record.sellingPrice?.meesho || record.mrp || 0;
+        }
+        const mrp = record.mrp || selling;
+
         return (
           <div className="flex flex-col">
             <span className="font-medium text-slate-900 text-xs tabular-nums">
@@ -432,7 +442,27 @@ const ProductsPage = () => {
       width: 60,
       align: 'center',
       render: (_, record) => {
-        const url = record.platformIds?.fifozone?.url;
+        const currentPlatform = filters.platform && filters.platform !== 'All' ? filters.platform.toLowerCase() : null;
+        let url = null;
+        let platformLabel = 'live store';
+
+        if (currentPlatform && record.platformIds?.[currentPlatform]?.url) {
+          url = record.platformIds[currentPlatform].url;
+          platformLabel = filters.platform;
+        } else if (record.platformIds?.fifozone?.url) {
+          url = record.platformIds.fifozone.url;
+          platformLabel = 'Fifozone';
+        } else if (record.platformIds?.flipkart?.url) {
+          url = record.platformIds.flipkart.url;
+          platformLabel = 'Flipkart';
+        } else if (record.platformIds?.amazon?.url) {
+          url = record.platformIds.amazon.url;
+          platformLabel = 'Amazon';
+        } else if (record.platformIds?.meesho?.url) {
+          url = record.platformIds.meesho.url;
+          platformLabel = 'Meesho';
+        }
+
         if (!url) return <span className="text-slate-300 text-xs">—</span>;
         return (
           <a
@@ -440,7 +470,7 @@ const ProductsPage = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="text-slate-400 hover:text-emerald-600 p-1.5 rounded hover:bg-slate-50 transition-colors inline-block"
-            title="View on live Fifozone store"
+            title={`View on live ${platformLabel}`}
           >
             <ExternalLink size={15} />
           </a>

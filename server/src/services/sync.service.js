@@ -98,6 +98,7 @@ class SyncService {
                 fifozone:  item.key === 'fifozone'  ? (rawProd.stock || 0) : 0,
                 amazon:    item.key === 'amazon'    ? (rawProd.stock || 0) : 0,
                 flipkart:  item.key === 'flipkart'  ? (rawProd.stock || 0) : 0,
+                meesho:    item.key === 'meesho'    ? (rawProd.stock || 0) : 0,
                 warehouse: 0
               },
               images: (rawProd.images || []).map((img, idx) => ({
@@ -118,16 +119,32 @@ class SyncService {
             }
 
             product.isActive = true;
-            if (rawProd.stock !== undefined && rawProd.stock > 0) {
-              product.totalStock = rawProd.stock;
+            if (rawProd.stock !== undefined && rawProd.stock >= 0) {
               if (item.key === 'fifozone') product.stockByPlatform.fifozone = rawProd.stock;
+              if (item.key === 'amazon')   product.stockByPlatform.amazon = rawProd.stock;
+              if (item.key === 'flipkart') product.stockByPlatform.flipkart = rawProd.stock;
+              if (item.key === 'meesho')   product.stockByPlatform.meesho = rawProd.stock;
+
+              product.totalStock = (product.stockByPlatform.fifozone || 0) +
+                                   (product.stockByPlatform.amazon || 0) +
+                                   (product.stockByPlatform.flipkart || 0) +
+                                   (product.stockByPlatform.meesho || 0);
+              product.stockStatus = product.totalStock > 0 ? 'instock' : 'outofstock';
             }
             if (rawProd.stockStatus) product.stockStatus = rawProd.stockStatus;
             if (rawProd.manageStock !== undefined) product.manageStock = rawProd.manageStock;
 
             if (!product.manualOverride) {
-              if (rawProd.mrp && rawProd.mrp > 0) product.mrp = rawProd.mrp;
-              if (rawProd.masterName) product.masterName = rawProd.masterName;
+              if (rawProd.mrp && rawProd.mrp > 0) {
+                if (!product.mrp || product.mrp === 0 || item.key === 'fifozone') product.mrp = rawProd.mrp;
+              }
+              const isFallbackName = !product.masterName || product.masterName.startsWith('Flipkart Product (') || product.masterName === rawProd.sku;
+              if (rawProd.masterName && (isFallbackName || item.key === 'fifozone')) {
+                product.masterName = rawProd.masterName;
+              }
+              if (rawProd.price && (!product.costPrice || product.costPrice === 0)) {
+                product.costPrice = Math.round(rawProd.price * 0.6);
+              }
               if (rawProd.description) product.description = rawProd.description;
               if (rawProd.shortDescription) product.shortDescription = rawProd.shortDescription;
               if (rawProd.animalType?.length > 0 && (!product.animalType || product.animalType.length === 0)) {
@@ -160,6 +177,9 @@ class SyncService {
             product.lastSyncedAt.fifozone = new Date();
           } else if (item.key === 'amazon') {
             product.sellingPrice.amazon = rawProd.price;
+            if (rawProd.stock !== undefined) {
+              product.stockByPlatform.amazon = rawProd.stock;
+            }
             product.platformIds.amazon = {
               asin: rawProd.asin,
               fnsku: rawProd.fnsku || '',
@@ -169,15 +189,22 @@ class SyncService {
             product.lastSyncedAt.amazon = new Date();
           } else if (item.key === 'flipkart') {
             product.sellingPrice.flipkart = rawProd.price;
+            if (rawProd.stock !== undefined) {
+              product.stockByPlatform.flipkart = rawProd.stock;
+            }
+            const liveUrl = rawProd.url || (rawProd.fsin ? `https://www.flipkart.com/item/p/itm?pid=${rawProd.fsin}` : '');
             product.platformIds.flipkart = {
-              fsin: rawProd.fsin,
+              fsin: rawProd.fsin || '',
               listingId: rawProd.listingId || '',
-              url: rawProd.url || ''
+              url: liveUrl
             };
             product.platformStatus.flipkart = 'active';
             product.lastSyncedAt.flipkart = new Date();
           } else if (item.key === 'meesho') {
             product.sellingPrice.meesho = rawProd.price;
+            if (rawProd.stock !== undefined) {
+              product.stockByPlatform.meesho = rawProd.stock;
+            }
             product.platformIds.meesho = {
               productId: rawProd.productId || '',
               sku:       rawProd.sku       || '',
@@ -190,6 +217,12 @@ class SyncService {
           if (rawProd.masterName !== product.masterName && !product.alternateNames.includes(rawProd.masterName)) {
             product.alternateNames.push(rawProd.masterName);
           }
+
+          product.markModified('stockByPlatform');
+          product.markModified('sellingPrice');
+          product.markModified('platformIds');
+          product.markModified('platformStatus');
+          product.markModified('lastSyncedAt');
 
           await product.save();
           foundProductIds.add(product._id.toString());
