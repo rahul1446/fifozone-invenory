@@ -126,7 +126,14 @@ const ProductsPage = () => {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'platform') {
+        next.category = 'All';
+        next.brand = 'All';
+      }
+      return next;
+    });
   };
 
   const handleResetFilters = () => {
@@ -676,33 +683,34 @@ const ProductsPage = () => {
               size="middle"
               showSearch
               placeholder="Category"
-              optionFilterProp="children"
-            >
-              <Option value="All">All Categories</Option>
-              {categoriesList.map(cat => (
-                <Option key={cat} value={cat}>
-                  {typeof cat === 'string' && cat.includes('|') ? cat.split('|')[1].trim() : cat}
-                </Option>
-              ))}
-            </Select>
+              filterOption={(input, option) =>
+                String(option?.label || option?.value || '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={[
+                { value: 'All', label: 'All Categories' },
+                ...categoriesList.map(cat => ({
+                  value: cat,
+                  label: typeof cat === 'string' && cat.includes('|') ? cat.split('|')[1].trim() : cat
+                }))
+              ]}
+            />
 
             {/* Brand Filter */}
-            {brandsList.length > 0 && (
-              <Select
-                value={filters.brand}
-                onChange={(val) => handleFilterChange('brand', val)}
-                className="w-[150px]"
-                size="middle"
-                showSearch
-                placeholder="Brand"
-                optionFilterProp="children"
-              >
-                <Option value="All">All Brands</Option>
-                {brandsList.map(b => (
-                  <Option key={b} value={b}>{b}</Option>
-                ))}
-              </Select>
-            )}
+            <Select
+              value={filters.brand}
+              onChange={(val) => handleFilterChange('brand', val)}
+              className="w-[160px]"
+              size="middle"
+              showSearch
+              placeholder="Brand"
+              filterOption={(input, option) =>
+                String(option?.label || option?.value || '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={[
+                { value: 'All', label: 'All Brands' },
+                ...brandsList.map(b => ({ value: b, label: b }))
+              ]}
+            />
 
             {/* Search Input */}
             <div className="flex-1 min-w-[220px]">

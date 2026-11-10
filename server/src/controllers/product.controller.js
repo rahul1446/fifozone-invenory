@@ -77,12 +77,17 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  // Category and Brand
+  // Category and Brand (case-insensitive and whitespace-trimmed)
+  const escapeRegex = (str) => String(str).replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
   if (category && category !== 'All') {
-    query.category = category;
+    const rawCat = String(category).trim();
+    const catSearch = rawCat.includes('|') ? rawCat.split('|')[1].trim() : rawCat;
+    query.category = { $regex: new RegExp(`^${escapeRegex(catSearch)}$`, 'i') };
   }
   if (brand && brand !== 'All') {
-    query.brand = brand;
+    const rawBrand = String(brand).trim();
+    query.brand = { $regex: new RegExp(`^${escapeRegex(rawBrand)}`, 'i') };
   }
 
   // Animal Type
@@ -134,9 +139,16 @@ const getProducts = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limitNum);
 
-  // Dynamic filter lists for frontend select boxes
-  const categoriesList = await Product.distinct('category', { isActive: true });
-  const brandsList = await Product.distinct('brand', { isActive: true });
+  // Dynamic filter lists for frontend select boxes, scoped to the current platform if specified
+  const filterListQuery = { isActive: true };
+  if (platform && platform !== 'All') {
+    filterListQuery[`platformStatus.${platform.toLowerCase()}`] = { $ne: 'not_listed' };
+  }
+  const rawCategories = await Product.distinct('category', filterListQuery);
+  const rawBrands = await Product.distinct('brand', filterListQuery);
+
+  const categoriesList = [...new Set(rawCategories.filter(Boolean).map(c => typeof c === 'string' ? c.trim() : c))].sort();
+  const brandsList = [...new Set(rawBrands.filter(Boolean).map(b => typeof b === 'string' ? b.trim() : b))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
   res.status(200).json(
     new ApiResponse(200, {
@@ -408,14 +420,6 @@ const updateProduct = asyncHandler(async (req, res) => {
     logger.error(`WooCommerce update push failed for ${updatedProduct.masterName}: ${wooErr.message}`);
   }
 
-  // Push updated stock & price to active external platforms (Flipkart, Amazon)
-  try {
-    SyncService.pushStockToPlatforms(updatedProduct);
-    SyncService.pushPriceToPlatforms(updatedProduct);
-  } catch (syncErr) {
-    logger.error(`Platform stock/price push failed for ${updatedProduct.masterName}: ${syncErr.message}`);
-  }
-
   res.status(200).json(new ApiResponse(200, updatedProduct, 'Product details updated and synced'));
 });
 
@@ -431,24 +435,6 @@ const deleteProduct = asyncHandler(async (req, res) => {
     await SyncService.pushProductDelete(product);
   } catch (wooErr) {
     logger.error(`WooCommerce delete push failed for ${product.masterName}: ${wooErr.message}`);
-  }
-
-  // Zero out stock on external platforms (Flipkart, Amazon) so sales immediately cease
-  if (product.platformStatus?.flipkart === 'active') {
-    try {
-      const FlipkartService = require('../services/flipkart.service');
-      await FlipkartService.pushStock(product.sku, 0);
-    } catch (fkErr) {
-      logger.warn(`Flipkart zero-stock push skipped on delete for ${product.sku}: ${fkErr.message}`);
-    }
-  }
-  if (product.platformStatus?.amazon === 'active') {
-    try {
-      const AmazonService = require('../services/amazon.service');
-      await AmazonService.pushStock(product.sku, 0);
-    } catch (amzErr) {
-      logger.warn(`Amazon zero-stock push skipped on delete for ${product.sku}: ${amzErr.message}`);
-    }
   }
 
   // 2. Soft-delete: keep original SKU intact so sync can find & skip this record.
@@ -537,24 +523,6 @@ const bulkDelete = asyncHandler(async (req, res) => {
       await SyncService.pushProductDelete(product);
     } catch (err) {
       logger.error(`Failed to push delete to Fifozone OMS for ${product.masterName}: ${err.message}`);
-    }
-
-    // Zero out stock on external platforms (Flipkart, Amazon)
-    if (product.platformStatus?.flipkart === 'active') {
-      try {
-        const FlipkartService = require('../services/flipkart.service');
-        await FlipkartService.pushStock(product.sku, 0);
-      } catch (fkErr) {
-        logger.warn(`Flipkart zero-stock push skipped on bulk delete for ${product.sku}: ${fkErr.message}`);
-      }
-    }
-    if (product.platformStatus?.amazon === 'active') {
-      try {
-        const AmazonService = require('../services/amazon.service');
-        await AmazonService.pushStock(product.sku, 0);
-      } catch (amzErr) {
-        logger.warn(`Amazon zero-stock push skipped on bulk delete for ${product.sku}: ${amzErr.message}`);
-      }
     }
     // Soft-delete: keep original SKU intact so the sync guard works correctly.
     // Renaming the SKU causes sync to re-create the product from scratch.
