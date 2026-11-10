@@ -33,7 +33,9 @@ const FlipkartAppPage = () => {
       const s = res?.data?.data || res?.data || {};
       const p = s?.flipkart || {};
       setConnected(!!p.connected);
-      if (p.clientId) form.setFieldsValue({ clientId: p.clientId });
+      const clientId = p.clientId || p.appId || '';
+      const clientSecret = p.clientSecret || '';
+      form.setFieldsValue({ clientId, clientSecret });
     } catch { setConnected(false); }
   }, [form]);
 
@@ -56,12 +58,17 @@ const FlipkartAppPage = () => {
   const handleTest = async () => {
     setTesting(true); setTestResult(null);
     try {
-      const res = await axiosInstance.post('/platforms/test-connection', { platform: PLATFORM });
+      const vals = form.getFieldsValue();
+      const res = await axiosInstance.post('/platforms/test-connection', {
+        platform: PLATFORM,
+        credentials: vals
+      });
       const d = res?.data?.data || {};
-      setTestResult({ ok: !!d?.success, msg: res?.data?.message || (d?.success ? 'Connected!' : 'Failed.') });
-      if (d?.success) setConnected(true);
+      const ok = d?.success === true || (res?.data?.success && d?.success !== false);
+      setTestResult({ ok, msg: res?.data?.message || (ok ? 'Connected successfully!' : 'Connection failed.') });
+      if (ok) setConnected(true);
     } catch (err) {
-      setTestResult({ ok: false, msg: err?.response?.data?.message || 'Connection test failed.' });
+      setTestResult({ ok: false, msg: err?.response?.data?.message || err?.message || 'Connection test failed.' });
     } finally { setTesting(false); }
   };
 
@@ -117,17 +124,20 @@ const FlipkartAppPage = () => {
 
           <TabPane tab="🔑 API Settings" key="api">
             <div className="max-w-xl py-4">
-              <Alert message="Flipkart Seller API Credentials" description="Get from Flipkart Seller Hub → Account → API Integration → Generate API Key." type="info" showIcon className="mb-5" />
+              <Alert
+                message="Flipkart Seller API Credentials"
+                description="Flipkart requires only 2 credentials: Application ID (Client ID / API Key) and Application Secret (Client Secret / API Secret). Generate them from the Flipkart Developer Portal (api.flipkart.net)."
+                type="info"
+                showIcon
+                className="mb-5"
+              />
               {testResult && <Alert type={testResult.ok ? 'success' : 'error'} message={testResult.msg} showIcon className="mb-5" />}
               <Form form={form} layout="vertical" requiredMark={false}>
-                <Form.Item label={<span className="font-semibold text-slate-700">Client ID</span>} name="clientId" rules={[{ required: true, message: 'Required' }]}>
-                  <Input prefix={<Key size={13} className="text-slate-400" />} placeholder="Your Flipkart Client ID" />
+                <Form.Item label={<span className="font-semibold text-slate-700">Application ID / Client ID (API Key)</span>} name="clientId" rules={[{ required: true, message: 'Application ID is required' }]}>
+                  <Input prefix={<Key size={13} className="text-slate-400" />} placeholder="Your Flipkart Application ID" />
                 </Form.Item>
-                <Form.Item label={<span className="font-semibold text-slate-700">Client Secret</span>} name="clientSecret" rules={[{ required: true, message: 'Required' }]}>
-                  <Input.Password placeholder="Your Flipkart Client Secret" />
-                </Form.Item>
-                <Form.Item label={<span className="font-semibold text-slate-700">App ID</span>} name="appId" rules={[{ required: true, message: 'Required' }]}>
-                  <Input placeholder="Your Flipkart App ID" />
+                <Form.Item label={<span className="font-semibold text-slate-700">Application Secret / Client Secret (API Secret)</span>} name="clientSecret" rules={[{ required: true, message: 'Application Secret is required' }]}>
+                  <Input.Password placeholder="Your Flipkart Application Secret" />
                 </Form.Item>
                 <Divider />
                 <div className="flex flex-wrap items-center gap-3">

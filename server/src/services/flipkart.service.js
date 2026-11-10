@@ -8,34 +8,71 @@ class FlipkartService {
     this.baseURL = 'https://api.flipkart.net/sellers';
   }
 
-  async getCredentials() {
-    let creds = await PlatformCredential.findOne({ platform: 'flipkart', isActive: true });
-
-    let appId        = process.env.FLIPKART_APP_ID;
-    let clientId     = process.env.FLIPKART_CLIENT_ID;
-    let clientSecret = process.env.FLIPKART_CLIENT_SECRET;
-
-    if (creds?.credentials) {
-      appId        = creds.credentials.appId        || appId;
-      clientId     = creds.credentials.clientId     || clientId;
-      clientSecret = creds.credentials.clientSecret || clientSecret;
+  async getCredentials(overrideCreds = null) {
+    let creds = overrideCreds;
+    if (!creds || !Object.keys(creds).length) {
+      const dbCreds = await PlatformCredential.findOne({ platform: 'flipkart', isActive: true });
+      creds = dbCreds?.credentials || {};
     }
+
+    // Support all common alias names for Flipkart Application ID / API Key
+    let clientId =
+      creds.clientId ||
+      creds.appId ||
+      creds.apiKey ||
+      process.env.FLIPKART_CLIENT_ID ||
+      process.env.FLIPKART_APP_ID ||
+      '';
+
+    // Support all common alias names for Flipkart Application Secret / API Secret
+    let clientSecret =
+      creds.clientSecret ||
+      creds.appSecret ||
+      creds.apiSecret ||
+      process.env.FLIPKART_CLIENT_SECRET ||
+      process.env.FLIPKART_APP_SECRET ||
+      '';
+
+    if (typeof clientId === 'string') clientId = clientId.trim();
+    if (typeof clientSecret === 'string') clientSecret = clientSecret.trim();
 
     if (!clientId || !clientSecret) {
-      throw new Error('Flipkart API credentials missing. Please configure them in settings.');
+      throw new Error('Flipkart API credentials missing. Please enter your Application ID (Client ID) and Application Secret (Client Secret).');
     }
 
-    return { appId, clientId, clientSecret };
+    return { appId: clientId, clientId, clientSecret };
   }
 
-  async getAccessToken() {
-    const { clientId, clientSecret } = await this.getCredentials();
+  async getAccessToken(overrideCreds = null) {
+    const { clientId, clientSecret } = await this.getCredentials(overrideCreds);
     const tokenString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    const response = await axios.get('https://api.flipkart.net/oauth-service/oauth/token', {
-      params: { grant_type: 'client_credentials' },
-      headers: { Authorization: `Basic ${tokenString}` },
-    });
-    return response.data.access_token;
+    try {
+      const response = await axios.get('https://api.flipkart.net/oauth-service/oauth/token', {
+        params: { grant_type: 'client_credentials' },
+        headers: { Authorization: `Basic ${tokenString}` },
+        timeout: 15000,
+      });
+      return response.data?.access_token;
+    } catch (err) {
+      const status = err.response?.status;
+      const data = err.response?.data;
+      if (status === 401 || status === 403) {
+        throw new Error('Invalid Flipkart credentials (401 Unauthorized). Please check your Application ID and Application Secret.');
+      }
+      const desc = data?.error_description || data?.message || data?.error;
+      if (desc) {
+        throw new Error(`Flipkart API authentication failed: ${desc}`);
+      }
+      throw err;
+    }
+  }
+
+  async testConnection(overrideCreds = null) {
+    const token = await this.getAccessToken(overrideCreds);
+    if (!token) {
+      throw new Error('Flipkart returned an empty access token.');
+    }
+    return { success: true, message: 'Flipkart API authenticated successfully! OAuth token acquired.' };
   }
 
   async pullProducts() {

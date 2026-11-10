@@ -49,7 +49,12 @@ const PlatformSettingsPage = () => {
         });
       }
       if (rawData?.amazon)    amazonForm.setFieldsValue(rawData.amazon);
-      if (rawData?.flipkart)  flipkartForm.setFieldsValue(rawData.flipkart);
+      if (rawData?.flipkart) {
+        flipkartForm.setFieldsValue({
+          clientId: rawData.flipkart.clientId || rawData.flipkart.appId || '',
+          clientSecret: rawData.flipkart.clientSecret || '',
+        });
+      }
       if (rawData?.meesho)    meeshoForm.setFieldsValue(rawData.meesho);
 
       // Pre-fill shiprocket email + pickup — NEVER pre-fill password
@@ -102,11 +107,23 @@ const PlatformSettingsPage = () => {
     setTesting(prev => ({ ...prev, [platformKey]: true }));
     setTestResult(prev => ({ ...prev, [platformKey]: null }));
     try {
-      const res = await axiosInstance.post('/platforms/test-connection', { platform: platformKey });
-      const ok = res.data?.data?.success || res.data?.success;
-      setTestResult(prev => ({ ...prev, [platformKey]: { ok, message: res.data?.message || (ok ? 'Connection successful' : 'Connection failed') } }));
+      // Collect current form input values so user can test before saving
+      let formVals = {};
+      if (platformKey === 'fifozone') formVals = wooForm.getFieldsValue();
+      else if (platformKey === 'amazon') formVals = amazonForm.getFieldsValue();
+      else if (platformKey === 'flipkart') formVals = flipkartForm.getFieldsValue();
+      else if (platformKey === 'meesho') formVals = meeshoForm.getFieldsValue();
+
+      const res = await axiosInstance.post('/platforms/test-connection', {
+        platform: platformKey,
+        credentials: formVals,
+      });
+      const ok = res.data?.data?.success === true || (res.data?.success && res.data?.data?.success !== false);
+      const message = res.data?.message || (ok ? 'Connection successful' : 'Connection failed');
+      setTestResult(prev => ({ ...prev, [platformKey]: { ok, message } }));
     } catch (err) {
-      setTestResult(prev => ({ ...prev, [platformKey]: { ok: false, message: err.response?.data?.message || 'Connection failed' } }));
+      const msg = err.response?.data?.message || err.message || 'Connection failed';
+      setTestResult(prev => ({ ...prev, [platformKey]: { ok: false, message: msg } }));
     } finally {
       setTesting(prev => ({ ...prev, [platformKey]: false }));
     }
@@ -390,21 +407,31 @@ const PlatformSettingsPage = () => {
       <PlatformCard
         icon={<ShoppingBag size={20} className="text-yellow-600" />}
         title="Flipkart Seller API"
-        subtitle="Flipkart Seller Hub"
+        subtitle="Flipkart Seller Hub · Developer Portal (api.flipkart.net)"
         color="yellow"
         iconBg="bg-yellow-100"
         platformKey="flipkart"
         form={flipkartForm}
       >
+        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3 mb-4 text-xs text-amber-800">
+          Flipkart requires only <strong>2 credentials</strong>: your <strong>Application ID</strong> (Client ID / API Key) and <strong>Application Secret</strong> (API Secret). Generate them from the <a href="https://api.flipkart.net" target="_blank" rel="noreferrer" className="underline font-semibold text-amber-900">Flipkart Developer Portal</a>.
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Form.Item label="App ID" name="appId" className="md:col-span-2">
-            <Input autoComplete="off" size="large" />
+          <Form.Item
+            label="Application ID / Client ID (API Key)"
+            name="clientId"
+            rules={[{ required: true, message: 'Application ID is required' }]}
+            extra="Your Flipkart Application ID (also called Client ID or API Key)"
+          >
+            <Input placeholder="Enter Application ID" autoComplete="off" size="large" />
           </Form.Item>
-          <Form.Item label="Client ID" name="clientId">
-            <Input.Password autoComplete="new-password" size="large" />
-          </Form.Item>
-          <Form.Item label="Client Secret" name="clientSecret">
-            <Input.Password autoComplete="new-password" size="large" />
+          <Form.Item
+            label="Application Secret / Client Secret (API Secret)"
+            name="clientSecret"
+            rules={[{ required: true, message: 'Application Secret is required' }]}
+            extra="Your Flipkart Application Secret (also called Client Secret or API Secret)"
+          >
+            <Input.Password placeholder="Enter Application Secret" autoComplete="new-password" size="large" />
           </Form.Item>
         </div>
       </PlatformCard>

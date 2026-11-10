@@ -28,11 +28,25 @@ const updateCredentials = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiResponse(400, null, 'Platform identifier is required'));
   }
 
+  // Normalize and trim strings in credentials
+  const cleanCreds = {};
+  for (const [k, v] of Object.entries(credentials)) {
+    cleanCreds[k] = typeof v === 'string' ? v.trim() : v;
+  }
+
+  if (platform === 'flipkart') {
+    const id = cleanCreds.clientId || cleanCreds.appId || cleanCreds.apiKey || '';
+    const secret = cleanCreds.clientSecret || cleanCreds.appSecret || cleanCreds.apiSecret || '';
+    cleanCreds.clientId = id;
+    cleanCreds.appId = id; // keep appId synced for backwards-compatibility
+    cleanCreds.clientSecret = secret;
+  }
+
   const PlatformCredential = require('../models/PlatformCredential.model');
 
   await PlatformCredential.findOneAndUpdate(
     { platform },
-    { credentials, isActive: true },
+    { credentials: cleanCreds, isActive: true },
     { upsert: true, new: true }
   );
 
@@ -52,9 +66,23 @@ const getCredentialsStatus = asyncHandler(async (req, res) => {
         apiKey: process.env.FIFOZONE_OMS_API_KEY || FifozoneOmsService.apiKey
       };
     }
+    const c = found?.credentials || {};
+    let isConnected = !!found;
+    if (name === 'flipkart') {
+      const id = c.clientId || c.appId || c.apiKey || process.env.FLIPKART_CLIENT_ID || process.env.FLIPKART_APP_ID;
+      const secret = c.clientSecret || c.appSecret || c.apiSecret || process.env.FLIPKART_CLIENT_SECRET || process.env.FLIPKART_APP_SECRET;
+      isConnected = !!(id && secret);
+      return {
+        connected: isConnected,
+        ...c,
+        clientId: id || '',
+        appId: id || '',
+        clientSecret: secret || ''
+      };
+    }
     return {
-      connected: !!found,
-      ...(found?.credentials || {})
+      connected: isConnected,
+      ...c
     };
   };
 
@@ -70,7 +98,7 @@ const getCredentialsStatus = asyncHandler(async (req, res) => {
 
 // ─── testConnection ─────────────────────────────────────────────────────────
 const testConnection = asyncHandler(async (req, res) => {
-  const { platform } = req.body;
+  const { platform, credentials } = req.body;
 
   if (!platform) {
     return res.status(400).json(new ApiResponse(400, null, 'Platform is required'));
@@ -95,15 +123,24 @@ const testConnection = asyncHandler(async (req, res) => {
 
     if (platform === 'flipkart') {
       const FlipkartService = require('../services/flipkart.service');
-      await FlipkartService.getAccessToken();
-      return res.status(200).json(new ApiResponse(200, { success: true }, 'Flipkart API connection verified.'));
+      const testRes = await FlipkartService.testConnection(credentials);
+      return res.status(200).json(new ApiResponse(200, { success: true }, testRes?.message || 'Flipkart API connection verified.'));
+    }
+
+    if (platform === 'meesho') {
+      const MeeshoService = require('../services/meesho.service');
+      if (typeof MeeshoService?.testConnection === 'function') {
+        const testRes = await MeeshoService.testConnection(credentials);
+        return res.status(200).json(new ApiResponse(200, { success: true }, testRes?.message || 'Meesho API connection verified.'));
+      }
+      return res.status(200).json(new ApiResponse(200, { success: true }, 'Meesho configuration saved.'));
     }
 
     return res.status(400).json(new ApiResponse(400, null, 'Unknown platform'));
 
   } catch (err) {
     logger.warn(`[testConnection] Live connection failed for ${platform}: ${err.message}`);
-    return res.status(200).json(new ApiResponse(200,
+    return res.status(400).json(new ApiResponse(400,
       { success: false },
       `Connection failed: ${err.message}`
     ));
