@@ -261,7 +261,7 @@ const ProductsPage = () => {
   // ── Columns Definition ────────────────────────────────────────────────────
   const columns = [
     {
-      title: 'PRODUCT DETAILS',
+      title: 'Product details',
       key: 'productDetails',
       width: 420,
       render: (_, record) => {
@@ -273,7 +273,7 @@ const ProductsPage = () => {
                 src={imageUrl}
                 alt={record.masterName}
                 loading="lazy"
-                className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shrink-0 shadow-xs"
+                className="w-10 h-10 rounded-md object-cover border border-slate-200 bg-white shrink-0"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   if (e.currentTarget.nextSibling) {
@@ -283,32 +283,37 @@ const ProductsPage = () => {
               />
             ) : null}
             <div 
-              className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0" 
+              className="w-10 h-10 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0" 
               style={{ display: imageUrl ? 'none' : 'flex' }}
             >
-              <Package size={22} />
+              <Package size={18} />
             </div>
 
             <div className="flex-1 min-w-0">
               <Link 
                 to={`/inventory/products/${record._id}/edit`}
-                className="font-semibold text-[13px] text-slate-800 hover:text-emerald-600 transition-colors line-clamp-1"
+                className="font-medium text-xs text-slate-900 hover:text-emerald-700 transition-colors line-clamp-1"
                 title={record.masterName}
               >
                 {decodeHtml(record.masterName)}
               </Link>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-[11px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-[11px] font-mono text-slate-500">
                   {record.sku || 'NO-SKU'}
                 </span>
                 {record.brand && record.brand !== 'Generic' && (
-                  <span className="text-[11px] text-slate-500 font-medium">
+                  <span className="text-[11px] text-slate-500">
                     • {record.brand}
                   </span>
                 )}
                 {record.packSize && (
                   <span className="text-[11px] text-slate-400">
                     ({record.packSize})
+                  </span>
+                )}
+                {record.variants && record.variants.length > 0 && (
+                  <span className="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
+                    {record.variants.length} variants
                   </span>
                 )}
               </div>
@@ -318,7 +323,7 @@ const ProductsPage = () => {
       }
     },
     {
-      title: 'CATEGORY',
+      title: 'Category',
       dataIndex: 'category',
       key: 'category',
       width: 150,
@@ -326,14 +331,14 @@ const ProductsPage = () => {
         const cat = Array.isArray(categories) && categories.length > 0 ? categories[0] : (categories || 'Uncategorized');
         const display = typeof cat === 'string' && cat.includes('|') ? cat.split('|')[1].trim() : cat;
         return (
-          <span className="text-[12px] font-medium text-slate-600 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md inline-block max-w-[140px] truncate" title={display}>
+          <span className="text-xs text-slate-600 max-w-[140px] truncate block" title={display}>
             {display}
           </span>
         );
       }
     },
     {
-      title: 'STOCK',
+      title: 'Stock',
       key: 'stock',
       width: 140,
       render: (_, record) => {
@@ -341,24 +346,24 @@ const ProductsPage = () => {
         const lowThreshold = record.lowStockThreshold || 5;
         const isInstock = record.stockStatus === 'instock' || (stock > 0);
 
-        let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        let label = stock > 0 ? `${stock} in stock` : 'In Stock';
+        let badgeStyle = 'bg-emerald-50 text-emerald-700';
+        let label = stock > 0 ? `${stock} in stock` : 'In stock';
 
         if (!isInstock || (stock === 0 && record.stockStatus === 'outofstock')) {
-          badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
-          label = 'Out of Stock';
+          badgeStyle = 'bg-rose-50 text-rose-700';
+          label = 'Out of stock';
         } else if (stock > 0 && stock <= lowThreshold) {
-          badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+          badgeStyle = 'bg-amber-50 text-amber-700';
           label = `${stock} low stock`;
         }
 
         return (
-          <div className="flex flex-col items-start gap-1">
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor}`}>
+          <div className="flex flex-col items-start gap-0.5">
+            <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded tabular-nums ${badgeStyle}`}>
               {label}
             </span>
             {record.stockByPlatform && (
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px] font-mono text-slate-400">
                 FZ: {record.stockByPlatform.fifozone ?? 0} | AMZ: {record.stockByPlatform.amazon ?? 0} | FLK: {record.stockByPlatform.flipkart ?? 0}
               </span>
             )}
@@ -367,7 +372,7 @@ const ProductsPage = () => {
       }
     },
     {
-      title: 'PRICING',
+      title: 'Pricing',
       key: 'pricing',
       width: 130,
       render: (_, record) => {
@@ -375,11 +380,11 @@ const ProductsPage = () => {
         const selling = record.sellingPrice?.fifozone || mrp;
         return (
           <div className="flex flex-col">
-            <span className="font-semibold text-slate-800 text-[13px]">
+            <span className="font-medium text-slate-900 text-xs tabular-nums">
               {formatCurrency(selling)}
             </span>
             {mrp > selling && (
-              <span className="text-[11px] text-slate-400 line-through">
+              <span className="text-[10px] text-slate-400 line-through tabular-nums">
                 MRP: {formatCurrency(mrp)}
               </span>
             )}
@@ -388,43 +393,41 @@ const ProductsPage = () => {
       }
     },
     {
-      title: 'PLATFORMS',
+      title: 'Platforms',
       key: 'platforms',
       width: 150,
       render: (_, record) => {
         const platforms = [];
         if (record.platformStatus?.fifozone && record.platformStatus.fifozone !== 'not_listed') {
-          platforms.push({ name: 'FZ', title: 'Fifozone', color: 'green' });
+          platforms.push({ name: 'Store', title: 'Fifozone' });
         }
         if (record.platformStatus?.amazon && record.platformStatus.amazon !== 'not_listed') {
-          platforms.push({ name: 'AMZ', title: 'Amazon', color: 'orange' });
+          platforms.push({ name: 'Amazon', title: 'Amazon' });
         }
         if (record.platformStatus?.flipkart && record.platformStatus.flipkart !== 'not_listed') {
-          platforms.push({ name: 'FLK', title: 'Flipkart', color: 'blue' });
+          platforms.push({ name: 'Flipkart', title: 'Flipkart' });
         }
         if (record.platformStatus?.meesho && record.platformStatus.meesho !== 'not_listed') {
-          platforms.push({ name: 'MSH', title: 'Meesho', color: 'purple' });
+          platforms.push({ name: 'Meesho', title: 'Meesho' });
         }
 
         if (platforms.length === 0) {
-          return <span className="text-[11px] text-slate-400">None</span>;
+          return <span className="text-[11px] text-slate-400">—</span>;
         }
 
         return (
           <div className="flex items-center gap-1 flex-wrap">
             {platforms.map(p => (
-              <Tooltip key={p.name} title={p.title}>
-                <Tag color={p.color} className="m-0 text-[10px] font-bold px-1.5 py-0 border-0">
-                  {p.name}
-                </Tag>
-              </Tooltip>
+              <span key={p.name} className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                {p.name}
+              </span>
             ))}
           </div>
         );
       }
     },
     {
-      title: 'LIVE',
+      title: 'Live',
       key: 'link',
       width: 60,
       align: 'center',
@@ -498,53 +501,53 @@ const ProductsPage = () => {
   return (
     <div className="space-y-6 pb-12 max-w-[1500px] mx-auto px-2">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
-        <div className="flex items-center gap-3.5">
-          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-600">
-            <Package size={24} />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-slate-100 rounded-lg text-slate-700">
+            <Package size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Product Catalog</h1>
-            <p className="text-sm text-slate-500 mt-0.5">High-speed catalog sync, multi-platform inventory, and pricing</p>
+            <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Product catalog</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Multi-platform inventory, pricing, and catalog sync</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedRowKeys.length > 0 && (
             <>
               <Button
                 danger
                 onClick={handleBulkDelete}
-                className="h-10 px-4 rounded-xl font-medium"
+                className="h-9 px-3.5 rounded-lg text-xs font-medium"
               >
-                Delete Selected ({selectedRowKeys.length})
+                Delete selected ({selectedRowKeys.length})
               </Button>
               <Button
                 onClick={handleBulkSync}
                 loading={syncing}
-                icon={<RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />}
-                className="h-10 px-4 rounded-xl font-medium"
+                icon={<RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />}
+                className="h-9 px-3.5 rounded-lg text-xs font-medium"
               >
-                Sync Selected ({selectedRowKeys.length})
+                Sync selected ({selectedRowKeys.length})
               </Button>
             </>
           )}
 
           <Button
-            icon={<Download size={15} />}
+            icon={<Download size={14} />}
             onClick={handleExport}
-            className="h-10 px-4 text-slate-700 font-medium rounded-xl border-slate-200 hover:bg-slate-50 shadow-xs"
+            className="h-9 px-3.5 text-slate-700 font-medium rounded-lg text-xs border-slate-200 hover:bg-slate-50"
           >
             Export Excel
           </Button>
 
           <Button
             type="primary"
-            icon={<Plus size={16} strokeWidth={2.5} />}
+            icon={<Plus size={15} />}
             onClick={() => navigate('/inventory/products/add')}
-            className="h-10 px-5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 border-0 rounded-xl shadow-xs"
+            className="h-9 px-4 text-xs font-medium bg-emerald-700 hover:bg-emerald-600 border-0 rounded-lg"
           >
-            Add Product
+            Add product
           </Button>
         </div>
       </div>
@@ -552,58 +555,58 @@ const ProductsPage = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Products */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 transition-colors duration-150 hover:border-slate-300 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">TOTAL PRODUCTS</p>
-            <h3 className="text-2xl font-black text-slate-800">{totalProducts.toLocaleString()}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1">Total products</p>
+            <div className="text-2xl font-semibold text-slate-900 tabular-nums">{totalProducts.toLocaleString()}</div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-            <Package size={22} />
-          </div>
+          <span className="text-slate-400">
+            <Package size={20} />
+          </span>
         </div>
 
         {/* In Stock */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 transition-colors duration-150 hover:border-slate-300 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">IN STOCK</p>
-            <h3 className="text-2xl font-black text-slate-800">{inStockCount.toLocaleString()}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1">In stock</p>
+            <div className="text-2xl font-semibold text-slate-900 tabular-nums">{inStockCount.toLocaleString()}</div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-            <CheckCircle size={22} />
-          </div>
+          <span className="text-emerald-600">
+            <CheckCircle size={20} />
+          </span>
         </div>
 
         {/* Low Stock */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 transition-colors duration-150 hover:border-slate-300 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">LOW STOCK</p>
-            <h3 className="text-2xl font-black text-slate-800">{lowStockCount.toLocaleString()}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1">Low stock</p>
+            <div className="text-2xl font-semibold text-slate-900 tabular-nums">{lowStockCount.toLocaleString()}</div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500">
-            <AlertTriangle size={22} />
-          </div>
+          <span className="text-amber-500">
+            <AlertTriangle size={20} />
+          </span>
         </div>
 
         {/* Out of Stock */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 transition-colors duration-150 hover:border-slate-300 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">OUT OF STOCK</p>
-            <h3 className="text-2xl font-black text-slate-800">{outOfStockCount.toLocaleString()}</h3>
+            <p className="text-xs font-medium text-slate-500 mb-1">Out of stock</p>
+            <div className="text-2xl font-semibold text-slate-900 tabular-nums">{outOfStockCount.toLocaleString()}</div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
-            <Package size={22} />
-          </div>
+          <span className="text-rose-500">
+            <Package size={20} />
+          </span>
         </div>
       </div>
 
       {/* Filters Bar & Table Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         {/* Filter Controls */}
-        <div className="p-5 border-b border-slate-100 space-y-4">
+        <div className="p-4 border-b border-slate-100 space-y-3">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-slate-500 text-xs font-semibold mr-1 uppercase tracking-wider">
-              <Filter size={15} />
-              <span>Filters:</span>
+            <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium mr-1">
+              <Filter size={14} />
+              <span>Filter:</span>
             </div>
 
             {/* Platform Filter */}

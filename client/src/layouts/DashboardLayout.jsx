@@ -48,6 +48,10 @@ import {
   Wallet,
   Receipt,
   PlusCircle,
+  BookOpen,
+  Scale,
+  FileSpreadsheet,
+  Stethoscope,
 } from 'lucide-react';
 import { Drawer, Badge, Dropdown, Button, Input, Spin, notification } from 'antd';
 import toast from 'react-hot-toast';
@@ -188,74 +192,94 @@ const DashboardLayout = () => {
     { type: 'item', label: 'Overview', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
     {
       type: 'group',
-      label: 'ORDERS',
+      label: 'Orders',
       children: [
-        { label: 'All Orders',       path: '/orders',            icon: <ShoppingBag size={18} /> },
+        { label: 'All orders',       path: '/orders',            icon: <ShoppingBag size={18} /> },
         { label: 'Pending',          path: '/orders/pending',    icon: <Clock size={18} /> },
         { label: 'Shipped',          path: '/orders/shipped',    icon: <Truck size={18} /> },
         { label: 'Delivered',        path: '/orders/delivered',  icon: <CheckCircle size={18} /> },
         { label: 'Returns & RTO',    path: '/orders/returns',    icon: <RotateCcw size={18} /> },
-        { label: 'COD Orders',       path: '/orders/cod',        icon: <Banknote size={18} /> },
-        { label: 'Cancelled Orders', path: '/orders/cancelled',  icon: <XCircle size={18} /> },
-        { label: 'Manual Orders',    path: '/orders/manual',      icon: <FilePlus size={18} /> },
-        { label: 'Shipments',         path: '/orders/shipments',   icon: <Truck size={18} /> },
+        { label: 'COD orders',       path: '/orders/cod',        icon: <Banknote size={18} /> },
+        { label: 'Cancelled orders', path: '/orders/cancelled',  icon: <XCircle size={18} /> },
+        { label: 'Manual orders',    path: '/orders/manual',     icon: <FilePlus size={18} /> },
+        { label: 'Shipments',        path: '/orders/shipments',  icon: <Truck size={18} /> },
       ]
     },
     {
       type: 'group',
-      label: 'PRODUCTS',
+      label: 'Products',
       children: [
-        { label: 'All Products',    path: '/products',                 icon: <Package size={18} /> },
-        { label: 'Add Product',     path: '/products/add',             icon: <Layers size={18} /> },
-        { label: 'Channel Listing', path: '/products/channel-listing', icon: <Globe size={18} /> },
-        { label: 'Pricing Control', path: '/products/pricing',         icon: <Tag size={18} /> },
+        { label: 'All products',    path: '/products',                 icon: <Package size={18} /> },
+        { label: 'Add product',     path: '/products/add',             icon: <Layers size={18} /> },
+        { label: 'Channel listing', path: '/products/channel-listing', icon: <Globe size={18} /> },
+        { label: 'Pricing control', path: '/products/pricing',         icon: <Tag size={18} /> },
         { label: 'Discounts',       path: '/products/discounts',       icon: <Tag size={18} /> },
         { label: 'Performance',     path: '/products/performance',     icon: <BarChart3 size={18} /> },
       ]
     },
     {
       type: 'group',
-      label: 'INVENTORY',
+      label: 'Inventory',
       children: [
         { label: 'Overview',     path: '/inventory',              icon: <Layers size={18} /> },
         { label: 'Adjustment',   path: '/inventory/adjustments',  icon: <SlidersHorizontal size={18} /> },
-        { label: 'Low Stock',    path: '/inventory/low-stock',    icon: <AlertTriangle size={18} /> },
-        { label: 'Activity Log', path: '/inventory/activity-log', icon: <FileText size={18} /> },
+        { label: 'Low stock',    path: '/inventory/low-stock',    icon: <AlertTriangle size={18} /> },
+        { label: 'Activity log', path: '/inventory/activity-log', icon: <FileText size={18} /> },
         { label: 'Suppliers',    path: '/inventory/suppliers',    icon: <Users size={18} /> },
         { label: 'Purchases',    path: '/inventory/purchases',    icon: <ShoppingCart size={18} /> },
       ]
     },
     {
       type: 'group',
-      label: 'PAYMENTS',
+      label: 'POS & billing',
       children: [
-        { label: 'Transactions',       path: '/payments',              icon: <CreditCard size={18} /> },
-        { label: 'Settlements',        path: '/payments/settlements',  icon: <Wallet size={18} /> },
-        { label: 'Invoice Generator',  path: '/payments/invoices',     icon: <Receipt size={18} /> },
-        { label: 'Refund Management',  path: '/payments/refunds',      icon: <RotateCcw size={18} /> },
+        { label: 'POS counter',         path: '/billing/pos',               icon: <ShoppingCart size={18} /> },
+        { label: 'Sales invoices',      path: '/billing/invoices',          icon: <Receipt size={18} /> },
+        { label: 'Voucher entry',       path: '/billing/vouchers',          icon: <BookOpen size={18} /> },
+        { label: 'Dispatch tracking',   path: '/billing/dispatch',          icon: <Truck size={18} /> },
+        { label: 'Prescriber reports',  path: '/billing/doctor-commissions', icon: <Stethoscope size={18} /> },
+        { label: 'Stock issue (challan)', path: '/billing/stock-issue',     icon: <FileText size={18} /> },
+        { label: 'Stock inward',        path: '/billing/stock-receive',     icon: <FilePlus size={18} /> },
+        { label: 'Returns & credit notes', path: '/billing/returns',        icon: <RotateCcw size={18} /> },
+        { label: 'Purchase inward',     path: '/billing/purchases',         icon: <FilePlus size={18} /> },
+        { label: 'Batch & expiry',      path: '/billing/batches',           icon: <Layers size={18} /> },
+        { label: 'Party ledgers',       path: '/billing/ledgers',           icon: <BookOpen size={18} /> },
+        { label: 'PDC cheque register', path: '/billing/cheques',           icon: <CreditCard size={18} /> },
+        { label: 'Daily cash register', path: '/billing/register',          icon: <Banknote size={18} /> },
+        { label: 'Financial reports',   path: '/billing/reports',           icon: <Scale size={18} /> },
       ]
     },
     {
       type: 'group',
-      label: 'APPS',
+      label: 'Payments',
+      children: [
+        { label: 'Transactions',      path: '/payments',              icon: <CreditCard size={18} /> },
+        { label: 'Settlements',       path: '/payments/settlements',  icon: <Wallet size={18} /> },
+        { label: 'Invoice generator', path: '/payments/invoices',     icon: <Receipt size={18} /> },
+        { label: 'Refunds',           path: '/payments/refunds',      icon: <RotateCcw size={18} /> },
+      ]
+    },
+    {
+      type: 'group',
+      label: 'Apps',
       children: [
         { label: 'Amazon',      path: '/apps/amazon',   icon: <ShoppingBag size={18} /> },
         { label: 'Flipkart',    path: '/apps/flipkart', icon: <ShoppingBag size={18} /> },
         { label: 'Meesho',      path: '/apps/meesho',   icon: <ShoppingBag size={18} /> },
         { label: 'Fifozone',    path: '/apps/fifozone', icon: <Globe size={18} /> },
-        { label: 'Add New App', path: '/apps/add',      icon: <PlusCircle size={18} /> },
+        { label: 'Add app',     path: '/apps/add',      icon: <PlusCircle size={18} /> },
       ]
     },
     { type: 'item', label: 'Reports',      path: '/reports',       icon: <BarChart3 size={18} /> },
-    { type: 'item', label: 'Best Sellers', path: '/best-sellers',  icon: <Star size={18} /> },
+    { type: 'item', label: 'Best sellers', path: '/best-sellers',  icon: <Star size={18} /> },
     { type: 'item', label: 'Users',        path: '/users',         icon: <UserCheck size={18} /> },
     {
       type: 'group',
-      label: 'SYSTEM',
+      label: 'System',
       children: [
-        { label: 'General Settings', path: '/settings/general',   icon: <Settings size={18} /> },
-        { label: 'Platform Sync',    path: '/settings/platforms', icon: <Globe size={18} /> },
-        { label: 'My Profile',       path: '/settings/profile',   icon: <User size={18} /> },
+        { label: 'General settings', path: '/settings/general',   icon: <Settings size={18} /> },
+        { label: 'Platform sync',    path: '/settings/platforms', icon: <Globe size={18} /> },
+        { label: 'My profile',       path: '/settings/profile',   icon: <User size={18} /> },
       ]
     },
   ];
@@ -291,16 +315,16 @@ const DashboardLayout = () => {
         key={item.label}
         to={item.path}
         onClick={() => isMobile && setMobileOpen(false)}
-        className={`flex items-center justify-between px-4 py-2.5 rounded-lg text-sm transition-all duration-200 hover:bg-slate-850 hover:text-white ${
-          isActive ? 'bg-emerald-900/60 text-white border-l-4 border-emerald-500 font-medium' : 'text-slate-400'
+        className={`flex items-center justify-between px-3 py-2 rounded-md text-xs transition-colors duration-150 hover:bg-slate-800 hover:text-slate-100 ${
+          isActive ? 'bg-slate-800 text-white font-medium border-l-2 border-emerald-500' : 'text-slate-400'
         }`}
       >
-        <div className="flex items-center gap-3">
-          {item.icon}
-          <span>{item.label}</span>
+        <div className="flex items-center gap-2.5">
+          <span className="w-4 flex justify-center text-slate-400 shrink-0">{item.icon}</span>
+          <span className="truncate">{item.label}</span>
         </div>
         {item.badge > 0 && (
-          <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+          <span className="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-mono px-1.5 py-0.2 rounded text-center">
             {item.badge}
           </span>
         )}
@@ -314,13 +338,13 @@ const DashboardLayout = () => {
       <div key={group.label} className="mb-2">
         <button
           onClick={() => toggleGroup(group.label)}
-          className="w-full flex items-center justify-between px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
         >
           <span>{group.label}</span>
-          <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+          <ChevronRight size={13} className={`transition-transform duration-150 text-slate-500 ${isExpanded ? 'rotate-90' : ''}`} />
         </button>
         {isExpanded && (
-          <div className="mt-1 space-y-1">
+          <div className="mt-0.5 space-y-0.5 pl-1">
             {group.children.map(child => renderNavItem(child, isMobile))}
           </div>
         )}
@@ -347,9 +371,9 @@ const DashboardLayout = () => {
 
   const getPlatformStatusColor = (platformName) => {
     const statusObj = platformStatus.find(p => p.platform === platformName.toLowerCase());
-    if (!statusObj) return 'bg-gray-400'; // Offline / Draft
+    if (!statusObj) return 'bg-slate-400'; // Offline / Draft
     if (statusObj.status === 'synced') return 'bg-emerald-500';
-    if (statusObj.status === 'syncing') return 'bg-amber-400 animate-pulse';
+    if (statusObj.status === 'syncing') return 'bg-amber-400';
     return 'bg-rose-500'; // Sync error
   };
 
@@ -359,7 +383,7 @@ const DashboardLayout = () => {
       case 'error': return 'bg-rose-50 border-rose-200 text-rose-800';
       case 'warning': return 'bg-amber-50 border-amber-200 text-amber-800';
       case 'success': return 'bg-emerald-50 border-emerald-200 text-emerald-800';
-      default: return 'bg-blue-50 border-blue-200 text-blue-800';
+      default: return 'bg-slate-100 border-slate-200 text-slate-800';
     }
   };
 
@@ -373,50 +397,50 @@ const DashboardLayout = () => {
   return (
     <div className="min-h-screen flex bg-slate-50 overflow-hidden font-sans">
       {/* 1. LEFT SIDEBAR (Desktop) */}
-      <aside className="hidden md:flex flex-col w-[260px] bg-slate-900 border-r border-slate-800 shrink-0 text-slate-300">
+      <aside className="hidden md:flex flex-col w-[240px] bg-slate-900 border-r border-slate-800 shrink-0 text-slate-300">
         {/* Top brand header */}
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-800">
+        <div className="h-14 flex items-center gap-2.5 px-5 border-b border-slate-800">
           {generalSettings?.logoUrl ? (
-            <img src={generalSettings.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+            <img src={generalSettings.logoUrl} alt="Logo" className="h-7 w-auto object-contain" />
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-emerald-950/20">
+            <div className="w-7 h-7 rounded bg-emerald-700 flex items-center justify-center text-white font-medium text-sm">
               {(generalSettings?.companyName || 'F').charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="font-semibold text-lg text-white font-sans tracking-wide truncate">
+          <span className="font-medium text-sm text-slate-100 truncate">
             {generalSettings?.companyName || 'Fifozone'}
           </span>
         </div>
 
         {/* Profile Card */}
-        <div className="p-5 border-b border-slate-800 flex items-center gap-3 bg-slate-950/40">
-          <div className="w-10 h-10 rounded-full bg-emerald-800 text-white font-bold flex items-center justify-center text-sm ring-2 ring-emerald-900">
+        <div className="px-5 py-3 border-b border-slate-800 flex items-center gap-2.5 bg-slate-950/30">
+          <div className="w-8 h-8 rounded-full bg-slate-800 text-slate-200 font-medium flex items-center justify-center text-xs border border-slate-700">
             {user?.name?.slice(0, 2).toUpperCase()}
           </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="font-medium text-white truncate text-sm">{user?.name}</span>
-            <span className="text-xs text-slate-400 capitalize bg-slate-800/80 px-2 py-0.5 rounded-full w-max mt-1">
+          <div className="flex flex-col min-w-0">
+            <span className="font-medium text-slate-200 truncate text-xs">{user?.name}</span>
+            <span className="text-[11px] text-slate-400 capitalize">
               {user?.role}
             </span>
           </div>
         </div>
 
         {/* Navigation Menu Links */}
-        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 scrollbar-thin scrollbar-thumb-slate-800">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-800">
           {navStructure.map(item => item.type === 'group' ? renderNavGroup(item) : renderNavItem(item))}
         </nav>
 
         {/* Bottom Platform status trigger */}
-        <div className="p-4 border-t border-slate-800 space-y-3 bg-slate-950/25">
+        <div className="p-3 border-t border-slate-800 space-y-2 bg-slate-950/20">
           <button
             onClick={handleManualSync}
             disabled={syncLoading}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-800 text-white font-semibold py-2.5 px-4 rounded-lg text-sm shadow-lg shadow-emerald-900/20 transition-all active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 text-slate-200 font-medium py-2 px-3 rounded-md text-xs transition-colors duration-150"
           >
-            <RefreshCw size={16} className={syncLoading ? 'animate-spin' : ''} />
-            <span>{syncLoading ? 'Syncing...' : 'Sync Now'}</span>
+            <RefreshCw size={14} className={syncLoading ? 'animate-spin' : ''} />
+            <span>{syncLoading ? 'Syncing...' : 'Sync channels'}</span>
           </button>
-          <div className="text-center text-[11px] text-slate-500">
+          <div className="text-center text-[11px] text-slate-400">
             Last synced: {lastSyncText}
           </div>
         </div>
@@ -425,59 +449,59 @@ const DashboardLayout = () => {
       {/* 2. MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* TOP BAR */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+        <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
           {/* Hamburger button (Mobile) */}
           <button
             onClick={() => setMobileOpen(true)}
             className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
           >
-            <Menu size={22} />
+            <Menu size={20} />
           </button>
 
           {/* Search bar */}
-          <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 w-[340px] focus-within:border-emerald-500 focus-within:bg-white transition-all">
-            <Search size={18} className="text-slate-400" />
+          <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 w-[320px] focus-within:border-slate-400 focus-within:bg-white transition-colors duration-150">
+            <Search size={16} className="text-slate-400" />
             <input
               type="text"
-              placeholder="Search products or orders (Enter)..."
+              placeholder="Search products or orders (Enter)"
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={handleSearchSubmit}
-              className="bg-transparent border-none outline-none text-sm w-full text-slate-700 placeholder-slate-400"
+              className="bg-transparent border-none outline-none text-xs w-full text-slate-800 placeholder-slate-400"
             />
           </div>
 
           {/* Right actions controls */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             {/* Platform indicators */}
-            <div className="hidden lg:flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 text-xs font-semibold text-slate-600">
+            <div className="hidden lg:flex items-center gap-2.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 text-xs font-mono text-slate-600">
               <div className="flex items-center gap-1.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${getPlatformStatusColor('fifozone')}`} />
-                <span>Fifozone</span>
+                <span className={`w-2 h-2 rounded-full ${getPlatformStatusColor('fifozone')}`} />
+                <span>Store</span>
               </div>
-              {getPlatformStatusColor('amazon') !== 'bg-gray-400' && (
+              {getPlatformStatusColor('amazon') !== 'bg-slate-400' && (
                 <>
                   <div className="h-3 w-px bg-slate-200" />
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2.5 h-2.5 rounded-full ${getPlatformStatusColor('amazon')}`} />
+                    <span className={`w-2 h-2 rounded-full ${getPlatformStatusColor('amazon')}`} />
                     <span>Amazon</span>
                   </div>
                 </>
               )}
-              {getPlatformStatusColor('flipkart') !== 'bg-gray-400' && (
+              {getPlatformStatusColor('flipkart') !== 'bg-slate-400' && (
                 <>
                   <div className="h-3 w-px bg-slate-200" />
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2.5 h-2.5 rounded-full ${getPlatformStatusColor('flipkart')}`} />
+                    <span className={`w-2 h-2 rounded-full ${getPlatformStatusColor('flipkart')}`} />
                     <span>Flipkart</span>
                   </div>
                 </>
               )}
-              {getPlatformStatusColor('meesho') !== 'bg-gray-400' && (
+              {getPlatformStatusColor('meesho') !== 'bg-slate-400' && (
                 <>
                   <div className="h-3 w-px bg-slate-200" />
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-2.5 h-2.5 rounded-full ${getPlatformStatusColor('meesho')}`} />
+                    <span className={`w-2 h-2 rounded-full ${getPlatformStatusColor('meesho')}`} />
                     <span>Meesho</span>
                   </div>
                 </>
@@ -487,20 +511,20 @@ const DashboardLayout = () => {
             {/* Notification Bell */}
             <button
               onClick={() => setNotifOpen(true)}
-              className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-full relative transition-all"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-md relative transition-colors duration-150"
             >
               <Badge count={unreadCount} size="small" offset={[2, -2]}>
-                <Bell size={20} />
+                <Bell size={18} />
               </Badge>
             </button>
 
             {/* Profile Dropdown */}
             <Dropdown menu={profileMenu} trigger={['click']} placement="bottomRight">
-              <button className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-lg transition-all">
-                <div className="w-8 h-8 rounded-full bg-emerald-800 text-white font-bold flex items-center justify-center text-xs">
+              <button className="flex items-center gap-1.5 p-1 hover:bg-slate-100 rounded-md transition-colors duration-150">
+                <div className="w-7 h-7 rounded-full bg-slate-800 text-slate-200 font-medium flex items-center justify-center text-xs">
                   {user?.name?.slice(0, 2).toUpperCase()}
                 </div>
-                <ChevronDown size={16} className="text-slate-500" />
+                <ChevronDown size={14} className="text-slate-400" />
               </button>
             </Dropdown>
           </div>

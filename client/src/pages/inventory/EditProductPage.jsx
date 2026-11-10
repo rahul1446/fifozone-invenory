@@ -42,7 +42,9 @@ const EditProductPage = () => {
         }
         return { label: c, value: c };
       }) : [],
-      animalType: data.animalType || [],
+      animalType: Array.isArray(data.animalType)
+        ? data.animalType.map(a => String(a).toLowerCase())
+        : (typeof data.animalType === 'string' && data.animalType ? [data.animalType.toLowerCase()] : []),
       description: data.description || '',
       shortDescription: data.shortDescription || '',
       mrp: data.mrp,
@@ -88,10 +90,12 @@ const EditProductPage = () => {
   }, [id]);
 
   useEffect(() => {
-    if (product) {
-      form.setFieldsValue(formatFormData(product));
+    if (product && !fetching) {
+      const formatted = formatFormData(product);
+      form.resetFields();
+      form.setFieldsValue(formatted);
     }
-  }, [product]);
+  }, [product, fetching]);
 
   const fetchCategories = async () => {
     try {

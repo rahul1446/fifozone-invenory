@@ -187,14 +187,26 @@ const getProductById = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Product not found');
   }
 
-  const fzId = product.platformIds?.fifozone?.productId || (product.sku && product.sku.startsWith('WC-') ? product.sku.replace('WC-', '') : '');
+  let fzId = product.platformIds?.fifozone?.productId || product.wooCommerceId || product.platformListings?.fifozone?.platformProductId || (product.sku && product.sku.startsWith('WC-') ? product.sku.replace('WC-', '') : '');
   const missingVariants = (!product.variants || product.variants.length === 0);
   const missingDesc = (!product.description || product.description.trim() === '');
   const missingAnimal = (!product.animalType || product.animalType.length === 0);
 
-  if (fzId && (missingVariants || missingDesc || missingAnimal)) {
+  if ((missingVariants || missingDesc || missingAnimal) && (fzId || product.sku)) {
     try {
-      const liveData = await FifozoneOmsService.getProductById(fzId);
+      let liveData = null;
+      if (fzId) {
+        liveData = await FifozoneOmsService.getProductById(fzId);
+      } else if (product.sku) {
+        liveData = await FifozoneOmsService.getProductBySku(product.sku);
+        if (liveData?.id) {
+          fzId = String(liveData.id);
+          if (!product.platformIds) product.platformIds = {};
+          if (!product.platformIds.fifozone) product.platformIds.fifozone = {};
+          product.platformIds.fifozone.productId = fzId;
+          product.platformIds.fifozone.url = liveData.permalink || liveData.url || `https://fifozone.com/product/${liveData.slug || ''}`;
+        }
+      }
       if (liveData) {
         let changed = false;
 
@@ -396,6 +408,14 @@ const updateProduct = asyncHandler(async (req, res) => {
     logger.error(`WooCommerce update push failed for ${updatedProduct.masterName}: ${wooErr.message}`);
   }
 
+  // Push updated stock & price to active external platforms (Flipkart, Amazon)
+  try {
+    SyncService.pushStockToPlatforms(updatedProduct);
+    SyncService.pushPriceToPlatforms(updatedProduct);
+  } catch (syncErr) {
+    logger.error(`Platform stock/price push failed for ${updatedProduct.masterName}: ${syncErr.message}`);
+  }
+
   res.status(200).json(new ApiResponse(200, updatedProduct, 'Product details updated and synced'));
 });
 
@@ -411,6 +431,24 @@ const deleteProduct = asyncHandler(async (req, res) => {
     await SyncService.pushProductDelete(product);
   } catch (wooErr) {
     logger.error(`WooCommerce delete push failed for ${product.masterName}: ${wooErr.message}`);
+  }
+
+  // Zero out stock on external platforms (Flipkart, Amazon) so sales immediately cease
+  if (product.platformStatus?.flipkart === 'active') {
+    try {
+      const FlipkartService = require('../services/flipkart.service');
+      await FlipkartService.pushStock(product.sku, 0);
+    } catch (fkErr) {
+      logger.warn(`Flipkart zero-stock push skipped on delete for ${product.sku}: ${fkErr.message}`);
+    }
+  }
+  if (product.platformStatus?.amazon === 'active') {
+    try {
+      const AmazonService = require('../services/amazon.service');
+      await AmazonService.pushStock(product.sku, 0);
+    } catch (amzErr) {
+      logger.warn(`Amazon zero-stock push skipped on delete for ${product.sku}: ${amzErr.message}`);
+    }
   }
 
   // 2. Soft-delete: keep original SKU intact so sync can find & skip this record.
@@ -499,6 +537,24 @@ const bulkDelete = asyncHandler(async (req, res) => {
       await SyncService.pushProductDelete(product);
     } catch (err) {
       logger.error(`Failed to push delete to Fifozone OMS for ${product.masterName}: ${err.message}`);
+    }
+
+    // Zero out stock on external platforms (Flipkart, Amazon)
+    if (product.platformStatus?.flipkart === 'active') {
+      try {
+        const FlipkartService = require('../services/flipkart.service');
+        await FlipkartService.pushStock(product.sku, 0);
+      } catch (fkErr) {
+        logger.warn(`Flipkart zero-stock push skipped on bulk delete for ${product.sku}: ${fkErr.message}`);
+      }
+    }
+    if (product.platformStatus?.amazon === 'active') {
+      try {
+        const AmazonService = require('../services/amazon.service');
+        await AmazonService.pushStock(product.sku, 0);
+      } catch (amzErr) {
+        logger.warn(`Amazon zero-stock push skipped on bulk delete for ${product.sku}: ${amzErr.message}`);
+      }
     }
     // Soft-delete: keep original SKU intact so the sync guard works correctly.
     // Renaming the SKU causes sync to re-create the product from scratch.

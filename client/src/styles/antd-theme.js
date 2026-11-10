@@ -27,7 +27,7 @@ export const antdThemeConfig = {
     },
     Card: {
       borderRadiusLG: 12,
-      boxShadowCard: '0 4px 6px -1px rgb(0 0 0 / 0.05)'
+      boxShadowCard: 'none'
     },
     Menu: {
       itemBorderRadius: 8,

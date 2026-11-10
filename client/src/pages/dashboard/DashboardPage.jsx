@@ -47,28 +47,25 @@ const DashboardPage = () => {
     );
   }
 
-  const { stats, lowStockList, recentOrders, revenueChartData, topProducts } = statsData;
+  const { stats, lowStockList, recentOrders, revenueChartData } = statsData;
 
-  const StatCard = ({ title, value, icon, trend, trendLabel, bgColor, iconColor }) => (
-    <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+  const StatCard = ({ title, value, icon, trend, trendLabel }) => (
+    <div className="bg-white rounded-xl p-5 border border-slate-200 transition-colors duration-150 hover:border-slate-300">
       <div className="flex justify-between items-start">
-        <div>
-          <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
-          <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
-          
-          {trend !== undefined && (
-            <div className="flex items-center mt-2">
-              <span className={`flex items-center text-xs font-semibold ${trend >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {trend >= 0 ? <ArrowUpRight size={14} className="mr-0.5" /> : <ArrowDownRight size={14} className="mr-0.5" />}
-                {Math.abs(trend)}%
-              </span>
-              <span className="text-xs text-slate-400 ml-1">{trendLabel}</span>
-            </div>
-          )}
-        </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${bgColor} ${iconColor}`}>
-          {icon}
-        </div>
+        <p className="text-xs font-medium text-slate-500">{title}</p>
+        <span className="text-slate-400">{icon}</span>
+      </div>
+      <div className="mt-3">
+        <div className="text-2xl font-semibold text-slate-900 tabular-nums tracking-tight">{value}</div>
+        {trend !== undefined && (
+          <div className="flex items-center gap-1 mt-1.5 text-xs">
+            <span className={`inline-flex items-center font-medium ${trend >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {trend >= 0 ? <ArrowUpRight size={13} className="mr-0.5" /> : <ArrowDownRight size={13} className="mr-0.5" />}
+              {Math.abs(trend)}%
+            </span>
+            <span className="text-slate-400">{trendLabel}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -78,98 +75,99 @@ const DashboardPage = () => {
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor multi-channel sales and inventory health</p>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Overview</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Multi-channel sales performance and inventory status</p>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Today's Revenue"
+          title="Today's revenue"
           value={formatCurrency(stats.todayRevenue)}
-          icon={<IndianRupee size={22} />}
+          icon={<IndianRupee size={18} />}
           trend={stats.revenueTrend}
           trendLabel="vs yesterday"
-          bgColor="bg-emerald-50"
-          iconColor="text-emerald-600"
         />
         <StatCard
-          title="Today's Orders"
-          value={stats.todayOrdersCount}
-          icon={<ShoppingBag size={22} />}
-          bgColor="bg-blue-50"
-          iconColor="text-blue-600"
+          title="Today's orders"
+          value={Number(stats.todayOrdersCount || 0).toLocaleString()}
+          icon={<ShoppingBag size={18} />}
         />
         <StatCard
-          title="Low Stock Alerts"
-          value={stats.lowStockProductsCount}
-          icon={<AlertTriangle size={22} />}
-          bgColor="bg-amber-50"
-          iconColor="text-amber-600"
+          title="Low stock alerts"
+          value={Number(stats.lowStockProductsCount || 0).toLocaleString()}
+          icon={<AlertTriangle size={18} />}
         />
         <StatCard
-          title="Total Products"
-          value={stats.totalProducts}
-          icon={<Package size={22} />}
-          bgColor="bg-indigo-50"
-          iconColor="text-indigo-600"
+          title="Total products"
+          value={Number(stats.totalProducts || 0).toLocaleString()}
+          icon={<Package size={18} />}
         />
       </div>
 
       {/* Chart Section */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-800 mb-6">Revenue Trend (Last 30 Days)</h2>
-        <div className="h-80 w-full">
+      <div className="bg-white p-5 rounded-xl border border-slate-200">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-sm font-semibold text-slate-900">Revenue (last 30 days)</h2>
+          <span className="text-xs text-slate-400">Values in ₹</span>
+        </div>
+        <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={revenueChartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#166534" stopOpacity={0.08} />
+                  <stop offset="95%" stopColor="#166534" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => `₹${val/1000}k`} />
+              <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} dy={8} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(val) => `₹${val/1000}k`} />
               <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                contentStyle={{ borderRadius: '6px', border: '1px solid #e2e8f0', boxShadow: 'none', fontSize: '12px' }}
                 formatter={(value) => [formatCurrency(value), 'Revenue']}
               />
-              <Area type="monotone" dataKey="Total" stroke="#16a34a" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+              <Area type="monotone" dataKey="Total" stroke="#166534" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Tables Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Recent Orders */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-base font-semibold text-slate-800">Recent Orders</h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center">
+            <h2 className="text-sm font-semibold text-slate-900">Recent orders</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+            <table className="w-full text-xs text-left">
+              <thead className="text-slate-500 font-medium bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-5 py-3">Order ID</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Amount</th>
+                  <th className="px-4 py-2.5">Order ID</th>
+                  <th className="px-4 py-2.5">Customer</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {recentOrders.map(order => (
-                  <tr key={order._id} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3 font-medium text-slate-900">{order.orderNumber}</td>
-                    <td className="px-5 py-3 text-slate-600">{order.customer.name}</td>
-                    <td className="px-5 py-3">
-                      <Tag color={order.status === 'delivered' ? 'success' : order.status === 'pending' ? 'processing' : 'default'}>
-                        {order.status.toUpperCase()}
-                      </Tag>
+                  <tr key={order._id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-2.5 font-mono text-slate-800">{order.orderNumber}</td>
+                    <td className="px-4 py-2.5 text-slate-600 truncate max-w-[140px]">{order.customer?.name || 'Walk-in'}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium capitalize ${
+                        order.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
+                        order.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {order.status}
+                      </span>
                     </td>
-                    <td className="px-5 py-3 font-semibold text-slate-800">{formatCurrency(order.totalAmount)}</td>
+                    <td className="px-4 py-2.5 text-right font-medium text-slate-900 tabular-nums">
+                      {formatCurrency(order.totalAmount)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -178,27 +176,29 @@ const DashboardPage = () => {
         </div>
 
         {/* Low Stock Alerts */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-base font-semibold text-slate-800">Low Stock Warnings</h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center">
+            <h2 className="text-sm font-semibold text-slate-900">Low stock alerts</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+            <table className="w-full text-xs text-left">
+              <thead className="text-slate-500 font-medium bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="px-5 py-3">Product</th>
-                  <th className="px-5 py-3">SKU</th>
-                  <th className="px-5 py-3">Stock</th>
+                  <th className="px-4 py-2.5">Product</th>
+                  <th className="px-4 py-2.5">SKU</th>
+                  <th className="px-4 py-2.5 text-right">Remaining</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {lowStockList.map(item => (
-                  <tr key={item._id} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3 font-medium text-slate-900 truncate max-w-[200px]">{item.masterName}</td>
-                    <td className="px-5 py-3 text-slate-500">{item.sku}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${item.totalStock === 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {item.totalStock} left
+                  <tr key={item._id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-slate-800 truncate max-w-[200px]">{item.masterName}</td>
+                    <td className="px-4 py-2.5 font-mono text-slate-500">{item.sku}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums ${
+                        item.totalStock === 0 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {item.totalStock} units
                       </span>
                     </td>
                   </tr>
